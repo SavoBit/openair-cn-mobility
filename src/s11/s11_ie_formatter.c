@@ -688,7 +688,25 @@ s11_bearer_context_created_ie_get (
       break;
 
     case NW_GTPV2C_IE_FTEID:
-      rc = s11_fteid_ie_get (ie_p->t, ie_p->l, ie_p->i, &ieValue[read + sizeof (NwGtpv2cIeTlvT)], &bearer_context->s1u_sgw_fteid);
+      switch (ie_p->i) {
+        case 0:
+          rc = s11_fteid_ie_get (ie_p->t, ie_p->l, ie_p->i, &ieValue[read + sizeof (NwGtpv2cIeTlvT)], &bearer_context->s1u_sgw_fteid);
+          break;
+        case 1:
+          rc = s11_fteid_ie_get (ie_p->t, ie_p->l, ie_p->i, &ieValue[read + sizeof (NwGtpv2cIeTlvT)], &bearer_context->s4u_sgw_fteid);
+          break;
+        case 2:
+          rc = s11_fteid_ie_get (ie_p->t, ie_p->l, ie_p->i, &ieValue[read + sizeof (NwGtpv2cIeTlvT)], &bearer_context->s5_s8_u_pgw_fteid);
+          break;
+        case 3:
+          rc = s11_fteid_ie_get (ie_p->t, ie_p->l, ie_p->i, &ieValue[read + sizeof (NwGtpv2cIeTlvT)], &bearer_context->s12_sgw_fteid);
+          break;
+        default:
+          OAILOG_ERROR (LOG_S11, "Received unexpected IE %u instance %u\n", ie_p->t, ie_p->i);
+          return NW_GTPV2C_IE_INCORRECT;
+
+        }
+        DevAssert (NW_OK == rc);
       break;
 
     case NW_GTPV2C_IE_CAUSE:
