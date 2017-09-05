@@ -92,6 +92,9 @@ s11_imsi_ie_set (
    */
   imsi_length = imsi->length % 2 == 0 ? imsi->length / 2 : imsi->length / 2 + 1;
   temp = calloc (imsi_length, sizeof (uint8_t));
+  if (imsi->length % 2) {
+    temp[(imsi->length) / 2] |= 0xF0;
+  }
   DevAssert (temp );
 
   for (i = 0; i < imsi->length; i++) {
