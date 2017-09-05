@@ -141,7 +141,6 @@ mme_app_handle_s6a_update_location_ans (
 
   memcpy (ue_context_p->msisdn, ula_pP->subscription_data.msisdn, ula_pP->subscription_data.msisdn_length);
   ue_context_p->msisdn_length = ula_pP->subscription_data.msisdn_length;
-  AssertFatal (ula_pP->subscription_data.msisdn_length != 0, "MSISDN LENGTH IS 0");
   AssertFatal (ula_pP->subscription_data.msisdn_length <= MSISDN_LENGTH, "MSISDN LENGTH is too high %u", MSISDN_LENGTH);
   ue_context_p->msisdn[ue_context_p->msisdn_length] = '\0';
   ue_context_p->rau_tau_timer = ula_pP->subscription_data.rau_tau_timer;
