@@ -708,8 +708,8 @@ s11_bearer_context_created_ie_get (
           OAILOG_ERROR (LOG_S11, "Received unexpected IE %u instance %u\n", ie_p->t, ie_p->i);
           return NW_GTPV2C_IE_INCORRECT;
 
-        }
-        DevAssert (NW_OK == rc);
+      }
+      DevAssert (NW_OK == rc);
       break;
 
     case NW_GTPV2C_IE_CAUSE:
