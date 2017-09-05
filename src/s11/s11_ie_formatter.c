@@ -649,6 +649,9 @@ s11_bearer_context_to_be_modified_ie_get (
       rc = s11_fteid_ie_get (ie_p->t, ie_p->l, ie_p->i, &ieValue[read + sizeof (NwGtpv2cIeTlvT)], &bearer_context->s1_eNB_fteid);
       break;
 
+    case NW_GTPV2C_IE_CAUSE:
+      break;
+
     default:
       OAILOG_ERROR (LOG_S11, "Received unexpected IE %u\n", ie_p->t);
       return NW_GTPV2C_IE_INCORRECT;
