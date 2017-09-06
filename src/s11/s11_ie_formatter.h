@@ -148,6 +148,8 @@ NwRcT s11_apn_ie_get(
 
 int s11_apn_ie_set(NwGtpv2cMsgHandleT *msg, const char *apn);
 
+int s11_apn_plmn_ie_set(NwGtpv2cMsgHandleT *msg, const char *apn, const ServingNetwork_t * serving_network);
+
 NwRcT s11_ambr_ie_get(
   uint8_t ieType, uint8_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
 

@@ -73,6 +73,7 @@ s11_mme_create_session_request (
   s11_rat_type_ie_set (&(ulp_req.hMsg), &req_p->rat_type);
   s11_pdn_type_ie_set (&(ulp_req.hMsg), &req_p->pdn_type);
   s11_paa_ie_set (&(ulp_req.hMsg), &req_p->paa);
+  s11_apn_restriction_ie_set(&(ulp_req.hMsg), 0x01);
   /*
    * Sender F-TEID for Control Plane (MME S11)
    */
@@ -91,7 +92,7 @@ s11_mme_create_session_request (
                               req_p->pgw_address_for_cp.ipv4 ? ntohl(req_p->pgw_address_for_cp.ipv4_address) : 0,
                               req_p->pgw_address_for_cp.ipv6 ? req_p->pgw_address_for_cp.ipv6_address : NULL);
 */
-  s11_apn_ie_set (&(ulp_req.hMsg), req_p->apn);
+  s11_apn_plmn_ie_set (&(ulp_req.hMsg), req_p->apn, &req_p->serving_network);
   s11_serving_network_ie_set (&(ulp_req.hMsg), &req_p->serving_network);
   s11_pco_ie_set (&(ulp_req.hMsg), &req_p->pco);
   for (int i = 0; i < req_p->bearer_contexts_to_be_created.num_bearer_context; i++) {
