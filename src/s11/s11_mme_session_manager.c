@@ -72,6 +72,7 @@ s11_mme_create_session_request (
   s11_imsi_ie_set (&(ulp_req.hMsg), &req_p->imsi);
   s11_rat_type_ie_set (&(ulp_req.hMsg), &req_p->rat_type);
   s11_pdn_type_ie_set (&(ulp_req.hMsg), &req_p->pdn_type);
+  s11_paa_ie_set (&(ulp_req.hMsg), &req_p->paa);
   /*
    * Sender F-TEID for Control Plane (MME S11)
    */
