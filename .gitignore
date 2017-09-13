@@ -12,8 +12,10 @@ openair-cn.creator.user
 openair-cn.files
 openair-cn.includes
 
-# Eclipse
-.cproject
-.project
-workspace.xml
-language.settings.xml
+# eclipse
+src/.cproject
+src/.project
+src/.settings/
+
+# Docker Image
+bned_mme.tar.gz
