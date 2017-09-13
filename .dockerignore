@@ -1,0 +1,14 @@
+# Docker
+Dockerfile
+.dockerignore
+
+# Docker Image
+bned_mme.tar.gz
+
+# Git
+**/.git*
+
+# eclipse
+src/.cproject
+src/.project
+src/.settings/
