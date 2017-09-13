@@ -1,0 +1,9 @@
+[submodule "freeDiameter"]
+	path = freeDiameter
+	url = git@bned-gitlab.blackned.intern:opensource/freeDiameter.git
+[submodule "libgtpnl"]
+	path = libgtpnl
+	url = git://git.osmocom.org/libgtpnl
+[submodule "asn1c"]
+	path = asn1c
+	url = https://gitlab.eurecom.fr/oai/asn1c.git
