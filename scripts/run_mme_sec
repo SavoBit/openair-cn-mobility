@@ -1,5 +1,57 @@
 #!/bin/bash
-while true; do
-	/usr/local/bin/mme -c /usr/local/etc/oai/mme.conf
-	sleep 5s
+restart=true
+restart_delay=5
+
+block_bgp() {
+	PID="${1}"
+	trap 'interrupt' SIGINT
+	trap 'terminate' SIGTERM
+	wait "${PID}"
+	trap - SIGINT SIGTERM
+	wait "${PID}"
+}
+
+block_bgp_soft() {
+	PID="${1}"
+	trap 'interrupt' SIGINT
+	trap 'interrupt' SIGTERM
+	wait "${PID}"
+	trap - SIGINT SIGTERM
+	wait "${PID}"
+}
+
+block_bgp_hard() {
+	PID="${1}"
+	trap 'terminate' SIGINT
+	trap 'terminate' SIGTERM
+	wait "${PID}"
+	trap - SIGINT SIGTERM
+	wait "${PID}"
+}
+
+interrupt() {
+	if [ -n "${PID}" ]; then
+		kill -SIGINT "${PID}"
+	fi
+	restart=false
+}
+
+terminate() {
+	if [ -n "${PID}" ]; then
+		kill -SIGTERM "${PID}"
+	fi
+	restart=false
+}
+
+while [ "${restart}" = "true" ]; do
+	echo "Starting bned_mme..."
+	/usr/local/bin/mme -c /usr/local/etc/oai/mme.conf &
+	block_bgp_soft "${!}"
+	echo "MME exit with code '${?}'."
+	if [ "${restart}" = "true" ]; then
+		echo -e "\nRestarting bned_mme in ${restart_delay} seconds..."
+		sleep "${restart_delay}s" &
+		block_bgp_hard "${!}"
+	fi
 done
+echo "MME shutdown complete."
