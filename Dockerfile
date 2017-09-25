@@ -13,8 +13,9 @@ WORKDIR /tmp/
 
 RUN apt update \
  && apt install -y sudo psmisc \
- && apt install -y build-essential autoconf libtool check cmake nettle-bin nettle-dev libgnutls-dev libssl-dev libxml2-dev libconfig8-dev libgcrypt11-dev \
- && apt install -y python mscgen libsctp-dev libmnl-dev bison flex
+ build-essential autoconf libtool check cmake nettle-bin nettle-dev libgnutls-dev libssl-dev libxml2-dev libconfig8-dev libgcrypt11-dev \
+ python mscgen libsctp-dev libmnl-dev bison flex \
+ vim nano
 
 # Install libgtpnl
 COPY libgtpnl/  /root/openair-cn/libgtpnl/
