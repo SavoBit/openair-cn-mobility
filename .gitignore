@@ -12,6 +12,12 @@ openair-cn.creator.user
 openair-cn.files
 openair-cn.includes
 
+# compiled ASN.1 files
+src/s1ap/messages/asn1/r*/*.c
+src/s1ap/messages/asn1/r*/*.h
+src/s1ap/messages/asn1/r*/Makefile.am.sample
+src/s1ap/messages/asn1/r*/*.h.gch
+
 # eclipse
 src/.cproject
 src/.project
