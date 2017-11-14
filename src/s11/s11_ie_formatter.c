@@ -642,22 +642,35 @@ s11_bearer_context_to_be_modified_ie_get (
 
     ie_p = (NwGtpv2cIeTlvT *) & ieValue[read];
 
+    FTeid_t fteid;
     switch (ie_p->t) {
-    case NW_GTPV2C_IE_EBI:
-      rc = s11_ebi_ie_get (ie_p->t, ie_p->l, ie_p->i, &ieValue[read + sizeof (NwGtpv2cIeTlvT)], &bearer_context->eps_bearer_id);
-      DevAssert (NW_OK == rc);
-      break;
+      case NW_GTPV2C_IE_EBI:
+        rc = s11_ebi_ie_get (ie_p->t, ie_p->l, ie_p->i, &ieValue[read + sizeof (NwGtpv2cIeTlvT)], &bearer_context->eps_bearer_id);
+        DevAssert (NW_OK == rc);
+        break;
 
-    case NW_GTPV2C_IE_FTEID:
-      rc = s11_fteid_ie_get (ie_p->t, ie_p->l, ie_p->i, &ieValue[read + sizeof (NwGtpv2cIeTlvT)], &bearer_context->s1_eNB_fteid);
-      break;
+      case NW_GTPV2C_IE_FTEID:
+        rc = s11_fteid_ie_get (ie_p->t, ie_p->l, ie_p->i, &ieValue[read + sizeof (NwGtpv2cIeTlvT)], &fteid);
+        switch (fteid.interface_type) {
+          case S1_U_ENODEB_GTP_U:
+            rc = s11_fteid_ie_get (ie_p->t, ie_p->l, ie_p->i, &ieValue[read + sizeof (NwGtpv2cIeTlvT)], &bearer_context->s1_eNB_fteid);
+            break;
+          case S1_U_SGW_GTP_U:
+            rc = s11_fteid_ie_get (ie_p->t, ie_p->l, ie_p->i, &ieValue[read + sizeof (NwGtpv2cIeTlvT)], &bearer_context->s1u_sgw_fteid);
+            break;
+          default:
+            OAILOG_WARNING (LOG_S11, "Received unexpected F-TEID type %d\n", fteid.interface_type);
+            break;
+        }
+        DevAssert (NW_OK == rc);
+        break;
 
-    case NW_GTPV2C_IE_CAUSE:
-      break;
+      case NW_GTPV2C_IE_CAUSE:
+        break;
 
-    default:
-      OAILOG_ERROR (LOG_S11, "Received unexpected IE %u\n", ie_p->t);
-      return NW_GTPV2C_IE_INCORRECT;
+      default:
+        OAILOG_ERROR (LOG_S11, "Received unexpected IE %u\n", ie_p->t);
+        return NW_GTPV2C_IE_INCORRECT;
     }
 
     read += (ntohs (ie_p->l) + sizeof (NwGtpv2cIeTlvT));
@@ -1150,7 +1163,6 @@ s11_apn_plmn_ie_set (
   apn_length = strlen (apn);
   value = calloc (apn_length + 20, sizeof (uint8_t)); //"default" + neu: ".mncXXX.mccXXX.gprs"
   last_size = &value[0];
-  bool mnc_short;
 
   memcpy(&value[1], apn, apn_length);
   memcpy(&value[apn_length + 1], ".mnc", 4);
