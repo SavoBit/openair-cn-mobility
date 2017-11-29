@@ -56,7 +56,16 @@
 #define NAS_PDN_CONNECTIVITY_FAIL(mSGpTR)           (mSGpTR)->ittiMsg.nas_pdn_connectivity_fail
 #define NAS_INITIAL_UE_MESSAGE(mSGpTR)              (mSGpTR)->ittiMsg.nas_initial_ue_message
 #define NAS_CONNECTION_ESTABLISHMENT_CNF(mSGpTR)    (mSGpTR)->ittiMsg.nas_conn_est_cnf
+
 #define NAS_BEARER_PARAM(mSGpTR)                    (mSGpTR)->ittiMsg.nas_bearer_param
+// Handover related signaling sent by MME_APP to NAS for handover processing after MBR
+#define NAS_HO_BEARER_MODIFICATION_RSP(mSGpTR)      (mSGpTR)->ittiMsg.nas_ho_bearer_modification_rsp
+#define NAS_HO_BEARER_MODIFICATION_FAIL(mSGpTR)     (mSGpTR)->ittiMsg.nas_ho_bearer_modification_fail
+
+// Handover related signaling sent by NAS to MME_APP after handover processing and kEnb derivation in NAS layer
+#define NAS_HANDOVER_CNF(mSGpTR)                    (mSGpTR)->ittiMsg.nas_handover_cnf
+#define NAS_HANDOVER_REJ(mSGpTR)                    (mSGpTR)->ittiMsg.nas_handover_rej
+
 #define NAS_AUTHENTICATION_REQ(mSGpTR)              (mSGpTR)->ittiMsg.nas_auth_req
 #define NAS_AUTHENTICATION_PARAM_REQ(mSGpTR)        (mSGpTR)->ittiMsg.nas_auth_param_req
 #define NAS_DETACH_REQ(mSGpTR)                      (mSGpTR)->ittiMsg.nas_detach_req
@@ -225,13 +234,52 @@ typedef struct itti_nas_pdn_connectivity_rsp_s {
   ip_address_t            sgw_s1u_address;
 } itti_nas_pdn_connectivity_rsp_t;
 
-
 typedef struct itti_nas_pdn_connectivity_fail_s {
-  mme_ue_s1ap_id_t        ue_id; 
-  int                     pti;  
-  pdn_conn_rsp_cause_t    cause;  
+  mme_ue_s1ap_id_t        ue_id;
+  int                     pti;
+  pdn_conn_rsp_cause_t    cause;
 } itti_nas_pdn_connectivity_fail_t;
 
+typedef struct itti_nas_ho_bearer_modification_rsp_s {
+  int                     pti;   // nas ref  Identity of the procedure transaction executed to activate the PDN connection entry
+//  network_qos_t           qos;
+//  protocol_configuration_options_t pco;
+  bstring                 apn;
+  bstring                 pdn_addr;
+  int                     pdn_type;
+  void                   *proc_data;
+  int                     request_type;
+  pdn_conn_rsp_cause_t    cause;
+
+  mme_ue_s1ap_id_t        ue_id;
+
+  /* Key eNB */
+  //uint8_t                 kenb[32];
+
+//  ambr_t                  ambr;
+//  ambr_t                  apn_ambr;
+
+  /* EPS bearer ID */
+//  unsigned                ebi:4;
+
+  /* QoS */
+//  qci_t                   qci;
+//  priority_level_t        prio_level;
+//  pre_emp_vulnerability_t pre_emp_vulnerability;
+//  pre_emp_capability_t    pre_emp_capability;
+//  nas_handover_cnf_t nas;
+
+  /* S-GW TEID for user-plane */
+  teid_t                  sgw_s1u_teid;
+  /* S-GW IP address for User-Plane */
+  ip_address_t            sgw_s1u_address;
+} itti_nas_ho_bearer_modification_rsp_t;
+
+typedef struct itti_nas_ho_bearer_modification_fail_s {
+  mme_ue_s1ap_id_t        ue_id;
+  int                     pti;
+  pdn_conn_rsp_cause_t    cause; // todo: of bearer modification
+} itti_nas_ho_bearer_modification_fail_t;
 
 typedef struct itti_nas_initial_ue_message_s {
   nas_establish_ind_t nas;
@@ -271,6 +319,23 @@ typedef struct itti_nas_conn_rel_ind_s {
 
 } itti_nas_conn_rel_ind_t;
 
+// handover related confirmation rejection message sent by NAS to MME_APP
+typedef struct itti_nas_handover_cnf_s {
+  mme_ue_s1ap_id_t        ue_id;            /* UE lower layer identifier   */
+  nas_error_code_t        err_code;         /* Transaction status          */
+
+  uint8_t                 nh_conj[32];      /* nh */
+  uint8_t                 ncc:3;            /* 3 bit ncc */
+
+  uint32_t                ul_nas_count;
+  uint16_t                encryption_algorithm_capabilities;
+  uint16_t                integrity_algorithm_capabilities;
+} itti_nas_handover_cnf_t;
+
+typedef struct itti_nas_handover_rej_s {
+  mme_ue_s1ap_id_t        ue_id;            /* UE lower layer identifier   */
+  nas_error_code_t        err_code;         /* Transaction status          */
+} itti_nas_handover_rej_t;
 
 typedef struct itti_nas_info_transfer_s {
   mme_ue_s1ap_id_t  ue_id;          /* UE lower layer identifier        */

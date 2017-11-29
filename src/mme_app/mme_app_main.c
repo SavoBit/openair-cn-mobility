@@ -67,26 +67,14 @@ void *mme_app_thread (
       }
       break;
 
+    // Processing S11 messages rawly -- no further internal signals
     case S11_CREATE_SESSION_RESPONSE:{
         mme_app_handle_create_sess_resp (&received_message_p->ittiMsg.s11_create_session_response);
       }
       break;
 
     case S11_MODIFY_BEARER_RESPONSE:{
-        ue_context_p = mme_ue_context_exists_s11_teid (&mme_app_desc.mme_ue_contexts, received_message_p->ittiMsg.s11_modify_bearer_response.teid);
-
-        if (ue_context_p == NULL) {
-          MSC_LOG_RX_DISCARDED_MESSAGE (MSC_MMEAPP_MME, MSC_S11_MME, NULL, 0, "0 MODIFY_BEARER_RESPONSE local S11 teid " TEID_FMT " ",
-            received_message_p->ittiMsg.s11_modify_bearer_response.teid);
-          OAILOG_WARNING (LOG_MME_APP, "We didn't find this teid in list of UE: %08x\n", received_message_p->ittiMsg.s11_modify_bearer_response.teid);
-        } else {
-          MSC_LOG_RX_MESSAGE (MSC_MMEAPP_MME, MSC_S11_MME, NULL, 0, "0 MODIFY_BEARER_RESPONSE local S11 teid " TEID_FMT " IMSI " IMSI_64_FMT " ",
-            received_message_p->ittiMsg.s11_modify_bearer_response.teid, ue_context_p->imsi);
-          /*
-           * Updating statistics
-           */
-          update_mme_app_stats_s1u_bearer_add();
-        }
+        mme_app_handle_modify_bearer_resp(&received_message_p->ittiMsg.s11_modify_bearer_response);
       }
       break;
 
@@ -99,6 +87,9 @@ void *mme_app_thread (
         mme_app_handle_delete_session_rsp (&received_message_p->ittiMsg.s11_delete_session_response);
       }
       break;
+
+
+    // NAS PDN STATE CHANGES!
 
     case NAS_PDN_CONNECTIVITY_REQ:{
         mme_app_handle_nas_pdn_connectivity_req (&received_message_p->ittiMsg.nas_pdn_connectivity_req);
@@ -114,6 +105,16 @@ void *mme_app_thread (
         mme_app_handle_conn_est_cnf (&NAS_CONNECTION_ESTABLISHMENT_CNF (received_message_p));
       }
       break;
+    //Handover messaging (NAS -> MME_APP --> S11 // PART 2 --> After Handover has been accepted by the nas layer, and NH/NCC have been calculated)
+    case NAS_HANDOVER_CNF:{
+        mme_app_handle_handover_cnf (&NAS_HANDOVER_CNF (received_message_p));
+      }
+      break;
+
+    case NAS_HANDOVER_REJ:{
+            mme_app_handle_handover_rej (&NAS_HANDOVER_REJ (received_message_p));
+          }
+          break;
 
       // From S1AP Initiating Message/EMM Attach Request
     case MME_APP_INITIAL_UE_MESSAGE:{
@@ -121,10 +122,23 @@ void *mme_app_thread (
       }
       break;
 
+    case MME_APP_INITIAL_UE_MESSAGE_CHECK_DUPLICATE:{
+      mme_app_handle_initial_ue_message_check_duplicate (&MME_APP_INITIAL_UE_MESSAGE_CHECK_DUPLICATE (received_message_p));
+    }
+    break;
+
     case MME_APP_INITIAL_CONTEXT_SETUP_RSP:{
         mme_app_handle_initial_context_setup_rsp (&MME_APP_INITIAL_CONTEXT_SETUP_RSP (received_message_p));
       }
       break;
+
+    // Handover messaging
+    case MME_APP_PATH_SWITCH_REQ:{
+          mme_app_handle_path_switch_req (
+              &MME_APP_PATH_SWITCH_REQ (received_message_p)
+              );
+        }
+        break;
     
     case MME_APP_INITIAL_CONTEXT_SETUP_FAILURE:{
         mme_app_handle_initial_context_setup_failure (&MME_APP_INITIAL_CONTEXT_SETUP_FAILURE (received_message_p));

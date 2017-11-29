@@ -501,6 +501,8 @@ emm_recv_tracking_area_update_request (
   const mme_ue_s1ap_id_t ue_id,
   const tracking_area_update_request_msg * msg,
   int *emm_cause,
+  const tac_t new_tac,
+  const plmn_t          *plmn_id,
   const nas_message_decode_status_t  * decode_status)
 {
   int                                     rc = RETURNok;
@@ -515,7 +517,7 @@ emm_recv_tracking_area_update_request (
    * TODO - Add support for re-auth during TAU , Implicit GUTI Re-allocation & TAU Complete,
    * TAU due to change in TAs, optional IEs 
    */
-  rc = emm_proc_tracking_area_update_request(ue_id, msg, emm_cause, decode_status);
+  rc = emm_proc_tracking_area_update_request(ue_id, msg, emm_cause, new_tac, plmn_id, decode_status);
 
   OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
 }

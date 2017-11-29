@@ -77,6 +77,16 @@ void nas_itti_establish_cnf(
   const uint16_t         selected_encryption_algorithmP,
   const uint16_t         selected_integrity_algorithmP);
 
+void nas_itti_handover_cnf(
+  const uint32_t         ue_idP,
+  const nas_error_code_t error_codeP,
+  const uint16_t         selected_encryption_algorithmP,
+  const uint16_t         selected_integrity_algorithmP);
+
+void nas_itti_handover_rej(
+  const uint32_t         ue_idP,
+  const nas_error_code_t error_codeP);
+
 void nas_itti_detach_req(
   const uint32_t      ue_idP);
 

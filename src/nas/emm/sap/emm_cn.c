@@ -58,6 +58,7 @@
 #include "3gpp_requirements_24.301.h"
 
 extern int emm_cn_wrapper_attach_accept (emm_data_context_t * emm_ctx, void *data);
+extern int emm_cn_handover (emm_data_context_t * emm_ctx, void *data);
 
 /*
    Internal data used for attach procedure
@@ -69,6 +70,17 @@ typedef struct {
   bstring                                 esm_msg;      /* ESM message to be sent within
                                                          * the Attach Accept message    */
 } attach_data_t;
+
+/*
+   Internal data used for attach procedure
+*/
+typedef struct handover_data_s {
+  unsigned int                            ue_id; /* UE identifier        */
+//#define ATTACH_COUNTER_MAX  5
+//  unsigned int                            retransmission_count; /* Retransmission counter   */
+//  bstring                                 esm_msg;      /* ESM message to be sent within
+//                                                         * the Attach Accept message    */
+} handover_data_t;
 
 /*
    String representation of EMMCN-SAP primitives
@@ -211,6 +223,8 @@ static int _emm_cn_pdn_connectivity_res (emm_cn_pdn_res_t * msg_pP)
   int                                     rc = RETURNerror;
   struct emm_data_context_s              *emm_ctx_p = NULL;
   esm_proc_pdn_type_t                     esm_pdn_type = ESM_PDN_TYPE_IPV4;
+
+  // nice --> getting stack object and initializing stack parameters
   ESM_msg                                 esm_msg = {.header = {0}};
   EpsQualityOfService                     qos = {0};
   bstring                                 rsp = NULL;
@@ -351,6 +365,8 @@ static int _emm_cn_pdn_connectivity_res (emm_cn_pdn_res_t * msg_pP)
    */
   /*************************************************************************/
   OAILOG_INFO (LOG_NAS_EMM, "EMM  -  APN = %s\n", (char *)bdata(msg_pP->apn));
+
+  // todo: is this the main EMM UE context?! why putting the message into the context
   data_p = (attach_data_t *) emm_proc_common_get_args (msg_pP->ue_id);
   /*
    * Setup the ESM message container
@@ -442,6 +458,311 @@ static int _emm_cn_pdn_connectivity_fail (const emm_cn_pdn_fail_t * msg)
   OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
 }
 
+static int _emm_cn_ho_bearer_modification_res (emm_cn_ho_bearer_mod_res_t * msg_pP)
+{
+  int                                     rc = RETURNerror;
+  struct emm_data_context_s              *emm_ctx_p = NULL;
+  esm_proc_pdn_type_t                     esm_pdn_type = ESM_PDN_TYPE_IPV4;
+  ESM_msg                                 esm_msg = {.header = {0}};
+  EpsQualityOfService                     qos = {0};
+  bstring                                 rsp = NULL;
+  bool                                    is_standalone = false;    // warning hardcoded
+  bool                                    triggered_by_ue = true;  // warning hardcoded
+  handover_data_t                        *data_p = NULL;
+  int                                     esm_cause = ESM_CAUSE_SUCCESS;
+  int                                     pid = 0;
+  unsigned int                            new_ebi = 0;
+
+  OAILOG_FUNC_IN (LOG_NAS_EMM);
+  emm_ctx_p = emm_data_context_get (&_emm_data, msg_pP->ue_id);
+
+  if (emm_ctx_p == NULL) {
+    OAILOG_ERROR (LOG_NAS_EMM, "EMMCN-SAP  - " "Failed to find UE associated to id " MME_UE_S1AP_ID_FMT "...\n", msg_pP->ue_id);
+    OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
+  }
+
+  memset (&esm_msg, 0, sizeof (ESM_msg));
+
+  /*
+   * Execute the PDN connectivity procedure requested by the UE
+   */
+//  pid = esm_proc_pdn_connectivity_request (emm_ctx_p, msg_pP->pti, msg_pP->request_type, msg_pP->apn, esm_pdn_type, msg_pP->pdn_addr, NULL, &esm_cause);
+//  OAILOG_INFO (LOG_NAS_EMM, "EMM  -  APN = %s\n", (char *)bdata(msg_pP->apn));
+//
+//  if (pid != RETURNerror) {
+//    /*
+//     * Create local default EPS bearer context
+//     *
+//     * todo: what to do?
+//     */
+////    rc = esm_proc_default_eps_bearer_context (emm_ctx_p, pid, &new_ebi, &msg_pP->qos, &esm_cause);
+//
+//    if (rc != RETURNerror) {
+//      esm_cause = ESM_CAUSE_SUCCESS;
+//    }
+//  } else {
+//    OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
+//  }
+
+  /**************************************************************************/
+  /*
+   * END OF CODE THAT WAS IN esm_recv.c/esm_recv_pdn_connectivity_request()
+   */
+  /**************************************************************************/
+//  OAILOG_INFO (LOG_NAS_EMM, "EMM  -  APN = %s\n", (char *)bdata(msg_pP->apn));
+  /*************************************************************************/
+  /*
+   * CODE THAT WAS IN esm_sap.c/_esm_sap_recv()
+   */
+  /*************************************************************************/
+  /*
+   * Return default EPS bearer context request message
+   */
+//  rc = esm_send_activate_default_eps_bearer_context_request (msg_pP->pti, new_ebi,      //msg_pP->ebi,
+//                                                             &esm_msg.activate_default_eps_bearer_context_request,
+//                                                             msg_pP->apn, &msg_pP->pco,
+//                                                             esm_pdn_type, msg_pP->pdn_addr,
+//                                                             &qos, ESM_CAUSE_SUCCESS);
+//  clear_protocol_configuration_options(&msg_pP->pco);
+//  if (rc != RETURNerror) {
+//    /*
+//     * Encode the returned ESM response message
+//     */
+//    int                                     size = esm_msg_encode (&esm_msg, (uint8_t *) emm_ctx_p->emm_cn_sap_buffer,
+//                                                                   EMM_CN_SAP_BUFFER_SIZE);
+//
+//    OAILOG_INFO (LOG_NAS_EMM, "ESM encoded MSG size %d\n", size);
+//
+//    if (size > 0) {
+//      rsp = blk2bstr(emm_ctx_p->emm_cn_sap_buffer, size);
+//    }
+//
+//    /*
+//     * Complete the relevant ESM procedure
+//     */
+//    rc = esm_proc_default_eps_bearer_context_request (is_standalone, emm_ctx_p, new_ebi,        //0, //ESM_EBI_UNASSIGNED, //msg->ebi,
+//                                                      &rsp, triggered_by_ue);
+//
+//    if (rc != RETURNok) {
+//      /*
+//       * Return indication that ESM procedure failed
+//       */
+//      OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
+//    }
+//  } else {
+//    OAILOG_INFO (LOG_NAS_EMM, "ESM send activate_default_eps_bearer_context_request failed\n");
+//  }
+
+  /*************************************************************************/
+  /*
+   * END OF CODE THAT WAS IN esm_sap.c/_esm_sap_recv()
+   */
+  /*************************************************************************/
+//  OAILOG_INFO (LOG_NAS_EMM, "EMM  -  APN = %s\n", (char *)bdata(msg_pP->apn));
+//  data_p = (attach_data_t *) emm_proc_common_get_args (msg_pP->ue_id);
+//  /*
+//   * Setup the ESM message container
+//   */
+//  data_p->esm_msg = rsp;
+
+  /*
+   * Send attach accept message to the UE
+   */
+  rc = emm_cn_wrapper_handover(emm_ctx_p, data_p);
+
+  if (rc != RETURNerror) {
+    if (IS_EMM_CTXT_PRESENT_OLD_GUTI(emm_ctx_p) &&
+        (memcmp(&emm_ctx_p->_old_guti, &emm_ctx_p->_guti, sizeof(emm_ctx_p->_guti)))) {
+      /*
+       * Implicit GUTI reallocation;
+       * * * * Notify EMM that common procedure has been initiated
+       */
+      emm_sap_t                               emm_sap = {0};
+
+      emm_sap.primitive = EMMREG_COMMON_PROC_REQ;
+      emm_sap.u.emm_reg.ue_id = msg_pP->ue_id;
+      emm_sap.u.emm_reg.ctx  = emm_ctx_p;
+      rc = emm_sap_send (&emm_sap);
+    }
+  }
+
+  OAILOG_INFO (LOG_NAS_EMM, "EMM  -  APN = %s \n", (char *)bdata(msg_pP->apn));
+  OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
+}
+
+static int _emm_cn_ho_bearer_modification_fail (emm_cn_ho_bearer_mod_fail_t * msg_pP)
+{
+  int                                     rc = RETURNerror;
+  struct emm_data_context_s              *emm_ctx_p = NULL;
+  esm_proc_pdn_type_t                     esm_pdn_type = ESM_PDN_TYPE_IPV4;
+  ESM_msg                                 esm_msg = {.header = {0}};
+  EpsQualityOfService                     qos = {0};
+  bstring                                 rsp = NULL;
+  bool                                    is_standalone = false;    // warning hardcoded
+  bool                                    triggered_by_ue = true;  // warning hardcoded
+  handover_data_t                        *data_p = NULL;
+  int                                     esm_cause = ESM_CAUSE_SUCCESS;
+  int                                     pid = 0;
+  unsigned int                            new_ebi = 0;
+
+  OAILOG_FUNC_IN (LOG_NAS_EMM);
+  emm_ctx_p = emm_data_context_get (&_emm_data, msg_pP->ue_id);
+
+  if (emm_ctx_p == NULL) {
+    OAILOG_ERROR (LOG_NAS_EMM, "EMMCN-SAP  - " "Failed to find UE associated to id " MME_UE_S1AP_ID_FMT "...\n", msg_pP->ue_id);
+    OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
+  }
+
+  memset (&esm_msg, 0, sizeof (ESM_msg));
+
+//  switch (msg_pP->pdn_type) {
+//  case IPv4:
+//    OAILOG_INFO (LOG_NAS_EMM, "EMM  -  esm_pdn_type = ESM_PDN_TYPE_IPV4\n");
+//    esm_pdn_type = ESM_PDN_TYPE_IPV4;
+//    break;
+//
+//  case IPv6:
+//    OAILOG_INFO (LOG_NAS_EMM, "EMM  -  esm_pdn_type = ESM_PDN_TYPE_IPV6\n");
+//    esm_pdn_type = ESM_PDN_TYPE_IPV6;
+//    break;
+//
+//  case IPv4_AND_v6:
+//    OAILOG_INFO (LOG_NAS_EMM, "EMM  -  esm_pdn_type = ESM_PDN_TYPE_IPV4V6\n");
+//    esm_pdn_type = ESM_PDN_TYPE_IPV4V6;
+//    break;
+//
+//  default:
+//    OAILOG_INFO (LOG_NAS_EMM, "EMM  -  esm_pdn_type = ESM_PDN_TYPE_IPV4 (forced to default)\n");
+//    esm_pdn_type = ESM_PDN_TYPE_IPV4;
+//  }
+
+//  OAILOG_INFO (LOG_NAS_EMM, "EMM  -  qci       = %u \n", msg_pP->qci);
+//  OAILOG_INFO (LOG_NAS_EMM, "EMM  -  qos.qci   = %u \n", msg_pP->qos.qci);
+//  OAILOG_INFO (LOG_NAS_EMM, "EMM  -  qos.mbrUL = %u \n", msg_pP->qos.mbrUL);
+//  OAILOG_INFO (LOG_NAS_EMM, "EMM  -  qos.mbrDL = %u \n", msg_pP->qos.mbrDL);
+//  OAILOG_INFO (LOG_NAS_EMM, "EMM  -  qos.gbrUL = %u \n", msg_pP->qos.gbrUL);
+//  OAILOG_INFO (LOG_NAS_EMM, "EMM  -  qos.gbrDL = %u \n", msg_pP->qos.gbrDL);
+//  qos.bitRatesPresent = 0;
+//  qos.bitRatesExtPresent = 0;
+////#pragma message "Some work to do here about qos"
+//  qos.qci = msg_pP->qci;
+//  qos.bitRates.maxBitRateForUL = 0;     //msg_pP->qos.mbrUL;
+//  qos.bitRates.maxBitRateForDL = 0;     //msg_pP->qos.mbrDL;
+//  qos.bitRates.guarBitRateForUL = 0;    //msg_pP->qos.gbrUL;
+//  qos.bitRates.guarBitRateForDL = 0;    //msg_pP->qos.gbrDL;
+//  qos.bitRatesExt.maxBitRateForUL = 0;
+//  qos.bitRatesExt.maxBitRateForDL = 0;
+//  qos.bitRatesExt.guarBitRateForUL = 0;
+//  qos.bitRatesExt.guarBitRateForDL = 0;
+
+
+  /*
+   * Execute the PDN connectivity procedure requested by the UE
+   */
+//  pid = esm_proc_pdn_connectivity_request (emm_ctx_p, msg_pP->pti, msg_pP->request_type, msg_pP->apn, esm_pdn_type, msg_pP->pdn_addr, NULL, &esm_cause);
+//  OAILOG_INFO (LOG_NAS_EMM, "EMM  -  APN = %s\n", (char *)bdata(msg_pP->apn));
+
+  if (pid != RETURNerror) {
+    /*
+     * Create local default EPS bearer context
+     *
+     * todo: what to do?
+     */
+//    rc = esm_proc_default_eps_bearer_context (emm_ctx_p, pid, &new_ebi, &msg_pP->qos, &esm_cause);
+
+    if (rc != RETURNerror) {
+      esm_cause = ESM_CAUSE_SUCCESS;
+    }
+  } else {
+    OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
+  }
+
+  /**************************************************************************/
+  /*
+   * END OF CODE THAT WAS IN esm_recv.c/esm_recv_pdn_connectivity_request()
+   */
+  /**************************************************************************/
+//  OAILOG_INFO (LOG_NAS_EMM, "EMM  -  APN = %s\n", (char *)bdata(msg_pP->apn));
+  /*************************************************************************/
+  /*
+   * CODE THAT WAS IN esm_sap.c/_esm_sap_recv()
+   */
+  /*************************************************************************/
+  /*
+   * Return default EPS bearer context request message
+   */
+//  rc = esm_send_activate_default_eps_bearer_context_request (msg_pP->pti, new_ebi,      //msg_pP->ebi,
+//                                                             &esm_msg.activate_default_eps_bearer_context_request,
+//                                                             msg_pP->apn, &msg_pP->pco,
+//                                                             esm_pdn_type, msg_pP->pdn_addr,
+//                                                             &qos, ESM_CAUSE_SUCCESS);
+//  clear_protocol_configuration_options(&msg_pP->pco);
+//  if (rc != RETURNerror) {
+//    /*
+//     * Encode the returned ESM response message
+//     */
+//    int                                     size = esm_msg_encode (&esm_msg, (uint8_t *) emm_ctx_p->emm_cn_sap_buffer,
+//                                                                   EMM_CN_SAP_BUFFER_SIZE);
+//
+//    OAILOG_INFO (LOG_NAS_EMM, "ESM encoded MSG size %d\n", size);
+//
+//    if (size > 0) {
+//      rsp = blk2bstr(emm_ctx_p->emm_cn_sap_buffer, size);
+//    }
+//
+//    /*
+//     * Complete the relevant ESM procedure
+//     */
+//    rc = esm_proc_default_eps_bearer_context_request (is_standalone, emm_ctx_p, new_ebi,        //0, //ESM_EBI_UNASSIGNED, //msg->ebi,
+//                                                      &rsp, triggered_by_ue);
+//
+//    if (rc != RETURNok) {
+//      /*
+//       * Return indication that ESM procedure failed
+//       */
+//      OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
+//    }
+//  } else {
+//    OAILOG_INFO (LOG_NAS_EMM, "ESM send activate_default_eps_bearer_context_request failed\n");
+//  }
+//
+//  /*************************************************************************/
+//  /*
+//   * END OF CODE THAT WAS IN esm_sap.c/_esm_sap_recv()
+//   */
+//  /*************************************************************************/
+//  OAILOG_INFO (LOG_NAS_EMM, "EMM  -  APN = %s\n", (char *)bdata(msg_pP->apn));
+//  data_p = (attach_data_t *) emm_proc_common_get_args (msg_pP->ue_id);
+//  /*
+//   * Setup the ESM message container
+//   */
+//  data_p->esm_msg = rsp;
+//
+//  /*
+//   * Send attach accept message to the UE
+//   */
+//  rc = emm_cn_wrapper_attach_accept (emm_ctx_p, data_p);
+//
+//  if (rc != RETURNerror) {
+//    if (IS_EMM_CTXT_PRESENT_OLD_GUTI(emm_ctx_p) &&
+//        (memcmp(&emm_ctx_p->_old_guti, &emm_ctx_p->_guti, sizeof(emm_ctx_p->_guti)))) {
+//      /*
+//       * Implicit GUTI reallocation;
+//       * * * * Notify EMM that common procedure has been initiated
+//       */
+//      emm_sap_t                               emm_sap = {0};
+//
+//      emm_sap.primitive = EMMREG_COMMON_PROC_REQ;
+//      emm_sap.u.emm_reg.ue_id = msg_pP->ue_id;
+//      emm_sap.u.emm_reg.ctx  = emm_ctx_p;
+//      rc = emm_sap_send (&emm_sap);
+//    }
+//  }
+//
+//  OAILOG_INFO (LOG_NAS_EMM, "EMM  -  APN = %s \n", (char *)bdata(msg_pP->apn));
+  OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
+}
+
 //------------------------------------------------------------------------------
 int emm_cn_send (const emm_cn_t * msg)
 {
@@ -464,6 +785,7 @@ int emm_cn_send (const emm_cn_t * msg)
     rc = _emm_cn_deregister_ue (msg->u.deregister.ue_id);
     break;
 
+  // EMMCN messages for handling BEARER MODIFICATION
   case EMMCN_PDN_CONNECTIVITY_RES:
     rc = _emm_cn_pdn_connectivity_res (msg->u.emm_cn_pdn_res);
     break;
@@ -472,6 +794,15 @@ int emm_cn_send (const emm_cn_t * msg)
     rc = _emm_cn_pdn_connectivity_fail (msg->u.emm_cn_pdn_fail);
     break;
   
+  // handover messaging
+  case EMMCN_HO_BEARER_MODIFICATION_RES:
+    rc = _emm_cn_ho_bearer_modification_res (msg->u.emm_cn_ho_bearer_mod_res);
+    break;
+
+  case EMMCN_HO_BEARER_MODIFICATION_FAIL:
+    rc = _emm_cn_ho_bearer_modification_fail (msg->u.emm_cn_ho_bearer_mod_fail);
+    break;
+
   case EMMCN_IMPLICIT_DETACH_UE:
     rc = _emm_cn_implicit_detach_ue (msg->u.emm_cn_implicit_detach.ue_id);
     break;

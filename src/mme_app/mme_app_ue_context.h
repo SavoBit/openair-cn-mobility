@@ -88,6 +88,10 @@ mme_ue_s1ap_id_t mme_app_ctx_get_new_ue_id(void);
 #define MME_APP_DELTA_T3412_REACHABILITY_TIMER 4 // in minutes 
 #define MME_APP_DELTA_REACHABILITY_IMPLICIT_DETACH_TIMER 0 // in minutes 
 #define MME_APP_INITIAL_CONTEXT_SETUP_RSP_TIMER_VALUE 2 // In seconds
+
+// handover !!
+#define MME_APP_PATH_SWITCH_REQ_TIMER_VALUE 2 // In seconds
+
 /* Timer structure */
 struct mme_app_timer_t {
   long id;         /* The timer identifier                 */
@@ -148,6 +152,7 @@ typedef struct ue_context_s {
   uint8_t                msisdn[MSISDN_LENGTH+1];     // set by S6A UPDATE LOCATION ANSWER
   uint8_t                msisdn_length;               // set by S6A UPDATE LOCATION ANSWER
 
+  bool                   pending_handover;             // handover pending
   mm_state_t             mm_state;
   ecm_state_t            ecm_state;
   /* Globally Unique Temporary Identity */
@@ -214,6 +219,9 @@ typedef struct ue_context_s {
   struct mme_app_timer_t       implicit_detach_timer; 
   // Initial Context Setup Procedure Guard timer 
   struct mme_app_timer_t       initial_context_setup_rsp_timer; 
+
+  // Handover related stuff
+  struct mme_app_timer_t       path_switch_req_timer;
 
 } ue_context_t;
 

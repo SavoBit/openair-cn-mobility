@@ -541,6 +541,7 @@ extern                                  "C" {
      */
     pTrxn = nwGtpv2cTrxnNew (thiz);
 
+    // For MME this is the only place to create S11 tunnel!
     if (pTrxn) {
       if (!pUlpReq->apiInfo.initialReqInfo.hTunnel) {
         rc = nwGtpv2cCreateLocalTunnel (thiz, pUlpReq->apiInfo.initialReqInfo.teidLocal, pUlpReq->apiInfo.initialReqInfo.peerIp, pUlpReq->apiInfo.initialReqInfo.hUlpTunnel, &pUlpReq->apiInfo.initialReqInfo.hTunnel);
@@ -581,59 +582,59 @@ extern                                  "C" {
     OAILOG_FUNC_RETURN (LOG_GTPV2C, rc);
   }
 
-/**
-  Process NW_GTPV2C_ULP_API_TRIGGERED_REQ Request from ULP entity.
-
-  @param[in] hGtpcStackHandle : Stack handle
-  @param[in] pUlpReq : Pointer to Ulp Req.
-  @return NW_OK on success.
-*/
-
-  static NwRcT                            nwGtpv2cHandleUlpTriggeredReq (
-  NW_IN NwGtpv2cStackT * thiz,
-  NW_IN NwGtpv2cUlpApiT * pUlpReq) {
-    NwRcT                                   rc = NW_FAILURE;
-    NwGtpv2cTrxnT                          *pTrxn = NULL;
-    NwGtpv2cTrxnT                          *pReqTrxn = NULL;
-
-    OAILOG_FUNC_IN (LOG_GTPV2C);
-    /*
-     * Create New Transaction
-     */
-    pTrxn = nwGtpv2cTrxnWithSeqNumNew (thiz, (((NwGtpv2cMsgT *) (pUlpReq->hMsg))->seqNum));
-
-    if (pTrxn) {
-      pReqTrxn = (NwGtpv2cTrxnT *) pUlpReq->apiInfo.triggeredReqInfo.hTrxn;
-      pTrxn->hUlpTrxn = pUlpReq->apiInfo.triggeredReqInfo.hUlpTrxn;
-      pTrxn->peerIp = pReqTrxn->peerIp;
-      pTrxn->peerPort = pReqTrxn->peerPort;
-      pTrxn->pMsg = (NwGtpv2cMsgT *) pUlpReq->hMsg;
-      rc = nwGtpv2cCreateAndSendMsg (thiz, pTrxn->seqNum, pTrxn->peerIp, pTrxn->peerPort, pTrxn->pMsg);
-
-      if (NW_OK == rc) {
-        /*
-         * Start guard timer
-         */
-        rc = nwGtpv2cTrxnStartPeerRspWaitTimer (pTrxn);
-        NW_ASSERT (NW_OK == rc);
-        /*
-         * Insert into search tree
-         */
-        RB_INSERT (NwGtpv2cOutstandingTxSeqNumTrxnMap, &(thiz->outstandingTxSeqNumMap), pTrxn);
-
-        if (!pUlpReq->apiInfo.triggeredReqInfo.hTunnel) {
-          rc = nwGtpv2cCreateLocalTunnel (thiz, pUlpReq->apiInfo.triggeredReqInfo.teidLocal, pReqTrxn->peerIp, pUlpReq->apiInfo.triggeredReqInfo.hUlpTunnel, &pUlpReq->apiInfo.triggeredReqInfo.hTunnel);
-        }
-      } else {
-        rc = nwGtpv2cTrxnDelete (&pTrxn);
-        NW_ASSERT (NW_OK == rc);
-      }
-    } else {
-      rc = NW_FAILURE;
-    }
-
-    OAILOG_FUNC_RETURN (LOG_GTPV2C, rc);
-  }
+///**
+//  Process NW_GTPV2C_ULP_API_TRIGGERED_REQ Request from ULP entity.
+//
+//  @param[in] hGtpcStackHandle : Stack handle
+//  @param[in] pUlpReq : Pointer to Ulp Req.
+//  @return NW_OK on success.
+//*/
+//
+//  static NwRcT                            nwGtpv2cHandleUlpTriggeredReq (
+//  NW_IN NwGtpv2cStackT * thiz,
+//  NW_IN NwGtpv2cUlpApiT * pUlpReq) {
+//    NwRcT                                   rc = NW_FAILURE;
+//    NwGtpv2cTrxnT                          *pTrxn = NULL;
+//    NwGtpv2cTrxnT                          *pReqTrxn = NULL;
+//
+//    OAILOG_FUNC_IN (LOG_GTPV2C);
+//    /*
+//     * Create New Transaction
+//     */
+//    pTrxn = nwGtpv2cTrxnWithSeqNumNew (thiz, (((NwGtpv2cMsgT *) (pUlpReq->hMsg))->seqNum));
+//
+//    if (pTrxn) {
+//      pReqTrxn = (NwGtpv2cTrxnT *) pUlpReq->apiInfo.triggeredReqInfo.hTrxn;
+//      pTrxn->hUlpTrxn = pUlpReq->apiInfo.triggeredReqInfo.hUlpTrxn;
+//      pTrxn->peerIp = pReqTrxn->peerIp;
+//      pTrxn->peerPort = pReqTrxn->peerPort;
+//      pTrxn->pMsg = (NwGtpv2cMsgT *) pUlpReq->hMsg;
+//      rc = nwGtpv2cCreateAndSendMsg (thiz, pTrxn->seqNum, pTrxn->peerIp, pTrxn->peerPort, pTrxn->pMsg);
+//
+//      if (NW_OK == rc) {
+//        /*
+//         * Start guard timer
+//         */
+//        rc = nwGtpv2cTrxnStartPeerRspWaitTimer (pTrxn);
+//        NW_ASSERT (NW_OK == rc);
+//        /*
+//         * Insert into search tree
+//         */
+//        RB_INSERT (NwGtpv2cOutstandingTxSeqNumTrxnMap, &(thiz->outstandingTxSeqNumMap), pTrxn);
+//
+//        if (!pUlpReq->apiInfo.triggeredReqInfo.hTunnel) {
+//          rc = nwGtpv2cCreateLocalTunnel (thiz, pUlpReq->apiInfo.triggeredReqInfo.teidLocal, pReqTrxn->peerIp, pUlpReq->apiInfo.triggeredReqInfo.hUlpTunnel, &pUlpReq->apiInfo.triggeredReqInfo.hTunnel);
+//        }
+//      } else {
+//        rc = nwGtpv2cTrxnDelete (&pTrxn);
+//        NW_ASSERT (NW_OK == rc);
+//      }
+//    } else {
+//      rc = NW_FAILURE;
+//    }
+//
+//    OAILOG_FUNC_RETURN (LOG_GTPV2C, rc);
+//  }
 
 /**
   Process NW_GTPV2C_ULP_API_TRIGGERED_RSP Request from ULP entity.
@@ -661,9 +662,10 @@ extern                                  "C" {
     pReqTrxn->pMsg = (NwGtpv2cMsgT *) pUlpRsp->hMsg;
     rc = nwGtpv2cTrxnStartDulpicateRequestWaitTimer (pReqTrxn);
 
-    if ((pUlpRsp->apiType & 0xFF000000) == NW_GTPV2C_ULP_API_FLAG_CREATE_LOCAL_TUNNEL) {
-      rc = nwGtpv2cCreateLocalTunnel (thiz, pUlpRsp->apiInfo.triggeredRspInfo.teidLocal, pReqTrxn->peerIp, pUlpRsp->apiInfo.triggeredRspInfo.hUlpTunnel, &pUlpRsp->apiInfo.triggeredRspInfo.hTunnel);
-    }
+    // todo: assert tunnel exists!!
+//    if ((pUlpRsp->apiType & 0xFF000000) == NW_GTPV2C_ULP_API_FLAG_CREATE_LOCAL_TUNNEL) {
+//      rc = nwGtpv2cCreateLocalTunnel (thiz, pUlpRsp->apiInfo.triggeredRspInfo.teidLocal, pReqTrxn->peerIp, pUlpRsp->apiInfo.triggeredRspInfo.hUlpTunnel, &pUlpRsp->apiInfo.triggeredRspInfo.hTunnel);
+//    }
 
     OAILOG_FUNC_RETURN( LOG_GTPV2C, rc);
   }
@@ -892,6 +894,7 @@ extern                                  "C" {
                                             keyTrxn;
     NwGtpv2cMsgHandleT                      hMsg = 0;
     NwGtpv2cErrorT                          error = {0};
+    uint8_t test  =1;
 
     keyTrxn.seqNum = ntohl (*((uint32_t *) (msgBuf + (((*msgBuf) & 0x08) ? 8 : 4)))) >> 8;;
     keyTrxn.peerIp = peerIp;
@@ -909,6 +912,12 @@ extern                                  "C" {
       NW_ASSERT (msgBuf && msgBufLen);
       rc = nwGtpv2cMsgFromBufferNew ((NwGtpv2cStackHandleT) thiz, msgBuf, msgBufLen, &(hMsg));
       NW_ASSERT (thiz->pGtpv2cMsgIeParseInfo[msgType]);
+
+      if(msgType == NW_GTP_CREATE_SESSION_RSP){
+        test=2;
+      }else if(msgType == NW_GTP_MODIFY_BEARER_RSP){
+        test=3;
+      }
       rc = nwGtpv2cMsgIeParse (thiz->pGtpv2cMsgIeParseInfo[msgType], hMsg, &error);
 
       if (rc != NW_OK) {
@@ -1158,10 +1167,13 @@ extern                                  "C" {
         rc = nwGtpv2cHandleInitialReq (thiz, msgType, udpData, udpDataLen, peerPort, peerIp);
       }
       break;
+    case NW_GTP_MODIFY_BEARER_RSP:{
+        rc = nwGtpv2cHandleTriggeredRsp (thiz, msgType, udpData, udpDataLen, peerPort, peerIp);
+      }
+      break;
 
     case NW_GTP_ECHO_RSP:
     case NW_GTP_CREATE_SESSION_RSP:
-    case NW_GTP_MODIFY_BEARER_RSP:
     case NW_GTP_DELETE_SESSION_RSP:
     case NW_GTP_CREATE_BEARER_RSP:
     case NW_GTP_UPDATE_BEARER_RSP:
@@ -1209,11 +1221,11 @@ extern                                  "C" {
       }
       break;
 
-    case NW_GTPV2C_ULP_API_TRIGGERED_REQ:{
-        OAILOG_DEBUG (LOG_GTPV2C, "Received triggered request from ulp\n");
-        rc = nwGtpv2cHandleUlpTriggeredReq (thiz, pUlpReq);
-      }
-      break;
+//    case NW_GTPV2C_ULP_API_TRIGGERED_REQ:{
+//        OAILOG_DEBUG (LOG_GTPV2C, "Received triggered request from ulp\n");
+//        rc = nwGtpv2cHandleUlpTriggeredReq (thiz, pUlpReq);
+//      }
+//      break;
 
     case NW_GTPV2C_ULP_API_TRIGGERED_RSP:{
         OAILOG_DEBUG (LOG_GTPV2C, "Received triggered response from ulp\n");
@@ -1221,11 +1233,11 @@ extern                                  "C" {
       }
       break;
 
-    case NW_GTPV2C_ULP_CREATE_LOCAL_TUNNEL:{
-        OAILOG_DEBUG (LOG_GTPV2C, "Received create local tunnel from ulp\n");
-        rc = nwGtpv2cHandleUlpCreateLocalTunnel (thiz, pUlpReq);
-      }
-      break;
+//    case NW_GTPV2C_ULP_CREATE_LOCAL_TUNNEL:{
+//        OAILOG_DEBUG (LOG_GTPV2C, "Received create local tunnel from ulp\n");
+//        rc = nwGtpv2cHandleUlpCreateLocalTunnel (thiz, pUlpReq);
+//      }
+//      break;
 
     case NW_GTPV2C_ULP_DELETE_LOCAL_TUNNEL:{
         OAILOG_DEBUG (LOG_GTPV2C, "Received delete local tunnel from ulp\n");

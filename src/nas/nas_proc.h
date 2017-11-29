@@ -86,6 +86,11 @@ int nas_proc_establish_ind(const mme_ue_s1ap_id_t ue_id,
                             const ecgi_t cgi,
                             STOLEN_REF bstring *msg);
 
+int nas_proc_handover_ind (
+  const mme_ue_s1ap_id_t ue_id,
+  const tai_t originating_tai,
+  const ecgi_t cgi);
+
 int nas_proc_dl_transfer_cnf(const mme_ue_s1ap_id_t ueid, const nas_error_code_t status);
 int nas_proc_dl_transfer_rej(const mme_ue_s1ap_id_t ueid);
 int nas_proc_ul_transfer_ind(const mme_ue_s1ap_id_t ueid,
@@ -104,6 +109,11 @@ int nas_proc_auth_param_fail(mme_ue_s1ap_id_t ue_id, nas_cause_t cause);
 int nas_proc_deregister_ue(uint32_t ue_id);
 int nas_proc_pdn_connectivity_res(itti_nas_pdn_connectivity_rsp_t *nas_pdn_connectivity_rsp);
 int nas_proc_pdn_connectivity_fail(itti_nas_pdn_connectivity_fail_t *nas_pdn_connectivity_fail);
+
+// handover messaging --> process message received from s11--> MME_APP
+int nas_proc_ho_bearer_modification_res (emm_cn_ho_bearer_mod_res_t * emm_cn_ho_bearer_mod_res);
+int nas_proc_ho_bearer_modification_fail (emm_cn_ho_bearer_mod_fail_t * emm_cn_ho_bearer_mod_fail);
+
 int nas_proc_implicit_detach_ue_ind (mme_ue_s1ap_id_t ue_id);
 int nas_proc_smc_fail(emm_cn_smc_fail_t *emm_cn_smc_fail);
 

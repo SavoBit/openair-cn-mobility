@@ -176,6 +176,8 @@ emm_proc_common_initialize (
     }
   }
 
+  // todo: not error if already exists?!?
+
   if (emm_common_data_ctx) {
     __sync_fetch_and_add(&emm_common_data_ctx->ref_count, 1);
     emm_common_data_ctx->success = _success;
@@ -269,7 +271,7 @@ int
 emm_proc_common_failure (emm_common_data_t *emm_common_data_ctx)
 {
   int                                     rc = RETURNerror;
-  emm_common_reject_callback_t            emm_callback;
+  emm_common_failure_callback_t            emm_callback;
 
   OAILOG_FUNC_IN (LOG_NAS_EMM);
   if (emm_common_data_ctx ) {

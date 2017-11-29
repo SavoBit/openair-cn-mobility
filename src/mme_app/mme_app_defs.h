@@ -90,9 +90,18 @@ void mme_app_handle_detach_req (const itti_nas_detach_req_t * const detach_req_p
 
 void mme_app_handle_conn_est_cnf             (const itti_nas_conn_est_cnf_t * const nas_conn_est_cnf_pP);
 
+// Handover messaging
+void mme_app_handle_handover_cnf    (  const itti_nas_handover_cnf_t * const nas_handover_cnf_pP);
+
+void mme_app_handle_handover_rej (   const itti_nas_handover_rej_t * const nas_handover_rej_pP);
+
 void mme_app_handle_initial_ue_message       (itti_mme_app_initial_ue_message_t * const conn_est_ind_pP);
 
+void mme_app_handle_initial_ue_message_check_duplicate (itti_mme_app_initial_ue_message_check_duplicate_t * const initial_check_duplicate_pP);
+
 int mme_app_handle_create_sess_resp          (itti_s11_create_session_response_t * const create_sess_resp_pP); //not const because we need to free internal stucts
+
+int mme_app_handle_modify_bearer_resp          (itti_s11_modify_bearer_response_t * const modify_bearer_resp_pP);
 
 void mme_app_handle_delete_session_rsp	     (const itti_s11_delete_session_response_t * const delete_sess_respP);
 
@@ -123,7 +132,13 @@ void mme_app_handle_implicit_detach_timer_expiry (struct ue_context_s *ue_contex
 
 void mme_app_handle_initial_context_setup_rsp_timer_expiry (struct ue_context_s *ue_context_p);
 
-void mme_app_handle_enb_reset_req( const itti_s1ap_enb_initiated_reset_req_t const * enb_reset_req); 
+void mme_app_handle_enb_reset_req( const itti_s1ap_enb_initiated_reset_req_t const * enb_reset_req);
+
+// handover messaging
+void mme_app_handle_path_switch_req(
+     const itti_mme_app_path_switch_req_t * const path_switch_req_pP
+    );
+
 
 #define mme_stats_read_lock(mMEsTATS)  pthread_rwlock_rdlock(&(mMEsTATS)->rw_lock)
 #define mme_stats_write_lock(mMEsTATS) pthread_rwlock_wrlock(&(mMEsTATS)->rw_lock)

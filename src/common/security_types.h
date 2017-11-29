@@ -51,6 +51,9 @@
 #define AUTH_KEY_LENGTH_OCTETS (AUTH_KEY_LENGTH_BITS/8)
 #define KASME_LENGTH_BITS      (256)
 #define KASME_LENGTH_OCTETS    (KASME_LENGTH_BITS/8)
+#define NH_LENGTH_BITS         (256)
+#define NH_LENGTH_OCTETS       (NH_LENGTH_BITS/8)
+
 /* In OCTETS */
 #define XRES_LENGTH_MIN        (4)
 #define XRES_LENGTH_MAX        (16)

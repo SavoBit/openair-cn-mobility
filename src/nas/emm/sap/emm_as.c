@@ -83,6 +83,7 @@ static const char                      *_emm_as_primitive_str[] = {
   "EMMAS_ESTABLISH_REQ",
   "EMMAS_ESTABLISH_CNF",
   "EMMAS_ESTABLISH_REJ",
+//  "EMMAS_HANDOVER_CNF",
   "EMMAS_RELEASE_REQ",
   "EMMAS_RELEASE_IND",
   "EMMAS_DATA_REQ",
@@ -124,6 +125,11 @@ static int _emm_as_security_req (const emm_as_security_t *, dl_info_transfer_req
 static int _emm_as_security_rej (const emm_as_security_t *, dl_info_transfer_req_t *);
 static int _emm_as_establish_cnf (const emm_as_establish_t *, nas_establish_rsp_t *);
 static int _emm_as_establish_rej (const emm_as_establish_t *, nas_establish_rsp_t *);
+
+// handover
+static int _emm_as_ho_bearer_modification_cnf (const emm_as_ho_bearer_modification_t *, nas_ho_bearer_modification_cnf_t *);
+static int _emm_as_ho_bearer_modification_rej (const emm_as_ho_bearer_modification_t *, nas_ho_bearer_modification_cnf_t *);
+
 static int _emm_as_page_ind (const emm_as_page_t *, paging_req_t *);
 static int _emm_as_data_req (const emm_as_data_t *, dl_info_transfer_req_t *);
 static int _emm_as_status_ind (const emm_as_status_t *, dl_info_transfer_req_t *);
@@ -660,7 +666,12 @@ static int _emm_as_establish_req (const emm_as_establish_t * msg, int *emm_cause
     }
     
     // Process periodic TAU   
-    rc = emm_recv_tracking_area_update_request (msg->ue_id, &emm_msg->tracking_area_update_request, emm_cause, &decode_status);
+    rc = emm_recv_tracking_area_update_request (msg->ue_id,
+        &emm_msg->tracking_area_update_request,
+        emm_cause,
+        msg->tac,
+        msg->plmn_id,
+        &decode_status);
     break;
 
   case SERVICE_REQUEST:
@@ -952,6 +963,15 @@ static int _emm_as_send (const emm_as_t * msg)
     as_msg.msg_id = _emm_as_establish_rej (&msg->u.establish, &as_msg.msg.nas_establish_rsp);
     break;
 
+    // handover
+  case _EMMAS_HO_BEARER_MODIFICATION_CNF:
+    as_msg.msg_id = _emm_as_ho_bearer_modification_cnf(&msg->u.establish, &as_msg.msg.nas_ho_bearer_modification_cnf);
+    break;
+
+  case _EMMAS_HO_BEARER_MODIFICATION_REJ:
+    as_msg.msg_id = _emm_as_ho_bearer_modification_rej(&msg->u.establish, &as_msg.msg.nas_ho_bearer_modification_cnf);
+    break;
+
   case _EMMAS_PAGE_IND:
     as_msg.msg_id = _emm_as_page_ind (&msg->u.page, &as_msg.msg.paging_req);
     break;
@@ -997,6 +1017,28 @@ static int _emm_as_send (const emm_as_t * msg)
         }
       }
       break;
+    case AS_NAS_HANDOVER_CNF:{
+           if (as_msg.msg.nas_ho_bearer_modification_cnf.err_code != AS_SUCCESS) {
+             // Sending a HO preperation failure or a path switch failure in the error case..
+             nas_itti_handover_rej (as_msg.msg.nas_ho_bearer_modification_cnf.ue_id, as_msg.msg.nas_ho_bearer_modification_cnf.err_code);
+             OAILOG_FUNC_RETURN (LOG_NAS_EMM, RETURNok);
+           } else {
+             OAILOG_DEBUG (LOG_NAS_EMM, "EMMAS-SAP - Sending nas_itti_handover_cnf to S1AP UE ID 0x%x sea 0x%04X sia 0x%04X\n",
+                 as_msg.msg.nas_ho_bearer_modification_cnf.ue_id,
+                 as_msg.msg.nas_ho_bearer_modification_cnf.selected_encryption_algorithm,
+                 as_msg.msg.nas_ho_bearer_modification_cnf.selected_integrity_algorithm);
+
+             /*
+              * Handle success case
+              */
+             nas_itti_handover_cnf(as_msg.msg.nas_ho_bearer_modification_cnf.ue_id,
+                 as_msg.msg.nas_ho_bearer_modification_cnf.err_code,
+                 as_msg.msg.nas_ho_bearer_modification_cnf.selected_encryption_algorithm,
+                 as_msg.msg.nas_ho_bearer_modification_cnf.selected_integrity_algorithm);
+             OAILOG_FUNC_RETURN (LOG_NAS_EMM, RETURNok);
+           }
+         }
+         break;
 
     case AS_NAS_RELEASE_REQ:
       break;
@@ -1672,6 +1714,142 @@ static int _emm_as_establish_rej (const emm_as_establish_t * msg, nas_establish_
   }
 
   OAILOG_FUNC_RETURN (LOG_NAS_EMM, 0);
+}
+
+/****************************************************************************
+ **                                                                        **
+ ** Name:    _emm_as_ho_bearer_modification_cnf()                                   **
+ **                                                                        **
+ ** Description: Processes the EMMAS-SAP handover bearer modification confirm      **
+ **      primitive. Prepare the S1AP message IEs which are derived from the EMM context. **
+ **                                                                        **
+ ** EMMAS-SAP - EMM->AS: HO_BEARER_MODIFICATION_CNF - NAS signalling connection         **
+ **                                                                        **
+ ** Inputs:  msg:       The EMMAS-SAP primitive to process         **
+ **      Others:    None                                       **
+ **                                                                        **
+ ** Outputs:     as_msg:    The message to send to the AS              **
+ **      Return:    The identifier of the AS message           **
+ **      Others:    None                                       **
+ **                                                                        **
+ ***************************************************************************/
+static int _emm_as_ho_bearer_modification_cnf (const emm_as_ho_bearer_modification_t * msg, nas_ho_bearer_modification_cnf_t * as_msg)
+{
+  EMM_msg                                *emm_msg = NULL;
+  int                                     size = 0;
+  int                                     ret_val = 0;
+
+  OAILOG_FUNC_IN (LOG_NAS_EMM);
+  OAILOG_INFO (LOG_NAS_EMM, "EMMAS-SAP - Send AS handover confirmation\n");
+  nas_message_t                           nas_msg = {.security_protected.header = {0},
+                                                     .security_protected.plain.emm.header = {0},
+                                                     .security_protected.plain.esm.header = {0}};
+  /*
+   * Setup the AS message
+   */
+  as_msg->ue_id = msg->ue_id;
+
+//  if (msg->eps_id.guti == NULL) {
+//    OAILOG_WARNING (LOG_NAS_EMM, "EMMAS-SAP - GUTI is NULL...");
+//    OAILOG_FUNC_RETURN (LOG_NAS_EMM, ret_val);
+//  }
+
+//  as_msg->s_tmsi.mme_code = msg->eps_id.guti->gummei.mme_code;
+//  as_msg->s_tmsi.m_tmsi = msg->eps_id.guti->m_tmsi;
+
+  struct emm_data_context_s              *emm_ctx = NULL;
+  emm_security_context_t                 *emm_security_context = NULL;
+  emm_ctx = emm_data_context_get (&_emm_data, msg->ue_id);
+  if (emm_ctx) {
+    if (IS_EMM_CTXT_PRESENT_SECURITY(emm_ctx)) {
+      emm_security_context = &emm_ctx->_security;
+      as_msg->selected_encryption_algorithm = (uint16_t) htons(0x10000 >> emm_security_context->selected_algorithms.encryption);
+      as_msg->selected_integrity_algorithm  = (uint16_t) htons(0x10000 >> emm_security_context->selected_algorithms.integrity);
+      OAILOG_DEBUG (LOG_NAS_EMM, "Set nas_msg.selected_encryption_algorithm -> NBO: 0x%04X (%u)\n", as_msg->selected_encryption_algorithm, emm_security_context->selected_algorithms.encryption);
+      OAILOG_DEBUG (LOG_NAS_EMM, "Set nas_msg.selected_integrity_algorithm -> NBO: 0x%04X (%u)\n", as_msg->selected_integrity_algorithm, emm_security_context->selected_algorithms.integrity);
+//      as_msg->nas_ul_count = 0x00000000 | (emm_security_context->ul_count.overflow << 8) | emm_security_context->ul_count.seq_num;  // This is sent to calculate KeNB
+//      OAILOG_DEBUG (LOG_NAS_EMM, "EMMAS-SAP - NAS UL COUNT %8x\n", as_msg->nas_ul_count);
+    }
+  }
+  /**
+   * No NAS message has to be sent. Just
+   */
+    as_msg->err_code = AS_SUCCESS;
+    ret_val = AS_NAS_HANDOVER_CNF;
+    OAILOG_FUNC_RETURN (LOG_NAS_EMM, ret_val);
+
+  // next hop chaining counter is in s1ap hop counter here !!
+  // not changing the nas sequence number or adding it into the message!
+
+  OAILOG_FUNC_RETURN (LOG_NAS_EMM, ret_val);
+}
+
+/****************************************************************************
+ **                                                                        **
+ ** Name:    _emm_as_ho_bearer_modification_rej()                                   **
+ **                                                                        **
+ ** Description: Processes the EMMAS-SAP handover bearer modification rejection      **
+ **      primitive. Prepare the S1AP message IEs which are derived from the EMM context. **
+ **                                                                        **
+ ** EMMAS-SAP - EMM->AS: HO_BEARER_MODIFICATION_REJ - NAS signalling connection         **
+ **                                                                        **
+ ** Inputs:  msg:       The EMMAS-SAP primitive to process         **
+ **      Others:    None                                       **
+ **                                                                        **
+ ** Outputs:     as_msg:    The message to send to the AS              **
+ **      Return:    The identifier of the AS message           **
+ **      Others:    None                                       **
+ **                                                                        **
+ ***************************************************************************/
+static int _emm_as_ho_bearer_modification_rej (const emm_as_ho_bearer_modification_t * msg, nas_ho_bearer_modification_cnf_t * as_msg)
+{
+  EMM_msg                                *emm_msg = NULL;
+  int                                     size = 0;
+  int                                     ret_val = 0;
+
+  OAILOG_FUNC_IN (LOG_NAS_EMM);
+  OAILOG_INFO (LOG_NAS_EMM, "EMMAS-SAP - Send AS handover rejection\n");
+  nas_message_t                           nas_msg = {.security_protected.header = {0},
+                                                     .security_protected.plain.emm.header = {0},
+                                                     .security_protected.plain.esm.header = {0}};
+  /*
+   * Setup the AS message
+   */
+  as_msg->ue_id = msg->ue_id;
+
+//  if (msg->eps_id.guti == NULL) {
+//    OAILOG_WARNING (LOG_NAS_EMM, "EMMAS-SAP - GUTI is NULL...");
+//    OAILOG_FUNC_RETURN (LOG_NAS_EMM, ret_val);
+//  }
+
+//  as_msg->s_tmsi.mme_code = msg->eps_id.guti->gummei.mme_code;
+//  as_msg->s_tmsi.m_tmsi = msg->eps_id.guti->m_tmsi;
+
+//  struct emm_data_context_s              *emm_ctx = NULL;
+//  emm_security_context_t                 *emm_security_context = NULL;
+//  emm_ctx = emm_data_context_get (&_emm_data, msg->ue_id);
+//  if (emm_ctx) {
+//    if (IS_EMM_CTXT_PRESENT_SECURITY(emm_ctx)) {
+//      emm_security_context = &emm_ctx->_security;
+//      as_msg->selected_encryption_algorithm = (uint16_t) htons(0x10000 >> emm_security_context->selected_algorithms.encryption);
+//      as_msg->selected_integrity_algorithm  = (uint16_t) htons(0x10000 >> emm_security_context->selected_algorithms.integrity);
+//      OAILOG_DEBUG (LOG_NAS_EMM, "Set nas_msg.selected_encryption_algorithm -> NBO: 0x%04X (%u)\n", as_msg->selected_encryption_algorithm, emm_security_context->selected_algorithms.encryption);
+//      OAILOG_DEBUG (LOG_NAS_EMM, "Set nas_msg.selected_integrity_algorithm -> NBO: 0x%04X (%u)\n", as_msg->selected_integrity_algorithm, emm_security_context->selected_algorithms.integrity);
+////      as_msg->nas_ul_count = 0x00000000 | (emm_security_context->ul_count.overflow << 8) | emm_security_context->ul_count.seq_num;  // This is sent to calculate KeNB
+////      OAILOG_DEBUG (LOG_NAS_EMM, "EMMAS-SAP - NAS UL COUNT %8x\n", as_msg->nas_ul_count);
+//    }
+//  }
+  /**
+   * No NAS message has to be sent. Just
+   */
+    as_msg->err_code = AS_FAILURE;
+    ret_val = AS_NAS_HANDOVER_CNF;
+    OAILOG_FUNC_RETURN (LOG_NAS_EMM, ret_val);
+
+  // next hop chaining counter is in s1ap hop counter here !!
+  // not changing the nas sequence number or adding it into the message!
+
+  OAILOG_FUNC_RETURN (LOG_NAS_EMM, ret_val);
 }
 
 /****************************************************************************

@@ -53,6 +53,12 @@ static int                              s1ap_generate_s1_setup_response (
 static int                              s1ap_mme_generate_ue_context_release_command (
     ue_description_t * ue_ref_p, enum s1cause);
 
+static int                              s1ap_send_path_switch_request_failure (
+    const sctp_assoc_id_t assoc_id,
+    const sctp_stream_id_t stream,
+    const mme_ue_s1ap_id_t mme_ue_s1ap_id,
+    const enb_ue_s1ap_id_t enb_ue_s1ap_id);
+
 //Forward declaration
 struct s1ap_message_s;
 
@@ -720,7 +726,7 @@ s1ap_mme_handle_ue_context_release_request (
     } else {
       // abnormal case. No need to do anything. Ignore the message   
       OAILOG_DEBUG (LOG_S1AP, "UE_CONTEXT_RELEASE_REQUEST ignored, cause mismatch enb_ue_s1ap_id: ctxt " ENB_UE_S1AP_ID_FMT " != request " ENB_UE_S1AP_ID_FMT " ",
-    		  (uint32_t)ue_ref_p->enb_ue_s1ap_id, (uint32_t)ueContextReleaseRequest_p->eNB_UE_S1AP_ID);
+              (uint32_t)ue_ref_p->enb_ue_s1ap_id, (uint32_t)ueContextReleaseRequest_p->eNB_UE_S1AP_ID);
       MSC_LOG_EVENT (MSC_S1AP_MME, "0 UE_CONTEXT_RELEASE_REQUEST ignored, cause mismatch enb_ue_s1ap_id: ctxt " ENB_UE_S1AP_ID_FMT " != request " ENB_UE_S1AP_ID_FMT " ",
               ue_ref_p->enb_ue_s1ap_id, (uint32_t)ueContextReleaseRequest_p->eNB_UE_S1AP_ID);
       OAILOG_FUNC_RETURN (LOG_S1AP, RETURNerror);
@@ -916,7 +922,7 @@ s1ap_mme_handle_initial_context_setup_failure (
   if (ue_ref_p->enb_ue_s1ap_id != (initialContextSetupFailureIEs_p->eNB_UE_S1AP_ID & ENB_UE_S1AP_ID_MASK)) {
     // abnormal case. No need to do anything. Ignore the message   
     OAILOG_DEBUG (LOG_S1AP, "INITIAL_CONTEXT_SETUP_FAILURE ignored, mismatch enb_ue_s1ap_id: ctxt " ENB_UE_S1AP_ID_FMT " != received " ENB_UE_S1AP_ID_FMT " ",
-    		  (uint32_t)ue_ref_p->enb_ue_s1ap_id, (uint32_t)(initialContextSetupFailureIEs_p->eNB_UE_S1AP_ID & ENB_UE_S1AP_ID_MASK));
+           (uint32_t)ue_ref_p->enb_ue_s1ap_id, (uint32_t)(initialContextSetupFailureIEs_p->eNB_UE_S1AP_ID & ENB_UE_S1AP_ID_MASK));
     OAILOG_FUNC_RETURN (LOG_S1AP, RETURNerror);
   }
   // Pass this message to MME APP for necessary handling 
@@ -974,35 +980,198 @@ s1ap_mme_handle_path_switch_request (
     struct s1ap_message_s *message)
 {
   S1ap_PathSwitchRequestIEs_t            *pathSwitchRequest_p = NULL;
+  S1ap_E_RABToBeSwitchedDLItemIEs_t      *eRABToBeSwitchedDlItemIEs_p = NULL;
+
   ue_description_t                       *ue_ref_p = NULL;
   enb_ue_s1ap_id_t                        enb_ue_s1ap_id = 0;
+  mme_ue_s1ap_id_t                        mme_ue_s1ap_id = 0;
+  MessageDef                             *message_p = NULL;
+  int                                     rc = RETURNok;
+
+  //  todo: The MME shall verify that the UE security
+  //  capabilities received from the eNB are the same as the UE security capabilities that the MME has stored. If
+  //  there is a mismatch, the MME may log the event and may take additional measures, such as raising an alarm.
+
+  //Request IEs:
+  //S1ap-ENB-UE-S1AP-ID
+  //S1ap-E-RABToBeSwitchedDLList
+  //S1ap-MME-UE-S1AP-ID
+  //S1ap-EUTRAN-CGI
+  //S1ap-TAI
+  //S1ap-UESecurityCapabilities
+
+  //Acknowledge IEs:
+  //S1ap-MME-UE-S1AP-ID
+  //S1ap-ENB-UE-S1AP-ID
+  //S1ap-E-RABToBeSwitchedULList
 
   OAILOG_FUNC_IN (LOG_S1AP);
   pathSwitchRequest_p = &message->msg.s1ap_PathSwitchRequestIEs;
   // eNB UE S1AP ID is limited to 24 bits
   enb_ue_s1ap_id = (enb_ue_s1ap_id_t) (pathSwitchRequest_p->eNB_UE_S1AP_ID & ENB_UE_S1AP_ID_MASK);
+  mme_ue_s1ap_id = pathSwitchRequest_p->sourceMME_UE_S1AP_ID;
   OAILOG_DEBUG (LOG_S1AP, "Path Switch Request message received from eNB UE S1AP ID: " ENB_UE_S1AP_ID_FMT "\n", enb_ue_s1ap_id);
 
-  if ((ue_ref_p = s1ap_is_ue_mme_id_in_list (pathSwitchRequest_p->sourceMME_UE_S1AP_ID)) == NULL) {
+  if ((ue_ref_p = s1ap_is_ue_mme_id_in_list (mme_ue_s1ap_id)) == NULL) {
     /*
      * The MME UE S1AP ID provided by eNB doesn't point to any valid UE.
      * * * * MME replies with a PATH SWITCH REQUEST FAILURE message and start operation
      * * * * as described in TS 36.413 [11].
      * * * * TODO
      */
+    OAILOG_DEBUG (LOG_S1AP, "MME UE S1AP ID provided by eNB doesn't point to any valid UE: " MME_UE_S1AP_ID_FMT "\n", enb_ue_s1ap_id);
+    s1ap_send_path_switch_request_failure(assoc_id, stream, mme_ue_s1ap_id, enb_ue_s1ap_id);
   } else {
-    if (ue_ref_p->enb_ue_s1ap_id != enb_ue_s1ap_id) {
-      /*
-       * Received unique UE eNB ID mismatch with the one known in MME.
-       * * * * Handle this case as defined upper.
-       * * * * TODO
-       */
-      return -1;
+    /** The enb_ue_s1ap_id will change! **/
+
+    OAILOG_DEBUG(LOG_S1AP, "UE_DESCRIPTION REFERENCE @ OLD UE DESCRIPTION AFTER PSR %x \n", ue_ref_p);
+    OAILOG_DEBUG(LOG_S1AP, "UE_DESCRIPTION REFERENCE @ OLD UE DESCRIPTION AFTER PSR %p \n", ue_ref_p);
+    OAILOG_DEBUG(LOG_S1AP, "SET ENB_UE_S1AP_ID (0)   @ OLD UE DESCRIPTION AFTER PSR %d \n", ue_ref_p->enb_ue_s1ap_id);
+
+
+    if (pathSwitchRequest_p->e_RABToBeSwitchedDLList.s1ap_E_RABToBeSwitchedDLItem.count != 1) {
+      OAILOG_DEBUG (LOG_S1AP, "E-RAB switch has failed\n");
+      OAILOG_FUNC_RETURN (LOG_S1AP, RETURNerror);
     }
-    //TODO: Switch the eRABs provided
+
+    /** Try to remove the old s1ap UE context --> ue_reference. */
+    OAILOG_DEBUG (LOG_S1AP, "Removed old ue_reference before handover for MME UE S1AP ID " MME_UE_S1AP_ID_FMT "\n", (uint32_t) ue_ref_p->mme_ue_s1ap_id);
+    s1ap_remove_ue (ue_ref_p);
+
+    /*
+       * This UE eNB Id has currently no known s1 association.
+       * * * * Create new UE context by associating new mme_ue_s1ap_id.
+       * * * * Update eNB UE list.
+       * * * * Forward message to NAS.
+       */
+    if ((ue_ref_p = s1ap_new_ue (assoc_id, enb_ue_s1ap_id)) == NULL) {
+        // If we failed to allocate a new UE return -1
+        OAILOG_ERROR (LOG_S1AP, "S1AP:Initial UE Message- Failed to allocate S1AP UE Context, eNBUeS1APId:" ENB_UE_S1AP_ID_FMT "\n", enb_ue_s1ap_id);
+        OAILOG_FUNC_RETURN (LOG_S1AP, RETURNerror);
+    }
+
+    // todo: starting a timer?
+    ue_ref_p->s1_ue_state     = S1AP_UE_HANDOVER_X2;
+
+    ue_ref_p->enb_ue_s1ap_id = enb_ue_s1ap_id;
+    // Will be allocated by NAS
+    ue_ref_p->mme_ue_s1ap_id = mme_ue_s1ap_id;
+
+    OAILOG_DEBUG(LOG_S1AP, "UE_DESCRIPTION REFERENCE @ NEW UE DESCRIPTION AFTER PSR %x \n", ue_ref_p);
+    OAILOG_DEBUG(LOG_S1AP, "UE_DESCRIPTION REFERENCE @ NEW UE DESCRIPTION AFTER PSR %p \n", ue_ref_p);
+    OAILOG_DEBUG(LOG_S1AP, "SET ENB_UE_S1AP_ID (0)   @ NEW UE DESCRIPTION AFTER PSR %d \n", ue_ref_p->enb_ue_s1ap_id);
+
+    ue_ref_p->s1ap_ue_context_rel_timer.id  = S1AP_TIMER_INACTIVE_ID;
+    ue_ref_p->s1ap_ue_context_rel_timer.sec = S1AP_UE_CONTEXT_REL_COMP_TIMER;
+
+    // On which stream we received the message
+    ue_ref_p->sctp_stream_recv = stream;
+    ue_ref_p->sctp_stream_send = ue_ref_p->enb->next_sctp_stream;
+
+    /*
+     * Increment the sctp stream for the eNB association.
+     * If the next sctp stream is >= instream negociated between eNB and MME, wrap to first stream.
+     * TODO: search for the first available stream instead.
+     */
+
+    /*
+     * TODO task#15456359.
+     * Below logic seems to be incorrect , revisit it.
+     */
+    ue_ref_p->enb->next_sctp_stream += 1;
+    if (ue_ref_p->enb->next_sctp_stream >= ue_ref_p->enb->instreams) {
+      ue_ref_p->enb->next_sctp_stream = 1;
+    }
+
+
+      /** Set the new association and the new stream. */
+      ue_ref_p->enb->sctp_assoc_id = assoc_id;
+      ue_ref_p->enb->next_sctp_stream = stream;
+
+      // set the new enb id
+      ue_ref_p->enb_ue_s1ap_id = enb_ue_s1ap_id;
+
+
+
+
+//      message_p = itti_alloc_new_message (TASK_S1AP, MME_APP_INITIAL_CONTEXT_SETUP_RSP);
+      message_p = itti_alloc_new_message (TASK_S1AP, MME_APP_PATH_SWITCH_REQ);
+      AssertFatal (message_p != NULL, "itti_alloc_new_message Failed");
+      memset ((void *)&message_p->ittiMsg.mme_app_path_switch_req, 0, sizeof (itti_mme_app_path_switch_req_t));
+      /*
+       * Bad, very bad cast...
+       */
+      eRABToBeSwitchedDlItemIEs_p = (S1ap_E_RABToBeSwitchedDLItemIEs_t *)
+        pathSwitchRequest_p->e_RABToBeSwitchedDLList.s1ap_E_RABToBeSwitchedDLItem.array[0];
+      MME_APP_PATH_SWITCH_REQ (message_p).mme_ue_s1ap_id = ue_ref_p->mme_ue_s1ap_id;
+      MME_APP_PATH_SWITCH_REQ (message_p).enb_ue_s1ap_id = ue_ref_p->enb_ue_s1ap_id;
+      MME_APP_PATH_SWITCH_REQ (message_p).enb_ue_s1ap_id = ue_ref_p->enb_ue_s1ap_id;
+      MME_APP_PATH_SWITCH_REQ (message_p).sctp_assoc_id  = assoc_id;
+      MME_APP_PATH_SWITCH_REQ (message_p).sctp_stream    = stream;
+      MME_APP_PATH_SWITCH_REQ (message_p).eps_bearer_id = eRABToBeSwitchedDlItemIEs_p->e_RABToBeSwitchedDLItem.e_RAB_ID;
+      MME_APP_PATH_SWITCH_REQ (message_p).bearer_s1u_enb_fteid.ipv4 = 1;  // TO DO
+      MME_APP_PATH_SWITCH_REQ (message_p).bearer_s1u_enb_fteid.ipv6 = 0;  // TO DO
+      MME_APP_PATH_SWITCH_REQ (message_p).bearer_s1u_enb_fteid.interface_type = S1_U_ENODEB_GTP_U;
+      MME_APP_PATH_SWITCH_REQ (message_p).bearer_s1u_enb_fteid.teid = htonl ( *((uint32_t *) eRABToBeSwitchedDlItemIEs_p->e_RABToBeSwitchedDLItem.gTP_TEID.buf));
+      memcpy (&MME_APP_PATH_SWITCH_REQ (message_p).bearer_s1u_enb_fteid.ipv4_address, eRABToBeSwitchedDlItemIEs_p->e_RABToBeSwitchedDLItem.transportLayerAddress.buf, 4);
+      MSC_LOG_TX_MESSAGE (MSC_S1AP_MME,
+                          MSC_MMEAPP_MME,
+                          NULL, 0,
+                          "0 MME_APP_PATH_SWITCH_REQ mme_ue_s1ap_id " MME_UE_S1AP_ID_FMT " ebi %u s1u enb teid %u",
+                          MME_APP_PATH_SWITCH_REQ (message_p).mme_ue_s1ap_id,
+                          MME_APP_PATH_SWITCH_REQ (message_p).eps_bearer_id,
+                          MME_APP_PATH_SWITCH_REQ (message_p).bearer_s1u_enb_fteid.teid);
+      rc =  itti_send_msg_to_task (TASK_MME_APP, INSTANCE_DEFAULT, message_p);
+      OAILOG_FUNC_RETURN (LOG_S1AP, RETURNok);
+  }
+}
+
+static
+  int
+s1ap_send_path_switch_request_failure (
+    const sctp_assoc_id_t assoc_id,
+    const sctp_stream_id_t stream,
+    const mme_ue_s1ap_id_t mme_ue_s1ap_id,
+    const enb_ue_s1ap_id_t enb_ue_s1ap_id)
+{
+  int                                     enc_rval = 0;
+  S1ap_PathSwitchRequestFailureIEs_t     *pathSwitchRequestFailure_p = NULL;
+  s1ap_message                            message = { 0 };
+  uint8_t                                *buffer = NULL;
+  uint32_t                                length = 0;
+  int                                     rc = RETURNok;
+
+  /*
+   * Mandatory IEs:
+   * S1ap-MME-UE-S1AP-ID
+   * S1ap-ENB-UE-S1AP-ID
+   * S1ap-Cause
+   */
+
+  OAILOG_FUNC_IN (LOG_S1AP);
+
+  pathSwitchRequestFailure_p = &message.msg.s1ap_PathSwitchRequestFailureIEs;
+  s1ap_mme_set_cause(&pathSwitchRequestFailure_p->cause, S1ap_Cause_PR_misc, 4);
+  pathSwitchRequestFailure_p->eNB_UE_S1AP_ID = enb_ue_s1ap_id;
+  pathSwitchRequestFailure_p->mme_ue_s1ap_id = mme_ue_s1ap_id;
+
+  message.procedureCode = S1ap_ProcedureCode_id_PathSwitchRequest;
+  message.direction = S1AP_PDU_PR_unsuccessfulOutcome;
+  enc_rval = s1ap_mme_encode_pdu (&message, &buffer, &length);
+
+  // Failed to encode
+  if (enc_rval < 0) {
+    OAILOG_ERROR (LOG_S1AP, "Error encoding path switch request failure.\n");
+    free_s1ap_pathswitchrequestfailure(pathSwitchRequestFailure_p);
   }
 
-  OAILOG_FUNC_RETURN (LOG_S1AP, RETURNok);
+  bstring b = blk2bstr(buffer, length);
+  free(buffer);
+  rc = s1ap_mme_itti_send_sctp_request (&b, assoc_id, 0, INVALID_MME_UE_S1AP_ID);
+
+  free_s1ap_pathswitchrequestfailure(pathSwitchRequestFailure_p);
+
+  OAILOG_FUNC_RETURN (LOG_S1AP, rc);
 }
 
 //------------------------------------------------------------------------------

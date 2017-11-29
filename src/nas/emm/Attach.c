@@ -506,6 +506,7 @@ emm_proc_attach_request (
       OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
     }
     new_emm_ctx->num_attach_request++;
+    new_emm_ctx->_security.ncc = 0;
     new_emm_ctx->ue_id = ue_id; 
     OAILOG_NOTICE (LOG_NAS_EMM, "EMM-PROC  - Create EMM context ue_id = " MME_UE_S1AP_ID_FMT "\n", ue_id);
     new_emm_ctx->is_dynamic = true;
@@ -1267,6 +1268,9 @@ _emm_attach (
     /*
      * Assign the TAI list the UE is registered to
      */
+    emm_ctx->_tai_list.list_type = 11;
+    emm_ctx->_tai_list.n_tais = 12;
+
     /*
      * Allocate parameters of the retransmission timer callback
      */
@@ -1419,9 +1423,11 @@ _emm_attach_accept (
     REQUIREMENT_3GPP_24_301(R10_5_5_1_2_4__9);
     // the set of emm_sap.u.emm_as.u.establish.new_guti is for including the GUTI in the attach accept message
     //ONLY ONE MME NOW NO S10
+    // todo: if there are multiple MME via S10, what happens?
     if (!IS_EMM_CTXT_PRESENT_GUTI(emm_ctx)) {
       // Sure it is an unknown GUTI in this MME
       guti_t old_guti = emm_ctx->_old_guti;
+      // todo: this is cool
       guti_t guti     = {.gummei.plmn = {0},
                          .gummei.mme_gid = 0,
                          .gummei.mme_code = 0,
@@ -1508,6 +1514,9 @@ _emm_attach_accept (
     /*
      * Get the activate default EPS bearer context request message to
      * transfer within the ESM container of the attach accept message
+     *
+     * Any kind of piggybacked nas message!
+     * todo: does data,
      */
     emm_sap.u.emm_as.u.establish.nas_msg = data->esm_msg;
     OAILOG_TRACE (LOG_NAS_EMM, "ue_id=" MME_UE_S1AP_ID_FMT " EMM-PROC  - nas_msg  src size = %d nas_msg  dst size = %d \n",

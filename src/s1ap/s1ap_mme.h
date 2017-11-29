@@ -53,7 +53,8 @@ enum mme_s1_enb_state_s {
 enum s1_ue_state_s {
   S1AP_UE_INVALID_STATE,
   S1AP_UE_WAITING_CSR,    ///< Waiting for Initial Context Setup Response
-  S1AP_UE_HANDOVER,       ///< Handover procedure triggered
+  S1AP_UE_HANDOVER_X2,    ///< X2 Handover procedure triggered
+  S1AP_UE_HANDOVER_S1AP,  ///< S1AP Handover procedure triggered
   S1AP_UE_CONNECTED,      ///< UE context ready
   S1AP_UE_WAITING_CRR,   /// UE Context release Procedure initiated , waiting for UE context Release Complete
 };

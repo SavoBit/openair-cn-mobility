@@ -95,6 +95,7 @@ s11_mme_ulp_process_stack_req_cb (
 
     break;
 
+    // todo: add initial reqs --> CBR / UBR / DBR !
   default:
     break;
   }

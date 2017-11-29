@@ -104,6 +104,8 @@ typedef struct emm_security_context_s {
   int vector_index;   /* Pointer on vector */
   uint8_t knas_enc[AUTH_KNAS_ENC_SIZE];/* NAS cyphering key               */
   uint8_t knas_int[AUTH_KNAS_INT_SIZE];/* NAS integrity key               */
+  uint8_t ncc:3; /* next hop chaining counter for handover. */
+  uint8_t nh_conj[AUTH_NH_SIZE];      /* nh */
 
   struct count_s{
     uint32_t spare:8;

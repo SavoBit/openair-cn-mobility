@@ -70,6 +70,13 @@ s1ap_mme_decode_initiating (
       }
       break;
 
+    case S1ap_ProcedureCode_id_PathSwitchRequest: {
+        ret = s1ap_decode_s1ap_pathswitchrequesties(&message->msg.s1ap_PathSwitchRequestIEs, &initiating_p->value);
+        s1ap_xer_print_s1ap_pathswitchrequest (s1ap_xer__print2sp, message_string, message);
+        *message_id = S1AP_PATHSWITCHREQUEST_LOG;
+      }
+      break;
+
     case S1ap_ProcedureCode_id_initialUEMessage: {
         ret = s1ap_decode_s1ap_initialuemessageies (&message->msg.s1ap_InitialUEMessageIEs, &initiating_p->value);
         s1ap_xer_print_s1ap_initialuemessage (s1ap_xer__print2sp, message_string, message);
@@ -269,6 +276,8 @@ int s1ap_free_mme_decode_pdu(
     return free_s1ap_uplinknastransport(&message->msg.s1ap_UplinkNASTransportIEs);
   case S1AP_S1_SETUP_LOG:
     return free_s1ap_s1setuprequest(&message->msg.s1ap_S1SetupRequestIEs);
+  case S1AP_PATHSWITCHREQUEST_LOG:
+    return free_s1ap_pathswitchrequest(&message->msg.s1ap_PathSwitchRequestIEs);
   case S1AP_INITIAL_UE_MESSAGE_LOG:
     return free_s1ap_initialuemessage(&message->msg.s1ap_InitialUEMessageIEs);
   case S1AP_UE_CONTEXT_RELEASE_REQ_LOG:

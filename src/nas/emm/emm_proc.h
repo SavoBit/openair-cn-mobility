@@ -139,6 +139,8 @@ int emm_proc_tracking_area_update_request (
         const mme_ue_s1ap_id_t ue_id,
         const tracking_area_update_request_msg *msg,
         int *emm_cause,
+        const tac_t new_tac,
+        const plmn_t          *plmn_id,
         const nas_message_decode_status_t *decode_status);
 
 int emm_proc_tracking_area_update_reject (

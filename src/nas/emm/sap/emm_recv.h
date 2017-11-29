@@ -104,6 +104,8 @@ int emm_recv_tracking_area_update_request(
     const mme_ue_s1ap_id_t ueid,
     const tracking_area_update_request_msg *msg,
     int *emm_cause,
+    tac_t new_tac,
+    const plmn_t          *plmn_id,
     const nas_message_decode_status_t  * decode_status);
 
 int emm_recv_service_request(mme_ue_s1ap_id_t ueid,

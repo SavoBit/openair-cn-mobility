@@ -440,6 +440,43 @@ void nas_itti_establish_cnf(
         emm_ctx->_security.ul_count.seq_num | (emm_ctx->_security.ul_count.overflow << 8),
         NAS_CONNECTION_ESTABLISHMENT_CNF(message_p).kenb);
 
+    uint8_t                                 zero[32];
+    memset(zero, 0, 32);
+    memset(emm_ctx->_vector[emm_ctx->_security.vector_index].nh_conj, 0, 32);
+
+    OAILOG_WARNING( LOG_NAS_EMM, "EMM-PROC  - KENB @ INITIAL UE. \n");
+     OAILOG_STREAM_HEX (OAILOG_LEVEL_DEBUG, LOG_NAS_EMM, "KENB :", NAS_CONNECTION_ESTABLISHMENT_CNF(message_p).kenb, 32);
+
+     OAILOG_WARNING( LOG_NAS_EMM, "EMM-PROC  - OLD NH value before @ initial UE  \n");
+     OAILOG_STREAM_HEX (OAILOG_LEVEL_DEBUG, LOG_NAS_EMM, "OLD_NH :", emm_ctx->_vector[emm_ctx->_security.vector_index].nh_conj, 32);
+
+      /** Derive the next hop. */
+      /** Calculate and set the next hop value into the context. Use the above derived kenb as first nh value. */
+      if(memcmp(emm_ctx->_vector[emm_ctx->_security.vector_index].nh_conj, zero, 32) == 0){
+          OAILOG_DEBUG (LOG_NAS_EMM, "EMM-PROC  - NH value is 0 as expected. Setting kEnb as NH0  \n");
+          memcpy(emm_ctx->_vector[emm_ctx->_security.vector_index].nh_conj, NAS_CONNECTION_ESTABLISHMENT_CNF(message_p).kenb, 32);
+      }else{
+        OAILOG_WARNING( LOG_NAS_EMM, "EMM-PROC  - NH value is NOT 0 @ initial S1AP context establishment  \n");
+      }
+
+      OAILOG_WARNING( LOG_NAS_EMM, "EMM-PROC  - NH value after copy of kenb @ initial UE  \n");
+      OAILOG_STREAM_HEX (OAILOG_LEVEL_DEBUG, LOG_NAS_EMM, "NEW_NH :", emm_ctx->_vector[emm_ctx->_security.vector_index].nh_conj, 32);
+
+
+    /** Reset the next chaining hop counter.
+     * TS. 33.401:
+     * Upon receipt of the NAS Service Request message, the MME shall derive key KeNB as specified in Annex A.3 using the
+      NAS COUNT [9] corresponding to the NAS Service Request and initialize the value of the Next hop Chaining Counter
+      (NCC) to one. The MME shall further derive a next hop parameter NH as specified in Annex A.4 using the newly
+      derived KeNB as basis for the derivation. This fresh {NH, NCC=1} pair shall be stored in the MME and shall be used for
+      the next forward security key derivation. The MME shall communicate the {KeNB, NCC=0} pair and KSIASME to the
+      serving eNB in the S1-AP procedure INITIAL CONTEXT SETUP.
+ */
+    emm_ctx->_security.ncc = 0;
+    /* The NCC is a 3-bit key index (values from 0 to 7) for the NH and is sent to the
+    UE in the handover command signalling. */
+//    emm_ctx->_security.ncc = emm_ctx->_security.ncc % 8;
+
     MSC_LOG_TX_MESSAGE(
         MSC_NAS_MME,
         MSC_MMEAPP_MME,
@@ -450,6 +487,234 @@ void nas_itti_establish_cnf(
     itti_send_msg_to_task(TASK_MME_APP, INSTANCE_DEFAULT, message_p);
   }
 
+  OAILOG_FUNC_OUT(LOG_NAS);
+}
+
+////------------------------------------------------------------------------------
+//void nas_itti_establish_rej(
+//  const uint32_t      ue_idP,
+//  const imsi_t *const imsi_pP
+//  , uint8_t           initial_reqP)
+//{
+//  OAILOG_FUNC_IN(LOG_NAS);
+//  MessageDef *message_p;
+//
+//  message_p = itti_alloc_new_message(TASK_NAS_MME, NAS_AUTHENTICATION_PARAM_REQ);
+//  memset(&message_p->ittiMsg.nas_auth_param_req,
+//         0,
+//         sizeof(itti_nas_auth_param_req_t));
+//
+//  hexa_to_ascii((uint8_t *)imsi_pP->u.value,
+//                NAS_AUTHENTICATION_PARAM_REQ(message_p).imsi, 8);
+//
+//  NAS_AUTHENTICATION_PARAM_REQ(message_p).imsi[15] = '\0';
+//
+//  if (isdigit(NAS_AUTHENTICATION_PARAM_REQ(message_p).imsi[14])) {
+//    NAS_AUTHENTICATION_PARAM_REQ(message_p).imsi_length = 15;
+//  } else {
+//    NAS_AUTHENTICATION_PARAM_REQ(message_p).imsi_length = 14;
+//    NAS_AUTHENTICATION_PARAM_REQ(message_p).imsi[14]    = '\0';
+//  }
+//
+//  NAS_AUTHENTICATION_PARAM_REQ(message_p).initial_req = initial_reqP;
+//  NAS_AUTHENTICATION_PARAM_REQ(message_p).ue_id       = ue_idP;
+//
+//  MSC_LOG_TX_MESSAGE(
+//        MSC_NAS_MME,
+//        MSC_MMEAPP_MME,
+//        NULL,0,
+//        "NAS_AUTHENTICATION_PARAM_REQ ue id %06"PRIX32" IMSI %s (establish reject)",
+//        ue_idP, NAS_AUTHENTICATION_PARAM_REQ(message_p).imsi);
+//
+//  itti_send_msg_to_task(TASK_MME_APP, INSTANCE_DEFAULT, message_p);
+//  OAILOG_FUNC_OUT(LOG_NAS);
+//}
+
+//------------------------------------------------------------------------------
+void nas_itti_handover_cnf(
+  const uint32_t         ue_idP,
+  const nas_error_code_t error_codeP,
+  const uint16_t         selected_encryption_algorithmP,
+  const uint16_t         selected_integrity_algorithmP)
+{
+  OAILOG_FUNC_IN(LOG_NAS);
+  MessageDef                             *message_p        = NULL;
+  emm_data_context_t                     *emm_ctx = emm_data_context_get (&_emm_data, ue_idP);
+
+  if (emm_ctx) {
+    message_p = itti_alloc_new_message(TASK_NAS_MME, NAS_HANDOVER_CNF);
+    memset(&message_p->ittiMsg.nas_handover_cnf, 0, sizeof(itti_nas_handover_cnf_t));
+    NAS_HANDOVER_CNF(message_p).ue_id                           = ue_idP;
+    NAS_HANDOVER_CNF(message_p).err_code                        = error_codeP;
+
+    // According to 3GPP 9.2.1.40, the UE security capabilities are 16-bit
+    // strings, EEA0 is inherently supported, so its support is not tracked in
+    // the bit string. However, emm_ctx->eea is an 8-bit string with the highest
+    // order bit representing EEA0 support, so we need to trim it. The same goes
+    // for integrity.
+    //
+    // TODO: change the way the EEA and EIA are translated into the packets.
+    //       Currently, the 16-bit string is 8-bit rotated to produce the string
+    //       sent in the packets, which is why we're using bits 8-10 to
+    //       represent EEA1/2/3 (and EIA1/2/3) support here.
+    NAS_HANDOVER_CNF(message_p)
+      .encryption_algorithm_capabilities =
+      ((uint16_t)emm_ctx->eea & ~(1 << 7)) << 1;
+    NAS_HANDOVER_CNF(message_p)
+      .integrity_algorithm_capabilities =
+      ((uint16_t)emm_ctx->eia & ~(1 << 7)) << 1;
+
+    AssertFatal((0 <= emm_ctx->_security.vector_index) && (MAX_EPS_AUTH_VECTORS > emm_ctx->_security.vector_index),
+        "Invalid vector index %d", emm_ctx->_security.vector_index);
+
+//    derive_keNB (emm_ctx->_vector[emm_ctx->_security.vector_index].kasme,
+//        emm_ctx->_security.ul_count.seq_num | (emm_ctx->_security.ul_count.overflow << 8),
+//        NAS_HANDOVER_CNF(message_p).kenb);
+
+    /** Reset the ncc value. */
+//    emm_ctx->_security.ncc = 1;
+
+    // todo: check that the nh value is not null/0/empty
+
+    OAILOG_DEBUG (LOG_NAS_EMM, "EMM-PROC  - CALCULATING WRONG HANDOVER VALUE \n");
+
+    uint8_t                                 zero[32];
+    memset(zero, 0, 32);
+
+    /** Derive the next hop. */
+    /** Calculate and set the next hop value into the context. Use the above derived kenb as first nh value. */
+    if(memcmp(emm_ctx->_vector[emm_ctx->_security.vector_index].nh_conj, zero, 32) == 0){
+        OAILOG_DEBUG (LOG_NAS_EMM, "EMM-PROC  - NH value is not 0.  \n");
+    }else{
+      OAILOG_WARNING( LOG_NAS_EMM, "EMM-PROC  - NH value is 0 NH calculation . \n");
+    }
+
+    OAILOG_WARNING( LOG_NAS_EMM, "EMM-PROC  - Old NH value before derive_nh @ handover. \n");
+    OAILOG_STREAM_HEX (OAILOG_LEVEL_DEBUG, LOG_NAS_EMM, "NEW NH:", emm_ctx->_vector[emm_ctx->_security.vector_index].nh_conj, 32);
+
+    derive_nh(emm_ctx->_vector[emm_ctx->_security.vector_index].kasme,
+        emm_ctx->_vector[emm_ctx->_security.vector_index].nh_conj);
+
+    OAILOG_WARNING( LOG_NAS_EMM, "EMM-PROC  - NEW NH value after derive_nh @ handover. \n");
+    OAILOG_STREAM_HEX (OAILOG_LEVEL_DEBUG, LOG_NAS_EMM, "NEW NH:", emm_ctx->_vector[emm_ctx->_security.vector_index].nh_conj, 32);
+
+//    OAILOG_WARNING( LOG_NAS_EMM, "EMM-PROC  - NH value is 0 NH calculation. New Nh Value %x.", *(emm_ctx->_vector[emm_ctx->_security.vector_index].nh_conj));
+
+    memcpy(NAS_HANDOVER_CNF(message_p).nh_conj, emm_ctx->_vector[emm_ctx->_security.vector_index].nh_conj, 32 );
+
+    OAILOG_WARNING( LOG_NAS_EMM, "EMM-PROC  - Sent NH value after derive_nh @ handover.  \n");
+    OAILOG_STREAM_HEX (OAILOG_LEVEL_DEBUG, LOG_NAS_EMM, "NEW NH:", NAS_HANDOVER_CNF(message_p).nh_conj, 32);
+
+    /** Calculate and set the next hop value into the context. */
+//    derive_nh(emm_ctx->_vector[emm_ctx->_security.vector_index].kasme,
+//        emm_ctx->_vector[emm_ctx->_security.vector_index].nh_conj, sizeof(emm_ctx->_vector[emm_ctx->_security.vector_index].nh_conj)/8,
+//        &NAS_HANDOVER_CNF(message_p).nh_conj);
+//
+//    derive_nh(emm_ctx->_vector[emm_ctx->_security.vector_index].kasme,
+//           emm_ctx->_vector[emm_ctx->_security.vector_index].nh_conj,
+//           NAS_HANDOVER_CNF(message_p).kenb);
+
+
+
+
+//    derive_nh (
+//      const uint8_t *kasme_32,
+//      uint8_t * nh,
+//      uint8_t * kenb)
+//    {
+//
+//      uint8_t                                 s[35], zero[32];
+//      memset(zero, 0, 32);
+//      memset(s, 0, 35);
+//
+//      s[0] = (FC_NH);
+//       // P0
+//      if(memcmp(nh, zero, 32)==0){
+//          /*First hop*/
+//          memcpy(s+1, kenb, 32);
+//      }else{
+//          memcpy(s+1, nh, 32);
+//      }
+
+
+
+
+  //    derive_nh(emm_ctx->_vector[emm_ctx->_security.vector_index].kasme,
+  //        emm_ctx->_vector[emm_ctx->_security.vector_index].nh_conj,
+  //        NAS_CONNECTION_ESTABLISHMENT_CNF(message_p).kenb);
+  //
+  //
+  ////    derive_nh (
+  ////      const uint8_t *kasme_32,
+  ////      uint8_t * nh,
+  ////      uint8_t * kenb)
+  ////    {
+  ////
+  ////      uint8_t                                 s[35], zero[32];
+  ////      memset(zero, 0, 32);
+  ////      memset(s, 0, 35);
+  ////
+  ////      s[0] = (FC_NH);
+  ////       // P0
+  ////      if(memcmp(nh, zero, 32)==0){
+  ////          /*First hop*/
+  //          memcpy(s+1, kenb, 32);
+  //      }else{
+  //          memcpy(s+1, nh, 32);
+  //      }
+  //
+  //
+
+
+
+
+
+
+
+
+//    memcpy ((void *)emm_ctx->_vector[emm_ctx->_security.vector_index].nh_conj, NAS_HANDOVER_CNF(message_p).nh_conj,  sizeof(emm_ctx->_vector[emm_ctx->_security.vector_index].nh_conj)/8);
+
+    /** Increase the next hop counter. */
+    emm_ctx->_security.ncc++;
+    /* The NCC is a 3-bit key index (values from 0 to 7) for the NH and is sent to the
+    UE in the handover command signaling. */
+    emm_ctx->_security.ncc = emm_ctx->_security.ncc % 8;
+    NAS_HANDOVER_CNF(message_p).ncc = emm_ctx->_security.ncc;
+
+    MSC_LOG_TX_MESSAGE(
+        MSC_NAS_MME,
+        MSC_MMEAPP_MME,
+        NULL,0,
+        "NAS_HANDOVER_CNF ue id %06"PRIX32/*" len %u sea %x sia %x "*/,
+        ue_idP, /*blength(msgP),*/ selected_encryption_algorithmP, selected_integrity_algorithmP);
+
+    itti_send_msg_to_task(TASK_MME_APP, INSTANCE_DEFAULT, message_p);
+  }
+
+  OAILOG_FUNC_OUT(LOG_NAS);
+}
+
+//------------------------------------------------------------------------------
+void nas_itti_handover_rej(
+  const uint32_t      ue_idP,
+  const nas_error_code_t error_codeP)
+{
+  OAILOG_FUNC_IN(LOG_NAS);
+  MessageDef *message_p;
+
+  message_p = itti_alloc_new_message(TASK_NAS_MME, NAS_HANDOVER_REJ);
+
+  NAS_HANDOVER_CNF(message_p).err_code                        = error_codeP;
+  NAS_HANDOVER_REJ(message_p).ue_id                           = ue_idP;
+
+  MSC_LOG_TX_MESSAGE(
+        MSC_NAS_MME,
+        MSC_MMEAPP_MME,
+        NULL,0,
+        "NAS_HANDOVER_REJ ue id %06"PRIX32" IMSI %s (establish reject)",
+        ue_idP, NAS_AUTHENTICATION_PARAM_REQ(message_p).imsi);
+
+  itti_send_msg_to_task(TASK_MME_APP, INSTANCE_DEFAULT, message_p);
   OAILOG_FUNC_OUT(LOG_NAS);
 }
 

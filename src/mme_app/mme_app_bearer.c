@@ -47,6 +47,8 @@
 
 //----------------------------------------------------------------------------
 static bool mme_app_construct_guti(const plmn_t * const plmn_p, const as_stmsi_t * const s_tmsi_p,  guti_t * const guti_p);
+static bool mme_app_construct_guti_2(const plmn_t * const plmn_p, uint32_t s_tmsi, uint8_t mmec,  guti_t * const guti_p);
+
 static void notify_s1ap_new_ue_mme_s1ap_id_association (struct ue_context_s *ue_context_p);
 
 //------------------------------------------------------------------------------
@@ -437,6 +439,153 @@ mme_app_handle_conn_est_cnf (
   OAILOG_FUNC_OUT (LOG_MME_APP);
 }
 
+// sent by NAS for handover acceptance
+//------------------------------------------------------------------------------
+void
+mme_app_handle_handover_cnf (
+  const itti_nas_handover_cnf_t * const nas_handover_cnf_pP)
+{
+  struct ue_context_s                    *ue_context_p = NULL;
+  MessageDef                             *message_p = NULL;
+  itti_mme_app_handover_cnf_t            *handover_cnf_p = NULL;
+  bearer_context_t                       *current_bearer_p = NULL;
+  ebi_t                                   bearer_id = 0;
+
+  OAILOG_FUNC_IN (LOG_MME_APP);
+  OAILOG_DEBUG (LOG_MME_APP, "Received NAS_HANDOVER_CNF from NAS\n");
+  ue_context_p = mme_ue_context_exists_mme_ue_s1ap_id (&mme_app_desc.mme_ue_contexts, nas_handover_cnf_pP->ue_id);
+
+  if (ue_context_p == NULL) {
+//    MSC_LOG_EVENT (MSC_MMEAPP_MME, "NAS_HANDOVER_CNF Unknown ue %u", nas_handover_cnf_pP->ue_id);
+    OAILOG_ERROR (LOG_MME_APP, "UE context doesn't exist for UE %06" PRIX32 "/dec%u\n", nas_handover_cnf_pP->ue_id, nas_handover_cnf_pP->ue_id);
+    OAILOG_FUNC_OUT (LOG_MME_APP);
+  }
+
+  if(!ue_context_p->pending_handover){
+     OAILOG_ERROR (LOG_MME_APP, "No pending handover for UE id %d. Cannot process handover confirmation from nas. \n", ue_context_p->mme_ue_s1ap_id);
+     // todo: better error handling
+     OAILOG_FUNC_RETURN (LOG_MME_APP, RETURNerror);
+  }
+
+  message_p = itti_alloc_new_message (TASK_MME_APP, MME_APP_HANDOVER_CNF);
+  handover_cnf_p = &message_p->ittiMsg.mme_app_handover_cnf;
+  memset (handover_cnf_p, 0, sizeof (itti_mme_app_handover_cnf_t));
+  memcpy (&handover_cnf_p->nas_handover_cnf, nas_handover_cnf_pP, sizeof (itti_nas_handover_cnf_t));
+
+  bearer_id = ue_context_p->default_bearer_id;
+  current_bearer_p = &ue_context_p->eps_bearers[bearer_id];
+  handover_cnf_p->eps_bearer_id = bearer_id;
+  handover_cnf_p->bearer_s1u_sgw_fteid.interface_type = S1_U_SGW_GTP_U;
+  handover_cnf_p->bearer_s1u_sgw_fteid.teid = current_bearer_p->s_gw_teid;
+
+  if ((current_bearer_p->s_gw_address.pdn_type == IPv4)
+      || (current_bearer_p->s_gw_address.pdn_type == IPv4_AND_v6)) {
+    handover_cnf_p->bearer_s1u_sgw_fteid.ipv4 = 1;
+    memcpy (&handover_cnf_p->bearer_s1u_sgw_fteid.ipv4_address, current_bearer_p->s_gw_address.address.ipv4_address, 4);
+  }
+
+  if ((current_bearer_p->s_gw_address.pdn_type == IPv6)
+      || (current_bearer_p->s_gw_address.pdn_type == IPv4_AND_v6)) {
+    handover_cnf_p->bearer_s1u_sgw_fteid.ipv6 = 1;
+    memcpy (handover_cnf_p->bearer_s1u_sgw_fteid.ipv6_address, current_bearer_p->s_gw_address.address.ipv6_address, 16);
+  }
+
+  handover_cnf_p->security_capabilities_encryption_algorithms =
+      nas_handover_cnf_pP->encryption_algorithm_capabilities;
+  handover_cnf_p->security_capabilities_integrity_algorithms =
+      nas_handover_cnf_pP->integrity_algorithm_capabilities;
+
+  /** Set the next hop value and the NCC value. */
+  memcpy(handover_cnf_p->nh, nas_handover_cnf_pP->nh_conj, AUTH_NH_SIZE);
+  handover_cnf_p->ncc = nas_handover_cnf_pP->ncc;
+
+  OAILOG_DEBUG (LOG_MME_APP, "security_capabilities_encryption_algorithms 0x%04X\n", handover_cnf_p->security_capabilities_encryption_algorithms);
+  OAILOG_DEBUG (LOG_MME_APP, "security_capabilities_integrity_algorithms  0x%04X\n", handover_cnf_p->security_capabilities_integrity_algorithms);
+
+  OAILOG_DEBUG (LOG_MME_APP, "Deactivating pending handover. \n");
+  ue_context_p->pending_handover=false;
+
+//  MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME, MSC_S1AP_MME, NULL, 0,
+//                      "0 MME_APP_HANDOVER_CNF ebi %u s1u_sgw teid %u sea 0x%x sia 0x%x ncc %d",
+//                      handover_cnf_p->eps_bearer_id,
+//                      handover_cnf_p->bearer_s1u_sgw_fteid.teid,
+//                      handover_cnf_p->security_capabilities_encryption_algorithms, handover_cnf_p->security_capabilities_integrity_algorithms,
+//                      handover_cnf_p->ncc);
+  itti_send_msg_to_task (TASK_S1AP, INSTANCE_DEFAULT, message_p);
+
+  /*
+   * todo: not changing the ECM state?
+   */
+
+  /* Start timer to wait for Initial UE Context Response from eNB
+   * If timer expires treat this as failure of ongoing procedure and abort corresponding NAS procedure such as ATTACH
+   * or SERVICE REQUEST. Send UE context release command to eNB
+   */
+
+  // todo: start timer for path switch request
+//  if (timer_setup (ue_context_p->initial_context_setup_rsp_timer.sec, 0,
+//                TASK_MME_APP, INSTANCE_DEFAULT, TIMER_ONE_SHOT, (void *) &(ue_context_p->mme_ue_s1ap_id), &(ue_context_p->initial_context_setup_rsp_timer.id)) < 0) {
+//    OAILOG_ERROR (LOG_MME_APP, "Failed to start initial context setup response timer for UE id  %d \n", ue_context_p->mme_ue_s1ap_id);
+//    ue_context_p->initial_context_setup_rsp_timer.id = MME_APP_TIMER_INACTIVE_ID;
+//  } else {
+//    OAILOG_DEBUG (LOG_MME_APP, "MME APP : Sent Initial context Setup Request and Started guard timer for UE id  %d \n", ue_context_p->mme_ue_s1ap_id);
+//  }
+  OAILOG_FUNC_OUT (LOG_MME_APP);
+}
+
+// sent by NAS for handover rejection
+//------------------------------------------------------------------------------
+void
+mme_app_handle_handover_rej (
+  const itti_nas_handover_rej_t * const nas_handover_rej_pP)
+{
+  struct ue_context_s                    *ue_context_p = NULL;
+  MessageDef                             *message_p = NULL;
+  itti_mme_app_handover_rej_t            *handover_rej_p = NULL;
+  bearer_context_t                       *current_bearer_p = NULL;
+  ebi_t                                   bearer_id = 0;
+
+  OAILOG_FUNC_IN (LOG_MME_APP);
+  OAILOG_DEBUG (LOG_MME_APP, "Received NAS_HANDOVER_REJ from NAS\n");
+  ue_context_p = mme_ue_context_exists_mme_ue_s1ap_id (&mme_app_desc.mme_ue_contexts, nas_handover_rej_pP->ue_id);
+
+  if (ue_context_p == NULL) {
+//    MSC_LOG_EVENT (MSC_MMEAPP_MME, "NAS_HANDOVER_REJ Unknown ue %u", nas_handover_rej_pP->ue_id);
+    OAILOG_ERROR (LOG_MME_APP, "UE context doesn't exist for UE %06" PRIX32 "/dec%u\n", nas_handover_rej_pP->ue_id, nas_handover_rej_pP->ue_id);
+    OAILOG_FUNC_OUT (LOG_MME_APP);
+  }
+
+  ue_context_p->pending_handover=false;
+
+  message_p = itti_alloc_new_message (TASK_MME_APP, MME_APP_HANDOVER_REJ);
+  handover_rej_p = &message_p->ittiMsg.mme_app_handover_rej;
+  memset (handover_rej_p, 0, sizeof (itti_mme_app_handover_rej_t));
+  memcpy (&handover_rej_p->nas_handover_rej, nas_handover_rej_pP, sizeof (itti_nas_handover_cnf_t));
+
+//  MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME, MSC_S1AP_MME, NULL, 0,
+//                      "0 MME_APP_HANDOVER_REJ",);
+  itti_send_msg_to_task (TASK_S1AP, INSTANCE_DEFAULT, message_p);
+
+  /*
+   * Move the UE to ECM Connected State.However if S1-U bearer establishment fails then we need to move the UE to idle.
+   * S1 Signaling connection gets established via first DL NAS Trasnport message in some scenarios so check the state
+   * first
+   */
+
+  /* Start timer to wait for Initial UE Context Response from eNB
+   * If timer expires treat this as failure of ongoing procedure and abort corresponding NAS procedure such as ATTACH
+   * or SERVICE REQUEST. Send UE context release command to eNB
+   */
+//  if (timer_setup (ue_context_p->initial_context_setup_rsp_timer.sec, 0,
+//                TASK_MME_APP, INSTANCE_DEFAULT, TIMER_ONE_SHOT, (void *) &(ue_context_p->mme_ue_s1ap_id), &(ue_context_p->initial_context_setup_rsp_timer.id)) < 0) {
+//    OAILOG_ERROR (LOG_MME_APP, "Failed to start initial context setup response timer for UE id  %d \n", ue_context_p->mme_ue_s1ap_id);
+//    ue_context_p->initial_context_setup_rsp_timer.id = MME_APP_TIMER_INACTIVE_ID;
+//  } else {
+//    OAILOG_DEBUG (LOG_MME_APP, "MME APP : Sent Initial context Setup Request and Started guard timer for UE id  %d \n", ue_context_p->mme_ue_s1ap_id);
+//  }
+  OAILOG_FUNC_OUT (LOG_MME_APP);
+}
+
 // sent by S1AP
 //------------------------------------------------------------------------------
 void
@@ -561,6 +710,145 @@ mme_app_handle_initial_ue_message (
 
 //------------------------------------------------------------------------------
 void
+mme_app_handle_initial_ue_message_check_duplicate (
+  itti_mme_app_initial_ue_message_check_duplicate_t * const initial_check_duplicate_pP)
+{
+  struct ue_context_s                    *ue_context_p = NULL;
+  MessageDef                             *message_p = NULL;
+  bool                                    is_guti_valid = false;
+  emm_data_context_t                     *ue_nas_ctx = NULL;
+  enb_s1ap_id_key_t                       enb_s1ap_id_key = INVALID_ENB_UE_S1AP_ID_KEY;
+  void                                   *id = NULL;
+  OAILOG_FUNC_IN (LOG_MME_APP);
+  OAILOG_DEBUG (LOG_MME_APP, "Received MME_APP_INITIAL_UE_MESSAGE_CHECK_DUPLICATE from S1AP\n");
+
+  DevAssert(INVALID_MME_UE_S1AP_ID == initial_check_duplicate_pP->mme_ue_s1ap_id);
+
+  // Check if there is any existing UE context using S-TMSI/GUTI
+  if (initial_check_duplicate_pP->is_s_tmsi_valid)
+  {
+    OAILOG_DEBUG (LOG_MME_APP, "INITIAL UE Message (duplicate check): Valid and MMEC %u and S_TMSI %u received from eNB.\n",
+        initial_check_duplicate_pP->opt_s_tmsi.mme_code, initial_check_duplicate_pP->opt_s_tmsi.m_tmsi);
+    guti_t guti = {.gummei.plmn = {0}, .gummei.mme_gid = 0, .gummei.mme_code = 0, .m_tmsi = INVALID_M_TMSI};
+//    is_guti_valid = mme_app_construct_guti_2(&(initial_check_duplicate_pP->tai.plmn), initial_check_duplicate_pP->s_tmsi, initial_check_duplicate_pP->mmec, &guti);
+    is_guti_valid = mme_app_construct_guti(&(initial_check_duplicate_pP->tai.plmn),&(initial_check_duplicate_pP->opt_s_tmsi),&guti);
+
+    if (is_guti_valid)
+    {
+      ue_nas_ctx = emm_data_context_get_by_guti (&_emm_data, &guti);
+      if (ue_nas_ctx)
+      {
+        // Get the UE context using mme_ue_s1ap_id
+        ue_context_p =  mme_ue_context_exists_mme_ue_s1ap_id(&mme_app_desc.mme_ue_contexts,ue_nas_ctx->ue_id);
+        DevAssert(ue_context_p != NULL);
+        if ((ue_context_p != NULL) && (ue_context_p->mme_ue_s1ap_id == ue_nas_ctx->ue_id)) {
+          initial_check_duplicate_pP->mme_ue_s1ap_id = ue_nas_ctx->ue_id;
+          if (ue_context_p->enb_s1ap_id_key != INVALID_ENB_UE_S1AP_ID_KEY)
+          {
+            OAILOG_WARNING(LOG_MME_APP, "MME_APP_INITAIL_UE_MESSAGE_CHECK_DUPLICATE. DUPLICATE UE CONTEXT FOUND***** enb_s1ap_id_key %ld has valid value. Sending duplicate confirmation back for removal of S1AP UE reference. \n" ,ue_context_p->enb_s1ap_id_key);
+
+            message_p = itti_alloc_new_message (TASK_MME_APP, MME_APP_S1AP_INITIAL_UE_MESSAGE_DUPLICATE_CNF);
+            // do this because of same message types name but not same struct in different .h
+            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.mme_ue_s1ap_id  = ue_context_p->mme_ue_s1ap_id;
+            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.duplicate_detec = true;
+            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.old_enb_ue_s1ap_id  = ue_context_p->enb_ue_s1ap_id;
+            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.new_enb_ue_s1ap_id  = initial_check_duplicate_pP->new_enb_ue_s1ap_id;
+            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.sctp_assoc_id   = ue_context_p->sctp_assoc_id_key;
+            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.stream_id       = initial_check_duplicate_pP->stream_id;
+            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.tai             = initial_check_duplicate_pP->tai;
+            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.cgi             = initial_check_duplicate_pP->cgi;
+            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.opt_s_tmsi      = initial_check_duplicate_pP->opt_s_tmsi;
+            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.opt_csg_id      = initial_check_duplicate_pP->opt_csg_id;
+            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.opt_gummei      = initial_check_duplicate_pP->opt_gummei;
+            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.is_s_tmsi_valid = initial_check_duplicate_pP->is_s_tmsi_valid;
+            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.is_csg_id_valid = initial_check_duplicate_pP->is_csg_id_valid;
+            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.is_gummei_valid = initial_check_duplicate_pP->is_gummei_valid;
+            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.nas             = initial_check_duplicate_pP->nas;
+//            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.s1ap_InitialUEMessageIEs    = initial_check_duplicate_pP->s1ap_InitialUEMessageIEs;
+//            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.opt_s_tmsi      = initial_check_duplicate_pP->opt_s_tmsi;
+//            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.is_s_tmsi_valid = true;
+
+            // Set the new key as invalid !!
+            ue_context_p->enb_s1ap_id_key = INVALID_ENB_UE_S1AP_ID_KEY;
+
+            MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME, MSC_S1AP_MME, NULL, 0, "0 MME_APP_S1AP_INITIAL_UE_MESSAGE_DUPLICATE_CNF");
+            itti_send_msg_to_task (TASK_S1AP, INSTANCE_DEFAULT, message_p);
+            OAILOG_FUNC_OUT (LOG_MME_APP);
+          }else{
+            OAILOG_ERROR(LOG_MME_APP, "MME_APP_INITAIL_UE_MESSAGE_CHECK_DUPLICATE. "
+              "UE CONTEXT FOUND BUT S1AP_UE_ENB_ID IS INVALID***** %ld. \n" ,ue_context_p->enb_s1ap_id_key);
+
+            message_p = itti_alloc_new_message (TASK_MME_APP, MME_APP_S1AP_INITIAL_UE_MESSAGE_DUPLICATE_CNF);
+                message_p = itti_alloc_new_message (TASK_MME_APP, MME_APP_S1AP_INITIAL_UE_MESSAGE_DUPLICATE_CNF);
+                // do this because of same message types name but not same struct in different .h
+                message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.mme_ue_s1ap_id  = ue_context_p->mme_ue_s1ap_id;
+                message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.duplicate_detec = false;
+                message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.old_enb_ue_s1ap_id  = INVALID_ENB_UE_S1AP_ID_KEY;
+                message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.new_enb_ue_s1ap_id  = initial_check_duplicate_pP->new_enb_ue_s1ap_id;
+                message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.sctp_assoc_id   = initial_check_duplicate_pP->sctp_assoc_id;
+                message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.stream_id       = initial_check_duplicate_pP->stream_id;
+                message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.tai             = initial_check_duplicate_pP->tai;
+                message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.cgi             = initial_check_duplicate_pP->cgi;
+                message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.opt_s_tmsi      = initial_check_duplicate_pP->opt_s_tmsi;
+                message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.opt_csg_id      = initial_check_duplicate_pP->opt_csg_id;
+                message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.opt_gummei      = initial_check_duplicate_pP->opt_gummei;
+                message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.is_s_tmsi_valid = initial_check_duplicate_pP->is_s_tmsi_valid;
+                message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.is_csg_id_valid = initial_check_duplicate_pP->is_csg_id_valid;
+                message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.is_gummei_valid = initial_check_duplicate_pP->is_gummei_valid;
+                message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.nas             = initial_check_duplicate_pP->nas;
+          //      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.opt_s_tmsi      = initial_check_duplicate_pP->opt_s_tmsi;
+          //      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.is_s_tmsi_valid = true;
+                MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME, MSC_S1AP_MME, NULL, 0, "0 MME_APP_S1AP_INITIAL_UE_MESSAGE_DUPLICATE_CNF");
+                itti_send_msg_to_task (TASK_S1AP, INSTANCE_DEFAULT, message_p);
+                OAILOG_FUNC_OUT (LOG_MME_APP);
+
+            OAILOG_FUNC_OUT (LOG_MME_APP);
+          }
+        } else {
+            OAILOG_ERROR(LOG_MME_APP, "MME_APP_INITAIL_UE_MESSAGE_CHECK_DUPLICATE: NO UE CONTEXT FOUND \n");
+            OAILOG_FUNC_OUT (LOG_MME_APP);
+        }
+      } else{
+      OAILOG_DEBUG (LOG_MME_APP, "No UE context is found with MMEC %u and S_TMSI %u from UE (duplicate check).\n",
+          initial_check_duplicate_pP->opt_s_tmsi.mme_code, initial_check_duplicate_pP->opt_s_tmsi.m_tmsi);
+
+      message_p = itti_alloc_new_message (TASK_MME_APP, MME_APP_S1AP_INITIAL_UE_MESSAGE_DUPLICATE_CNF);
+      message_p = itti_alloc_new_message (TASK_MME_APP, MME_APP_S1AP_INITIAL_UE_MESSAGE_DUPLICATE_CNF);
+      // do this because of same message types name but not same struct in different .h
+      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.mme_ue_s1ap_id  = ue_context_p->mme_ue_s1ap_id;
+      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.duplicate_detec = false;
+      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.old_enb_ue_s1ap_id  = INVALID_ENB_UE_S1AP_ID_KEY;
+      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.new_enb_ue_s1ap_id  = initial_check_duplicate_pP->new_enb_ue_s1ap_id;
+      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.sctp_assoc_id   = initial_check_duplicate_pP->sctp_assoc_id;
+      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.stream_id       = initial_check_duplicate_pP->stream_id;
+      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.tai             = initial_check_duplicate_pP->tai;
+      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.cgi             = initial_check_duplicate_pP->cgi;
+      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.opt_s_tmsi      = initial_check_duplicate_pP->opt_s_tmsi;
+      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.opt_csg_id      = initial_check_duplicate_pP->opt_csg_id;
+      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.opt_gummei      = initial_check_duplicate_pP->opt_gummei;
+      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.is_s_tmsi_valid = initial_check_duplicate_pP->is_s_tmsi_valid;
+      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.is_csg_id_valid = initial_check_duplicate_pP->is_csg_id_valid;
+      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.is_gummei_valid = initial_check_duplicate_pP->is_gummei_valid;
+      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.nas             = initial_check_duplicate_pP->nas;
+//      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.opt_s_tmsi      = initial_check_duplicate_pP->opt_s_tmsi;
+//      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.is_s_tmsi_valid = true;
+      MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME, MSC_S1AP_MME, NULL, 0, "0 MME_APP_S1AP_INITIAL_UE_MESSAGE_DUPLICATE_CNF");
+      itti_send_msg_to_task (TASK_S1AP, INSTANCE_DEFAULT, message_p);
+      OAILOG_FUNC_OUT (LOG_MME_APP);
+      }
+    }else{
+      OAILOG_DEBUG (LOG_MME_APP, "No MME is configured with MMEC %u and S_TMSI %u from UE (duplicate check).\n",
+          initial_check_duplicate_pP->opt_s_tmsi.mme_code, initial_check_duplicate_pP->opt_s_tmsi.m_tmsi);
+      OAILOG_FUNC_OUT (LOG_MME_APP);
+    }
+  } else {
+    OAILOG_ERROR (LOG_MME_APP, "MME_APP_INITIAL_UE_MESSAGE_CHECK_DUPLICATE from S1AP,without S-TMSI. \n");
+    OAILOG_FUNC_OUT (LOG_MME_APP);
+  }
+}
+
+//------------------------------------------------------------------------------
+void
 mme_app_handle_delete_session_rsp (
   const itti_s11_delete_session_response_t * const delete_sess_resp_pP)
 //------------------------------------------------------------------------------
@@ -578,6 +866,8 @@ mme_app_handle_delete_session_rsp (
     OAILOG_WARNING (LOG_MME_APP, "We didn't find this teid in list of UE: %08x\n", delete_sess_resp_pP->teid);
     OAILOG_FUNC_OUT (LOG_MME_APP);
   }
+
+  // todo: does this leave the object but just remove the key/reference to it?! when is the object itself removed?
   hashtable_ts_remove(mme_app_desc.mme_ue_contexts.tun11_ue_context_htbl,
                       (const hash_key_t) ue_context_p->mme_s11_teid, &id);
   ue_context_p->mme_s11_teid = 0;
@@ -598,6 +888,7 @@ mme_app_handle_delete_session_rsp (
    * If UE is already in idle state, skip asking eNB to release UE context and just clean up locally.
    * This can happen during implicit detach and UE initiated detach when UE sends detach req (type = switch off)
    */
+  // todo: for multi apn this will not work! Removing the ue context after the release of the very last session
   if (ECM_IDLE == ue_context_p->ecm_state) {
     ue_context_p->ue_context_rel_cause = S1AP_IMPLICIT_CONTEXT_RELEASE;
     // Notify S1AP to release S1AP UE context locally.
@@ -671,6 +962,10 @@ mme_app_handle_create_sess_resp (
   //---------------------------------------------------------
   // Process itti_sgw_create_session_response_t.bearer_context_created
   //---------------------------------------------------------
+
+  // todo: for handover with dedicated bearers --> iterate through bearer contexts!
+  // todo: the MME will send an S10 message with the filters to the target MME --> which would then create a Create Session Request with multiple bearers..
+  // todo: all the bearer contexts in the response should then be handled! (or do it via BRC // meshed PCRF).
   bearer_id = create_sess_resp_pP->bearer_contexts_created.bearer_contexts[0].eps_bearer_id /* - 5 */ ;
   /*
    * Depending on s11 result we have to send reject or accept for bearers
@@ -689,6 +984,7 @@ mme_app_handle_create_sess_resp (
    */
   update_mme_app_stats_default_bearer_add();
 
+  // todo: multiple bearers of the current context (per apn session) may be updated!
   current_bearer_p = &ue_context_p->eps_bearers[bearer_id];
   current_bearer_p->s_gw_teid = create_sess_resp_pP->bearer_contexts_created.bearer_contexts[0].s1u_sgw_fteid.teid;
 
@@ -736,6 +1032,8 @@ mme_app_handle_create_sess_resp (
   memset (&current_bearer_p->p_gw_address, 0, sizeof (ip_address_t));
 
   if (create_sess_resp_pP->bearer_contexts_created.bearer_contexts[0].bearer_level_qos ) {
+
+    // Bearer
     current_bearer_p->qci = create_sess_resp_pP->bearer_contexts_created.bearer_contexts[0].bearer_level_qos->qci;
     current_bearer_p->prio_level = create_sess_resp_pP->bearer_contexts_created.bearer_contexts[0].bearer_level_qos->pl;
     current_bearer_p->pre_emp_vulnerability = create_sess_resp_pP->bearer_contexts_created.bearer_contexts[0].bearer_level_qos->pvi;
@@ -860,6 +1158,175 @@ mme_app_handle_create_sess_resp (
   OAILOG_FUNC_RETURN (LOG_MME_APP, RETURNok);
 }
 
+//------------------------------------------------------------------------------
+int
+mme_app_handle_modify_bearer_resp (
+  itti_s11_modify_bearer_response_t * const modify_bearer_resp_pP)
+{
+  struct ue_context_s                    *ue_context_p = NULL;
+  bearer_context_t                       *current_bearer_p = NULL;
+  MessageDef                             *message_p = NULL;
+  int16_t                                 bearer_id =5;
+  int                                     rc = RETURNok;
+
+  OAILOG_FUNC_IN (LOG_MME_APP);
+  DevAssert (modify_bearer_resp_pP );
+  OAILOG_DEBUG (LOG_MME_APP, "Received S11_MODIFY_BEARER_RESPONSE from S+P-GW\n");
+  ue_context_p = mme_ue_context_exists_s11_teid (&mme_app_desc.mme_ue_contexts, modify_bearer_resp_pP->teid);
+
+  if (ue_context_p == NULL) {
+    MSC_LOG_RX_DISCARDED_MESSAGE (MSC_MMEAPP_MME, MSC_S11_MME, NULL, 0, "0 MODIFY_BEARER_RESPONSE local S11 teid " TEID_FMT " ", modify_bearer_resp_pP->teid);
+
+    OAILOG_DEBUG (LOG_MME_APP, "We didn't find this teid in list of UE: %08x\n", modify_bearer_resp_pP->teid);
+    OAILOG_FUNC_RETURN (LOG_MME_APP, RETURNerror);
+  }
+  MSC_LOG_RX_MESSAGE (MSC_MMEAPP_MME, MSC_S11_MME, NULL, 0, "0 MODIFY_BEARER_RESPONSE local S11 teid " TEID_FMT " IMSI " IMSI_64_FMT " ",
+      modify_bearer_resp_pP->teid, ue_context_p->imsi);
+  /*
+   * Updating statistics
+   */
+  update_mme_app_stats_s1u_bearer_add();
+
+
+  /* Whether SGW has created the session (IP address allocation, local GTP-U end point creation etc.)
+   * successfully or not , it is indicated by cause value in create session response message.
+   * If cause value is not equal to "REQUEST_ACCEPTED" then this implies that SGW could not allocate the resources for
+   * the requested session.
+   *
+   * In this case, MME-APP sends PDN Connectivity fail message to NAS-ESM with the "cause" received
+   * in S11 Session Create Response message.
+   * NAS-ESM maps this "S11 cause" to "ESM cause" and sends it in PDN Connectivity Reject message to the UE.
+   *
+   * tood: what to do if error is received!?!
+   */
+
+  if (modify_bearer_resp_pP->cause != REQUEST_ACCEPTED) {
+    // todo: if this is attach procedure   --> implicit detach --> attach reject // detach request
+    // todo: if this is handover procedure --> sending an MME initiated detach request
+    // at both cases the S1AP//NAS should decide on the procedure !!
+
+    // todo: send to the task which send the MBR --> S1AP or NAS to inform it about the
+    message_p = itti_alloc_new_message (TASK_MME_APP, NAS_HO_BEARER_MODIFICATION_FAIL);
+    // todo: fill message for mb_reject
+//    itti_nas_pdn_connectivity_rsp_t *nas_pdn_connectivity_rsp = &message_p->ittiMsg.nas_pdn_connectivity_rsp;
+//    memset ((void *)nas_pdn_connectivity_rsp, 0, sizeof (itti_nas_pdn_connectivity_rsp_t));
+
+    // todo: union is already allocated --> leaving blank! mabe in multi apn/bearer/(removal of bearers after idle mode) a message could be added!
+    // itti_nas_pdn_connectivity_fail_t *nas_pdn_connectivity_fail = &message_p->ittiMsg.nas_pdn_connectivity_fail;
+    // memset ((void *)nas_pdn_connectivity_fail, 0, sizeof (itti_nas_pdn_connectivity_fail_t));
+    // nas_pdn_connectivity_fail->pti = ue_context_p->pending_pdn_connectivity_req_pti;
+    // nas_pdn_connectivity_fail->ue_id = ue_context_p->pending_pdn_connectivity_req_ue_id;
+    // nas_pdn_connectivity_fail->cause = (pdn_conn_rsp_cause_t)(create_sess_resp_pP->cause);
+
+    // todo: abort the attach process if no handover
+    // todo: abort the handover if handover!
+//    ue_context_p->pending_handover=false;
+
+    rc = itti_send_msg_to_task (TASK_S1AP, INSTANCE_DEFAULT, message_p);
+    OAILOG_FUNC_RETURN (LOG_MME_APP, rc);
+    // Send PDN CONNECTIVITY FAIL message  to NAS layer
+    OAILOG_FUNC_RETURN (LOG_MME_APP, rc);
+  }
+
+  // todo: bearer contexts already  have latest info !! not updating them --> eventually later updating the bearer contexts
+  // todo: multiple bearers of the current context (per apn session) may be updated!
+  // tood: checking received bearer id
+  current_bearer_p = &ue_context_p->eps_bearers[ue_context_p->default_bearer_id];
+//  current_bearer_p->s_gw_teid = modify_bearer_resp_pP->bearer_contexts_modified.bearer_contexts[0].s1u_sgw_fteid.teid;
+
+//  switch (modify_bearer_resp_pP->bearer_contexts_modified.bearer_contexts[0].s1u_sgw_fteid.ipv4 +
+//      (modify_bearer_resp_pP->bearer_contexts_modified.bearer_contexts[0].s1u_sgw_fteid.ipv6 << 1)) {
+//  default:
+//  case 0:{
+//      /*
+//       * No address provided: impossible case
+//       */
+//      DevMessage ("No ip address for user-plane provided...\n");
+//    }
+//    break;
+//
+//  case 1:{
+//      /*
+//       * Only IPv4 address
+//       */
+//      current_bearer_p->s_gw_address.pdn_type = IPv4;
+//      memcpy (current_bearer_p->s_gw_address.address.ipv4_address, &modify_bearer_resp_pP->bearer_contexts_modified.bearer_contexts[0].s1u_sgw_fteid.ipv4_address, 4);
+//    }
+//    break;
+//
+//  case 2:{
+//      /*
+//       * Only IPv6 address
+//       */
+//      current_bearer_p->s_gw_address.pdn_type = IPv6;
+//      memcpy (current_bearer_p->s_gw_address.address.ipv6_address, modify_bearer_resp_pP->bearer_contexts_modified.bearer_contexts[0].s1u_sgw_fteid.ipv6_address, 16);
+//    }
+//    break;
+//
+//  case 3:{
+//      /*
+//       * Both IPv4 and Ipv6
+//       */
+//      current_bearer_p->s_gw_address.pdn_type = IPv4_AND_v6;
+//      memcpy (current_bearer_p->s_gw_address.address.ipv4_address, &modify_bearer_resp_pP->bearer_contexts_modified.bearer_contexts[0].s1u_sgw_fteid.ipv4_address, 4);
+//      memcpy (current_bearer_p->s_gw_address.address.ipv6_address, modify_bearer_resp_pP->bearer_contexts_modified.bearer_contexts[0].s1u_sgw_fteid.ipv6_address, 16);
+//    }
+//    break;
+//  }
+
+//  current_bearer_p->p_gw_teid = modify_bearer_resp_pP->bearer_contexts_modified.bearer_contexts[0].s5_s8_u_pgw_fteid.teid;
+//  memset (&current_bearer_p->p_gw_address, 0, sizeof (ip_address_t));
+
+  //---------------------------------------------------------
+  // Process itti_sgw_create_session_response_t.bearer_context_created
+  //---------------------------------------------------------
+  /*
+   * Depending on s11 result we have to send reject or accept for bearers
+   */
+  // todo: checking bearer specific MBR
+  //  if (create_sess_resp_pP->bearer_contexts_created.bearer_contexts[0].cause != REQUEST_ACCEPTED) {
+  //    DevMessage ("Cases where bearer cause != REQUEST_ACCEPTED are not handled\n");
+  //  }
+  // not updating the bearer qos & arp for MBR
+  // todo: needed for MBR?
+  //  mme_app_dump_ue_contexts (&mme_app_desc.mme_ue_contexts);
+  //uint8_t *keNB = NULL;
+  if(ue_context_p->pending_handover){
+    OAILOG_DEBUG (LOG_MME_APP, "Received a bearer modification response for UE %d with pending handover.", ue_context_p->mme_ue_s1ap_id);
+    message_p = itti_alloc_new_message (TASK_MME_APP, NAS_HO_BEARER_MODIFICATION_RSP);
+    itti_nas_ho_bearer_modification_rsp_t *nas_ho_bearer_modification_rsp = &message_p->ittiMsg.nas_ho_bearer_modification_rsp;
+    memset ((void *)nas_ho_bearer_modification_rsp, 0, sizeof (itti_nas_ho_bearer_modification_rsp_t));
+    nas_ho_bearer_modification_rsp->ue_id = ue_context_p->mme_ue_s1ap_id;      // NAS internal ref
+
+    rc = itti_send_msg_to_task (TASK_NAS_MME, INSTANCE_DEFAULT, message_p);
+    // todo: later add a message which contains the MBResps
+    //    message_p = itti_alloc_new_message (TASK_MME_APP, NAS_MODIFY_BEARER_RSP);
+
+
+    // moved to NAS_CONNECTION_ESTABLISHMENT_CONF, keNB not handled in NAS MME
+    //derive_keNB(ue_context_p->vector_in_use->kasme, 156, &keNB);
+    //memcpy(NAS_PDN_CONNECTIVITY_RSP(message_p).keNB, keNB, 32);
+    //free(keNB);
+    // todo: pti needed for ESM stuff when establishing a new APN session but not for handover!!
+//    nas_modify_bearer_rsp->pti = ue_context_p->pending_pdn_connectivity_req_pti;  // NAS internal ref
+//    nas_modify_bearer_rsp->ue_id = ue_context_p->pending_pdn_connectivity_req_ue_id;      // NAS internal ref
+
+    // TO REWORK:
+    // todo: adds for APN session establishment subscription info related messages, not needed for handover --> all S6a data is processed and if stuff is needed, its inside the message!!
+
+    //  todo: what is pdn_connectivity_req_proc data ?? pending unprocessed data ?? why kept in the ue context? // their way of saving signals ??
+    // todo: set to null afterwards to remove the saved signal!?1
+//    nas_pdn_connectivity_rsp->proc_data = ue_context_p->pending_pdn_connectivity_req_proc_data;      // NAS internal ref
+//    ue_context_p->pending_pdn_connectivity_req_proc_data = NULL;
+
+    // todo: check updating of teids --> why was fteid sent in MBR?1 --> cannot change with same SAEGW handover (x2) --> may change maybe whan sgw - pgw separate
+
+//    ue_context_p->pending_handover = false;
+  }else{
+    OAILOG_DEBUG (LOG_MME_APP, "No pending handover process for UE %d. Completing MBR procedure.", ue_context_p->mme_ue_s1ap_id);
+  }
+  OAILOG_FUNC_RETURN (LOG_MME_APP, rc);
+}
 
 //------------------------------------------------------------------------------
 void
@@ -895,6 +1362,7 @@ mme_app_handle_initial_context_setup_rsp (
   /*
    * Delay Value in integer multiples of 50 millisecs, or zero
    */
+  // todo: multiple bearers!
   s11_modify_bearer_request->delay_dl_packet_notif_req = 0;  // TO DO
   s11_modify_bearer_request->bearer_contexts_to_be_modified.bearer_contexts[0].eps_bearer_id = initial_ctxt_setup_rsp_pP->eps_bearer_id;
   memcpy (&s11_modify_bearer_request->bearer_contexts_to_be_modified.bearer_contexts[0].s1_eNB_fteid,
@@ -919,6 +1387,85 @@ mme_app_handle_initial_context_setup_rsp (
 
   OAILOG_FUNC_OUT (LOG_MME_APP);
 }
+
+
+//------------------------------------------------------------------------------
+// HANDOVER MESSAGING ------------------------------------------------------------------------------
+void
+mme_app_handle_path_switch_req(
+  const itti_mme_app_path_switch_req_t * const path_switch_req_pP
+  )
+{
+  struct ue_context_s                    *ue_context_p = NULL;
+  MessageDef                             *message_p = NULL;
+
+  OAILOG_FUNC_IN (LOG_MME_APP);
+  OAILOG_DEBUG (LOG_MME_APP, "Received MME_APP_PATH_SWITCH_REQ from S1AP\n");
+  ue_context_p = mme_ue_context_exists_mme_ue_s1ap_id (&mme_app_desc.mme_ue_contexts, path_switch_req_pP->mme_ue_s1ap_id);
+
+  if (ue_context_p == NULL) {
+    OAILOG_DEBUG (LOG_MME_APP, "We didn't find this mme_ue_s1ap_id in list of UE: %08x %d(dec)\n", path_switch_req_pP->mme_ue_s1ap_id, path_switch_req_pP->mme_ue_s1ap_id);
+    MSC_LOG_EVENT (MSC_MMEAPP_MME, "MME_APP_PATH_SWITCH_REQ Unknown ue %u", path_switch_req_pP->mme_ue_s1ap_id);
+    OAILOG_FUNC_OUT (LOG_MME_APP);
+  }
+
+  // Set the handover flag, check that no handover exists.
+  if(ue_context_p->pending_handover){
+    OAILOG_ERROR (LOG_MME_APP, "Handover already pending for UE id %d. Cannot process path switch request. \n", ue_context_p->mme_ue_s1ap_id);
+    // todo: better error handling
+    OAILOG_FUNC_RETURN (LOG_MME_APP, RETURNerror);
+  }
+  OAILOG_DEBUG (LOG_MME_APP, "UE %d entering handover state. \n", ue_context_p->mme_ue_s1ap_id);
+  ue_context_p->pending_handover  = true;
+  ue_context_p->enb_ue_s1ap_id    = path_switch_req_pP->enb_ue_s1ap_id;
+  ue_context_p->sctp_assoc_id_key = path_switch_req_pP->sctp_assoc_id;
+//  ue_context_p->strectp_assoc_id_key = path_switch_req_pP->sctp_assoc_id;
+//  sctp_stream_id_t        sctp_stream;
+
+  // Stop Initial context setup process guard timer,if running todo: path switch request?
+  if (ue_context_p->path_switch_req_timer.id != MME_APP_TIMER_INACTIVE_ID) {
+    if (timer_remove(ue_context_p->path_switch_req_timer.id)) {
+      OAILOG_ERROR (LOG_MME_APP, "Failed to stop Path Switch Request timer for UE id  %d \n", ue_context_p->mme_ue_s1ap_id);
+    }
+    ue_context_p->path_switch_req_timer.id = MME_APP_TIMER_INACTIVE_ID;
+  }
+  message_p = itti_alloc_new_message (TASK_MME_APP, S11_MODIFY_BEARER_REQUEST);
+  AssertFatal (message_p , "itti_alloc_new_message Failed");
+  itti_s11_modify_bearer_request_t *s11_modify_bearer_request = &message_p->ittiMsg.s11_modify_bearer_request;
+  memset ((void *)s11_modify_bearer_request, 0, sizeof (*s11_modify_bearer_request));
+  s11_modify_bearer_request->peer_ip = mme_config.ipv4.sgw_s11;
+  s11_modify_bearer_request->teid = ue_context_p->sgw_s11_teid;
+  s11_modify_bearer_request->local_teid = ue_context_p->mme_s11_teid;
+  /*
+   * Delay Value in integer multiples of 50 millisecs, or zero
+   */
+  s11_modify_bearer_request->delay_dl_packet_notif_req = 0;  // TO DO
+  s11_modify_bearer_request->bearer_contexts_to_be_modified.bearer_contexts[0].eps_bearer_id = path_switch_req_pP->eps_bearer_id;
+  memcpy (&s11_modify_bearer_request->bearer_contexts_to_be_modified.bearer_contexts[0].s1_eNB_fteid,
+      &path_switch_req_pP->bearer_s1u_enb_fteid,
+      sizeof (s11_modify_bearer_request->bearer_contexts_to_be_modified.bearer_contexts[0].s1_eNB_fteid));
+  s11_modify_bearer_request->bearer_contexts_to_be_modified.num_bearer_context = 1;
+
+  s11_modify_bearer_request->bearer_contexts_to_be_removed.num_bearer_context = 0;
+
+  s11_modify_bearer_request->mme_fq_csid.node_id_type = GLOBAL_UNICAST_IPv4; // TO DO
+  s11_modify_bearer_request->mme_fq_csid.csid = 0;   // TO DO ...
+  memset(&s11_modify_bearer_request->indication_flags, 0, sizeof(s11_modify_bearer_request->indication_flags));   // TO DO
+  s11_modify_bearer_request->rat_type = RAT_EUTRAN;
+  /*
+   * S11 stack specific parameter. Not used in standalone epc mode
+   */
+  s11_modify_bearer_request->trxn = NULL;
+  MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME,  MSC_S11_MME ,
+                      NULL, 0, "0 S11_MODIFY_BEARER_REQUEST teid %u ebi %u", s11_modify_bearer_request->teid,
+                      s11_modify_bearer_request->bearer_contexts_to_be_modified.bearer_contexts[0].eps_bearer_id);
+  itti_send_msg_to_task (TASK_S11, INSTANCE_DEFAULT, message_p);
+
+  OAILOG_FUNC_OUT (LOG_MME_APP);
+}
+
+
+
 
 //------------------------------------------------------------------------------
 void
@@ -1057,6 +1604,62 @@ mme_app_handle_initial_context_setup_failure (
   OAILOG_FUNC_OUT (LOG_MME_APP);
 }
 //------------------------------------------------------------------------------
+static bool mme_app_construct_guti_2(const plmn_t * const plmn_p, uint32_t m_tmsi, uint8_t mmec, guti_t * const guti_p)
+{
+  /*
+   * This is a helper function to construct GUTI from S-TMSI. It uses PLMN id and MME Group Id of the serving MME for
+   * this purpose.
+   *
+   */
+
+  bool                                    is_guti_valid = false; // Set to true if serving MME is found and GUTI is constructed
+  uint8_t                                 num_mme       = 0;     // Number of configured MME in the MME pool
+  guti_p->m_tmsi = m_tmsi;
+  guti_p->gummei.mme_code = mmec;
+  // Create GUTI by using PLMN Id and MME-Group Id of serving MME
+  OAILOG_DEBUG (LOG_MME_APP,
+                "Construct GUTI using S-TMSI received form UE and MME Group Id and PLMN id from MME Conf: %u, %u \n",
+                m_tmsi, mmec);
+  mme_config_read_lock (&mme_config);
+  /*
+   * Check number of MMEs in the pool.
+   * At present it is assumed that one MME is supported in MME pool but in case there are more
+   * than one MME configured then search the serving MME using MME code.
+   * Assumption is that within one PLMN only one pool of MME will be configured
+   */
+  if (mme_config.gummei.nb > 1)
+  {
+    OAILOG_DEBUG (LOG_MME_APP, "More than one MMEs are configured.");
+  }
+  for (num_mme = 0; num_mme < mme_config.gummei.nb; num_mme++)
+  {
+    /*Verify that the MME code within S-TMSI is same as what is configured in MME conf*/
+    if ((plmn_p->mcc_digit2 == mme_config.gummei.gummei[num_mme].plmn.mcc_digit2) &&
+        (plmn_p->mcc_digit1 == mme_config.gummei.gummei[num_mme].plmn.mcc_digit1) &&
+        (plmn_p->mnc_digit3 == mme_config.gummei.gummei[num_mme].plmn.mnc_digit3) &&
+        (plmn_p->mcc_digit3 == mme_config.gummei.gummei[num_mme].plmn.mcc_digit3) &&
+        (plmn_p->mnc_digit2 == mme_config.gummei.gummei[num_mme].plmn.mnc_digit2) &&
+        (plmn_p->mnc_digit1 == mme_config.gummei.gummei[num_mme].plmn.mnc_digit1) &&
+        (guti_p->gummei.mme_code == mme_config.gummei.gummei[num_mme].mme_code))
+    {
+      break;
+    }
+  }
+  if (num_mme >= mme_config.gummei.nb)
+  {
+    OAILOG_DEBUG (LOG_MME_APP, "No MME serves this UE");
+  }
+  else
+  {
+    guti_p->gummei.plmn = mme_config.gummei.gummei[num_mme].plmn;
+    guti_p->gummei.mme_gid = mme_config.gummei.gummei[num_mme].mme_gid;
+    is_guti_valid = true;
+  }
+  mme_config_unlock (&mme_config);
+  return is_guti_valid;
+}
+
+//------------------------------------------------------------------------------
 static bool mme_app_construct_guti(const plmn_t * const plmn_p, const as_stmsi_t * const s_tmsi_p,  guti_t * const guti_p)
 {
   /*
@@ -1134,3 +1737,4 @@ static void notify_s1ap_new_ue_mme_s1ap_id_association (struct ue_context_s *ue_
   OAILOG_DEBUG (LOG_MME_APP, " Sent MME_APP_S1AP_MME_UE_ID_NOTIFICATION to S1AP for UE Id %u\n", notification_p->mme_ue_s1ap_id);
   OAILOG_FUNC_OUT (LOG_MME_APP);
 }
+

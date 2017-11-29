@@ -24,13 +24,16 @@
 #define FILE_S11_MME_BEARER_MANAGER_SEEN
 
 
+/* @brief Create a new Modify Bearer Request and send it to provided S-GW. */
+int s11_mme_modify_bearer_request(NwGtpv2cStackHandleT *stack_p, itti_s11_modify_bearer_request_t *modify_bearer_p);
+
+/* @brief Handle a Modify Bearer Response received from S-GW. */
+int s11_mme_handle_modify_bearer_response (NwGtpv2cStackHandleT * stack_p, NwGtpv2cUlpApiT * pUlpApi);
+
 /* @brief Create a new Release Access Bearers Request and send it to provided S-GW. */
 int s11_mme_release_access_bearers_request(NwGtpv2cStackHandleT *stack_p, itti_s11_release_access_bearers_request_t *release_access_bearers_p);
 
 /* @brief Handle a Release Access Bearer Response received from S-GW. */
 int s11_mme_handle_release_access_bearer_response (NwGtpv2cStackHandleT * stack_p, NwGtpv2cUlpApiT * pUlpApi);
-
-/* @brief Handle a Modify Bearer Response received from S-GW. */
-int s11_mme_handle_modify_bearer_response (NwGtpv2cStackHandleT * stack_p, NwGtpv2cUlpApiT * pUlpApi);
 
 #endif /* FILE_S11_MME_BEARER_MANAGER_SEEN */

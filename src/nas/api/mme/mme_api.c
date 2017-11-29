@@ -408,6 +408,66 @@ mme_api_new_guti (
 
 /****************************************************************************
  **                                                                        **
+ ** Name:    mme_api_add_tai()                                        **
+ **                                                                        **
+ ** Description: Adds a TAI to the UEs TAI list.                           **
+ **                                                                        **
+ **                                                                        **
+ ** Inputs:  imsi:      International Mobile Subscriber Identity   **
+ **      Others:    None                                       **
+ **                                                                        **
+ ** Outputs:     guti:      The new assigned GUTI                      **
+ **      tai_list:       TAIs belonging to the PLMN                                **
+ **      Return:    RETURNok, RETURNerror                      **
+ **      Others:    None                                       **
+ **                                                                        **
+ ***************************************************************************/
+int
+mme_api_add_tai (
+  mme_ue_s1ap_id_t       mme_ue_s1ap_id,
+  const tai_t * const new_tai,
+  tai_list_t * const tai_list)
+{
+  imsi64_t                                mme_imsi = 0;
+
+  OAILOG_FUNC_IN (LOG_NAS);
+
+  int            i,j;
+  tac_t   tac  = INVALID_TAC_FFFE;
+  bool    consecutive_tacs = true;
+  j = 0;
+
+  bool tacExists = false;
+  // Check if the TAI is not already in the list
+  for (i=0; i < tai_list->n_tais; i++) {
+    if(tai_list->tai[i].tac == new_tai->tac){
+      OAILOG_INFO (LOG_NAS, "UE " MME_UE_S1AP_ID_FMT " has already the given tac %d. \n", mme_ue_s1ap_id, new_tai->tac);
+      tacExists = true;
+      break;
+    }
+  }
+  if(tacExists == false){
+    OAILOG_INFO (LOG_NAS, "UE " MME_UE_S1AP_ID_FMT " has not the given tac %d. Adding to TAI list. \n", mme_ue_s1ap_id, new_tai->tac);
+    if(tai_list->n_tais == TAI_LIST_MAX_SIZE){
+      OAILOG_WARNING (LOG_NAS, "UE " MME_UE_S1AP_ID_FMT " has already max elements in TAI list. \n", mme_ue_s1ap_id, new_tai->tac);
+      // todo: deleting TAI list??
+      OAILOG_FUNC_RETURN (LOG_NAS, RETURNerror);
+    }else if (INVALID_TAC_FFFE == new_tai->tac)  {
+      OAILOG_WARNING (LOG_NAS, "UE " MME_UE_S1AP_ID_FMT " has received an invald TAI. \n", mme_ue_s1ap_id, new_tai->tac);
+        // todo: deleting TAI list??
+        OAILOG_FUNC_RETURN (LOG_NAS, RETURNerror);
+    }
+    tai_list->tai[tai_list->n_tais ].plmn = new_tai->plmn;
+    // _emm_data.conf.tai_list is sorted
+    tai_list->tai[tai_list->n_tais].tac            = new_tai->tac;
+    tai_list->n_tais++;
+    OAILOG_INFO (LOG_NAS, "UE " MME_UE_S1AP_ID_FMT "  successfully added TAI %d to TAI list. List contains %d elements. \n", mme_ue_s1ap_id, new_tai->tac, tai_list->n_tais);
+  }
+  OAILOG_FUNC_RETURN (LOG_NAS, RETURNok);
+}
+
+/****************************************************************************
+ **                                                                        **
  ** Name:        mme_api_subscribe()                                       **
  **                                                                        **
  ** Description: Requests the MME to check whether connectivity with the   **

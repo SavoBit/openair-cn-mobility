@@ -87,6 +87,19 @@ extern                                  "C" {
   };
 
   static
+  NwGtpv2cMsgIeInfoT                      modifyBearerRspBearerCtxtTobeModifiedIeInfoTbl[] = {
+    {NW_GTPV2C_IE_CAUSE, 0, NW_GTPV2C_IE_INSTANCE_ZERO, NW_GTPV2C_IE_PRESENCE_MANDATORY, NULL},
+    {NW_GTPV2C_IE_EBI, 1, NW_GTPV2C_IE_INSTANCE_ZERO, NW_GTPV2C_IE_PRESENCE_MANDATORY, NULL},
+    {NW_GTPV2C_IE_FTEID, 9, NW_GTPV2C_IE_INSTANCE_ZERO, NW_GTPV2C_IE_PRESENCE_CONDITIONAL, NULL},
+    //   { NW_GTPV2C_IE_IMSI           ,       0,      NW_GTPV2C_IE_INSTANCE_ZERO  , NW_GTPV2C_IE_PRESENCE_CONDITIONAL , NULL},
+
+    /*
+     * Do not add below this
+     */
+    {0, 0, 0}
+  };
+
+  static
   NwGtpv2cMsgIeInfoT                      echoRspIeInfoTbl[] = {
     {NW_GTPV2C_IE_RECOVERY, 1, NW_GTPV2C_IE_INSTANCE_ZERO, NW_GTPV2C_IE_PRESENCE_MANDATORY, NULL},
 
@@ -202,7 +215,7 @@ extern                                  "C" {
     {NW_GTPV2C_IE_PAA, 5, NW_GTPV2C_IE_INSTANCE_ZERO, NW_GTPV2C_IE_PRESENCE_CONDITIONAL, NULL},
     {NW_GTPV2C_IE_APN_RESTRICTION, 0, NW_GTPV2C_IE_INSTANCE_ZERO, NW_GTPV2C_IE_PRESENCE_CONDITIONAL, NULL},
     {NW_GTPV2C_IE_FTEID, 9, NW_GTPV2C_IE_INSTANCE_ZERO, NW_GTPV2C_IE_PRESENCE_CONDITIONAL, NULL},
-    {NW_GTPV2C_IE_BEARER_CONTEXT, 0, NW_GTPV2C_IE_INSTANCE_ZERO, NW_GTPV2C_IE_PRESENCE_CONDITIONAL, NULL},
+    {NW_GTPV2C_IE_BEARER_CONTEXT, 0, NW_GTPV2C_IE_INSTANCE_ZERO, NW_GTPV2C_IE_PRESENCE_CONDITIONAL, modifyBearerRspBearerCtxtTobeModifiedIeInfoTbl},
     {NW_GTPV2C_IE_RECOVERY, 1, NW_GTPV2C_IE_INSTANCE_ZERO, NW_GTPV2C_IE_PRESENCE_CONDITIONAL, NULL},
     {NW_GTPV2C_IE_PRIVATE_EXTENSION, 0, NW_GTPV2C_IE_INSTANCE_ZERO, NW_GTPV2C_IE_PRESENCE_OPTIONAL, NULL},
 
@@ -477,6 +490,110 @@ extern                                  "C" {
     OAILOG_DEBUG (LOG_GTPV2C,  "Received grouped IE %u with instance %u of length %u in msg-type %u!\n", ieType, ieInstance, ieLength, thiz->groupedIeType);
     return NW_OK;
   }
+
+//  static NwRcT
+//  nwGtpv2cMsgGroupedIeParse(NW_IN NwGtpv2cGroupedIeParseInfoT *thiz,
+//                NW_IN NwGtpv2cMsgT              *pMsg,
+//                NW_IN uint8_t ieType,
+//                  NW_IN uint16_t ieLength,
+//                  NW_IN uint8_t ieInstance,
+//                  NW_IN uint8_t * pIeValue) {
+//  {
+//    uint8_t         groupedIeDepth   = 0;
+//    uint16_t                mandatoryIeCount =0;
+//    uint8_t                 *pIeBufStart;
+//    uint8_t                 *pIeBufEnd;
+//    uint16_t                ieType;
+//    uint16_t                ieLength;
+//    uint16_t                ieInstance;
+//    NwGtpv2cIeTlvT        *pIe;
+////    uint8_t                 flags = *((uint8_t*)(pMsg->gtpv2cDataItem->msgBuf));
+//
+//    NW_ASSERT(thiz);
+//
+//    pIeBufStart = (uint8_t *) (pIeValue + (flags & 0x08 ? 12: 8)); /**< Begging of First IE. */
+//    pIeBufEnd   = (uint8_t *) (pIeValue + ieLength);
+//
+//    memset(pMsg->pIe, 0, sizeof(uint8_t*) * (NW_GTPV2C_IE_TYPE_MAXIMUM) * (NW_GTPV2C_IE_INSTANCE_MAXIMUM));
+//    memset(pMsg->isIeValid, (NW_FALSE), sizeof(uint8_t) * (NW_GTPV2C_IE_TYPE_MAXIMUM) * (NW_GTPV2C_IE_INSTANCE_MAXIMUM));
+//
+//    while (pIeBufStart < pIeBufEnd)
+//    {
+//      pIe         = (NwGtpv2cIeTlvT*) pIeBufStart;
+//      ieType      = pIe->t;
+//      ieLength    = ntohs(pIe->l);
+//      ieInstance  = pIe->i & 0x0F;
+//
+//      groupedIeDepth++;
+//      NW_ASSERT(NW_GTPV2C_IE_INSTANCE_MAXIMUM >= ieInstance);
+//      NW_LOG(thiz->hStack, NW_LOG_LEVEL_DEBG, "Received IE %u with instance %u of length %u in bearer context!", ieType, ieInstance, ieLength);
+//      if(pIeBufStart + 4 + ieLength > pIeBufEnd)
+//      {
+//        NW_LOG(thiz->hStack, NW_LOG_LEVEL_ERRO, "Invalid length for IE of type %u and instance %u!", ieType, ieInstance);
+//        return NW_FAILURE;
+//      }
+//      if((thiz->ieParseInfo[ieType][ieInstance].iePresence))
+//      {
+//        if((ieLength < (thiz->ieParseInfo[ieType][ieInstance].ieMinLength)))
+//        {
+//          if(thiz->ieParseInfo[ieType][ieInstance].iePresence == NW_GTPV2C_IE_PRESENCE_OPTIONAL)
+//          {
+//            /* Ignore TLV */
+//            pIeBufStart += (ieLength + 4);
+//            continue;
+//          }
+//          else
+//          {
+//            NW_LOG(thiz->hStack, NW_LOG_LEVEL_ERRO, "Mandatory IE of type %u and instance %u incorrect!", ieType, ieInstance);
+//            return NW_FAILURE;
+//          }
+//        }
+//        if(pMsg->isIeValid[ieType][ieInstance] == NW_TRUE)
+//        {
+//          /*
+//           * If an information element is repeated in a GTP signalling
+//           * message in which repetition of the information element is
+//           * not specified, only the contents of the information element
+//           * appearing first shall be handled and all subsequent repetitions
+//           * of the information element shall be ignored.
+//           */
+//          pIeBufStart += (ieLength + 4);
+//          continue;
+//        }
+//        pMsg->groupedIeEncodeStack[ieInstance].pIe[groupedIeDepth]     = (NwU8T*) pIeBufStart;
+//        pMsg->groupedIeEncodeStack[ieInstance].isIeValid[groupedIeDepth]   = NW_TRUE;
+//        if(thiz->ieParseInfo[ieType][ieInstance].iePresence == NW_GTPV2C_IE_PRESENCE_MANDATORY)
+//          mandatoryIeCount++;
+//      }
+//      else
+//        NW_LOG(thiz->hStack, NW_LOG_LEVEL_WARN, "Unexpected IE %u with instance %u of length %u received in bearer context %u!", ieType, ieInstance, ieLength);
+//
+//      pIeBufStart += (ieLength + 4);
+//    }
+//    if(mandatoryIeCount != thiz->mandatoryIeCount)
+//    {
+//      for(ieType = 0; ieType < NW_GTPV2C_IE_TYPE_MAXIMUM; ieType++)
+//      {
+//        for(ieInstance = 0; ieInstance < NW_GTPV2C_IE_INSTANCE_MAXIMUM; ieInstance++)
+//        {
+//          if(thiz->ieParseInfo[ieType][ieInstance].iePresence == NW_GTPV2C_IE_PRESENCE_MANDATORY)
+//          {
+//            if(pMsg->isIeValid[ieType][ieInstance] == NW_FALSE)
+//            {
+//              NW_LOG(thiz->hStack, NW_LOG_LEVEL_ERRO, "Mandatory IE of type %u and instance %u missing in bearer context.", ieType, ieInstance);
+//              return NW_FAILURE;
+//            }
+//          }
+//        }
+//      }
+//      NW_LOG(thiz->hStack, NW_LOG_LEVEL_CRIT, "Unknown mandatory IE missing. Bearer Context parser formed incorrectly!");
+//      return NW_FAILURE;
+//    }
+//
+//    return NW_OK;
+//  }
+//
+
 
 /*----------------------------------------------------------------------------*
                          P U B L I C   F U N C T I O N S

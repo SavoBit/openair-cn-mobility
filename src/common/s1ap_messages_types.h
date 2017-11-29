@@ -44,6 +44,12 @@ typedef struct itti_s1ap_initial_ue_message_s {
   ecgi_t                e_utran_cgi;
 } itti_s1ap_initial_ue_message_t;
 
+typedef struct itti_s1ap_handover_s {
+  mme_ue_s1ap_id_t     mme_ue_s1ap_id;
+  enb_ue_s1ap_id_t     enb_ue_s1ap_id:24;
+  ecgi_t                e_utran_cgi;
+} itti_s1ap_handover_t;
+
 typedef struct itti_s1ap_initial_ctxt_setup_req_s {
   mme_ue_s1ap_id_t        mme_ue_s1ap_id;
   enb_ue_s1ap_id_t        enb_ue_s1ap_id:24;
@@ -147,5 +153,32 @@ typedef struct itti_s1ap_ue_context_release_complete_s {
   mme_ue_s1ap_id_t  mme_ue_s1ap_id;
   enb_ue_s1ap_id_t  enb_ue_s1ap_id:24;
 } itti_s1ap_ue_context_release_complete_t;
+
+
+// handover messaging
+typedef struct itti_s1ap_path_switch_req_s {
+  mme_ue_s1ap_id_t        mme_ue_s1ap_id;
+  enb_ue_s1ap_id_t        enb_ue_s1ap_id:24;
+
+//  /* Key eNB */
+//  uint8_t                 kenb[32];
+//
+//  ambr_t                  ambr;
+//  ambr_t                  apn_ambr;
+//
+//  /* EPS bearer ID */
+//  unsigned                ebi:4;
+//
+//  /* QoS */
+//  qci_t                   qci;
+//  priority_level_t        prio_level;
+//  pre_emp_vulnerability_t pre_emp_vulnerability;
+//  pre_emp_capability_t    pre_emp_capability;
+//
+//  /* S-GW TEID for user-plane */
+//  teid_t                  teid;
+//  /* S-GW IP address for User-Plane */
+//  ip_address_t            s_gw_address;
+} itti_s1ap_path_switch_req_t;
 
 #endif /* FILE_S1AP_MESSAGES_TYPES_SEEN */

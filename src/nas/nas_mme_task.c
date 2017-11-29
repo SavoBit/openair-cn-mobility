@@ -99,6 +99,22 @@ static void *nas_intertask_interface (void *args_p)
       }
       break;
 
+    case NAS_HO_BEARER_MODIFICATION_RSP: {
+        nas_proc_ho_bearer_modification_res(&NAS_HO_BEARER_MODIFICATION_RSP (received_message_p));
+      }
+      break;
+
+    case NAS_HO_BEARER_MODIFICATION_FAIL: {
+        nas_proc_ho_bearer_modification_fail (&NAS_HO_BEARER_MODIFICATION_FAIL (received_message_p));
+      }
+      break;
+
+    // Modify Bearer Handling
+//    case NAS_MODIFY_BEARER_RSP:{
+//        nas_proc_handover_ind (&NAS_MODIFY_BEARER_RSP (received_message_p));
+//      }
+//      break;
+
     case TIMER_HAS_EXPIRED:{
         /*
          * Call the NAS timer api

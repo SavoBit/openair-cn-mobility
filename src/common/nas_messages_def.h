@@ -51,6 +51,7 @@ MESSAGE_DEF(NAS_PDN_CONNECTIVITY_REQ,           MESSAGE_PRIORITY_MED,   itti_nas
 MESSAGE_DEF(NAS_INITIAL_UE_MESSAGE,             MESSAGE_PRIORITY_MED,   itti_nas_initial_ue_message_t,   nas_initial_ue_message)
 MESSAGE_DEF(NAS_CONNECTION_ESTABLISHMENT_CNF,   MESSAGE_PRIORITY_MED,   itti_nas_conn_est_cnf_t,         nas_conn_est_cnf)
 MESSAGE_DEF(NAS_CONNECTION_RELEASE_IND,         MESSAGE_PRIORITY_MED,   itti_nas_conn_rel_ind_t,         nas_conn_rel_ind)
+
 MESSAGE_DEF(NAS_UPLINK_DATA_IND,                MESSAGE_PRIORITY_MED,   itti_nas_ul_data_ind_t,          nas_ul_data_ind)
 MESSAGE_DEF(NAS_DOWNLINK_DATA_REQ,              MESSAGE_PRIORITY_MED,   itti_nas_dl_data_req_t,          nas_dl_data_req)
 MESSAGE_DEF(NAS_DOWNLINK_DATA_CNF,              MESSAGE_PRIORITY_MED,   itti_nas_dl_data_cnf_t,          nas_dl_data_cnf)
@@ -66,5 +67,14 @@ MESSAGE_DEF(NAS_DETACH_REQ,       		MESSAGE_PRIORITY_MED,   itti_nas_detach_req_
 /* MME app -> NAS layer messages */
 MESSAGE_DEF(NAS_PDN_CONNECTIVITY_RSP,           MESSAGE_PRIORITY_MED,   itti_nas_pdn_connectivity_rsp_t,   nas_pdn_connectivity_rsp)
 MESSAGE_DEF(NAS_PDN_CONNECTIVITY_FAIL,          MESSAGE_PRIORITY_MED,   itti_nas_pdn_connectivity_fail_t,  nas_pdn_connectivity_fail)
+
+// handover (Forwarding the MBR to NAS for handover processing)
+MESSAGE_DEF(NAS_HO_BEARER_MODIFICATION_RSP,     MESSAGE_PRIORITY_MED,   itti_nas_ho_bearer_modification_rsp_t,    nas_ho_bearer_modification_rsp)
+MESSAGE_DEF(NAS_HO_BEARER_MODIFICATION_FAIL,    MESSAGE_PRIORITY_MED,   itti_nas_ho_bearer_modification_fail_t,   nas_ho_bearer_modification_fail)
+
+// handover (after NAS processing, confirming or rejecting the handover procedure)
+MESSAGE_DEF(NAS_HANDOVER_CNF,                   MESSAGE_PRIORITY_MED,   itti_nas_handover_cnf_t,         nas_handover_cnf)
+MESSAGE_DEF(NAS_HANDOVER_REJ,                   MESSAGE_PRIORITY_MED,   itti_nas_handover_rej_t,         nas_handover_rej)
+
 MESSAGE_DEF(NAS_IMPLICIT_DETACH_UE_IND,         MESSAGE_PRIORITY_MED,   itti_nas_implicit_detach_ue_ind_t, nas_implicit_detach_ue_ind)
 

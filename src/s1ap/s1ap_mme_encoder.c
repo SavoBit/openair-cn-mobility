@@ -73,6 +73,16 @@ static inline int s1ap_mme_encode_resetack (
   uint8_t ** buffer,
   uint32_t * length);
 
+static inline int s1ap_mme_encode_pathSwitchRequestAcknowledge (
+  s1ap_message * message_p,
+  uint8_t ** buffer,
+  uint32_t * length);
+
+static inline int s1ap_mme_encode_pathSwitchRequestFailure (
+  s1ap_message * message_p,
+  uint8_t ** buffer,
+  uint32_t * length);
+
 static inline int
 s1ap_mme_encode_initial_context_setup_request (
   s1ap_message * message_p,
@@ -155,8 +165,12 @@ s1ap_mme_encode_successfull_outcome (
   case S1ap_ProcedureCode_id_Reset:
     return s1ap_mme_encode_resetack (message_p, buffer, length);
 
+  // Add handover related messages
+  case S1ap_ProcedureCode_id_PathSwitchRequest:
+    return s1ap_mme_encode_pathSwitchRequestAcknowledge(message_p, buffer, length);
+
   default:
-    OAILOG_DEBUG (LOG_S1AP, "Unknown procedure ID (%d) for successfull outcome message\n", (int)message_p->procedureCode);
+    OAILOG_DEBUG (LOG_S1AP, "Unknown procedure ID (%d) for successful outcome message\n", (int)message_p->procedureCode);
     break;
   }
 
@@ -172,6 +186,8 @@ s1ap_mme_encode_unsuccessfull_outcome (
   switch (message_p->procedureCode) {
   case S1ap_ProcedureCode_id_S1Setup:
     return s1ap_mme_encode_s1setupfailure (message_p, buffer, length);
+  case S1ap_ProcedureCode_id_PathSwitchRequest:
+    return s1ap_mme_encode_pathSwitchRequestFailure (message_p, buffer, length);
 
   default:
     OAILOG_DEBUG (LOG_S1AP, "Unknown procedure ID (%d) for unsuccessfull outcome message\n", (int)message_p->procedureCode);
@@ -216,6 +232,47 @@ s1ap_mme_encode_resetack (
   }
 
   return s1ap_generate_successfull_outcome (buffer, length, S1ap_ProcedureCode_id_Reset, message_p->criticality, &asn_DEF_S1ap_ResetAcknowledge, s1ResetAck_p);
+}
+
+
+static inline int
+s1ap_mme_encode_pathSwitchRequestAcknowledge(
+  s1ap_message * message_p,
+  uint8_t ** buffer,
+  uint32_t * length)
+{
+
+  S1ap_PathSwitchRequestAcknowledge_t            pathSwitchReqAcknowledge;
+  S1ap_PathSwitchRequestAcknowledge_t           *pathSwitchReqAcknowledge_p = &pathSwitchReqAcknowledge;
+
+  memset (pathSwitchReqAcknowledge_p, 0, sizeof (S1ap_PathSwitchRequestAcknowledge_t));
+
+  if (s1ap_encode_s1ap_pathswitchrequestacknowledgeies (pathSwitchReqAcknowledge_p, &message_p->msg.s1ap_PathSwitchRequestAcknowledgeIEs) < 0) {
+    return -1;
+  }
+
+  return s1ap_generate_successfull_outcome (buffer, length, S1ap_ProcedureCode_id_PathSwitchRequest, message_p->criticality,
+      &asn_DEF_S1ap_PathSwitchRequestAcknowledge, pathSwitchReqAcknowledge_p);
+}
+
+
+static inline int
+s1ap_mme_encode_pathSwitchRequestFailure (
+  s1ap_message * message_p,
+  uint8_t ** buffer,
+  uint32_t * length)
+{
+
+  S1ap_PathSwitchRequestFailure_t                pathSwitchReqFailure;
+  S1ap_PathSwitchRequestFailure_t               *pathSwitchReqFailure_p = &pathSwitchReqFailure;
+
+  memset (pathSwitchReqFailure_p, 0, sizeof (S1ap_PathSwitchRequestFailure_t));
+
+  if (s1ap_encode_s1ap_pathswitchrequestfailureies (pathSwitchReqFailure_p, &message_p->msg.s1ap_PathSwitchRequestFailureIEs) < 0) {
+    return -1;
+  }
+
+  return s1ap_generate_unsuccessfull_outcome (buffer, length, S1ap_ProcedureCode_id_PathSwitchRequest, message_p->criticality, &asn_DEF_S1ap_PathSwitchRequestFailure, pathSwitchReqFailure_p);
 }
 
 static inline int

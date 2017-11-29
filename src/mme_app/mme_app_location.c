@@ -124,6 +124,8 @@ mme_app_handle_s6a_update_location_ans (
     OAILOG_FUNC_RETURN (LOG_MME_APP, RETURNerror);
   }
 
+  // Updating the UE subscription without much validation!
+
   ue_context_p->subscription_known = SUBSCRIPTION_KNOWN;
   ue_context_p->sub_status = ula_pP->subscription_data.subscriber_status;
   ue_context_p->access_restriction_data = ula_pP->subscription_data.access_restriction;

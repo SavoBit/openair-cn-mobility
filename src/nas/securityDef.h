@@ -69,6 +69,7 @@ Description Contains global security definitions
 #define AUTH_KNAS_INT_SIZE  16 /* NAS integrity key     */
 #define AUTH_KNAS_ENC_SIZE  16 /* NAS cyphering key     */
 #define AUTH_KENB_SIZE      AUTH_KASME_SIZE /* eNodeB security key   */
+#define AUTH_NH_SIZE        AUTH_KENB_SIZE  /* eNodeB next hop value */
 
 /* "Separation bit" of AMF field */
 #define AUTH_AMF_SEPARATION_BIT(a)  ((a) & 0x80)
@@ -87,6 +88,9 @@ typedef struct {
   uint8_t rand[AUTH_RAND_SIZE];
   /* Authentication token parameter       */
   uint8_t autn[AUTH_AUTN_SIZE];
+  /* Next Hop Value */
+  uint8_t nh_conj[AUTH_NH_SIZE];
+
   /* Expected Authentication response parameter   */
 #define AUTH_XRES_SIZE  AUTH_RES_SIZE
   uint8_t xres_size;

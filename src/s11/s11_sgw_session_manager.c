@@ -228,7 +228,7 @@ s11_sgw_handle_create_session_request (
   return itti_send_msg_to_task (TASK_SPGW_APP, INSTANCE_DEFAULT, message_p);
 }
 
-//------------------------------------------------------------------------------
+////------------------------------------------------------------------------------
 int
 s11_sgw_handle_create_session_response (
   NwGtpv2cStackHandleT * stack_p,
@@ -247,7 +247,7 @@ s11_sgw_handle_create_session_response (
    * Create a tunnel for the GTPv2-C stack
    */
   memset (&ulp_req, 0, sizeof (NwGtpv2cUlpApiT));
-  ulp_req.apiType = NW_GTPV2C_ULP_CREATE_LOCAL_TUNNEL;
+//  ulp_req.apiType = NW_GTPV2C_ULP_CREATE_LOCAL_TUNNEL;
   ulp_req.apiInfo.createLocalTunnelInfo.teidLocal = create_session_response_p->s11_sgw_teid.teid;
   ulp_req.apiInfo.createLocalTunnelInfo.peerIp = create_session_response_p->peer_ip;
   rc = nwGtpv2cProcessUlpReq (*stack_p, &ulp_req);
@@ -295,7 +295,7 @@ s11_sgw_handle_create_session_response (
   return RETURNok;
 }
 
-//------------------------------------------------------------------------------
+////------------------------------------------------------------------------------
 int
 s11_sgw_handle_delete_session_request (
   NwGtpv2cStackHandleT * stack_p,
@@ -395,7 +395,7 @@ s11_sgw_handle_delete_session_request (
   return itti_send_msg_to_task (TASK_SPGW_APP, INSTANCE_DEFAULT, message_p);
 }
 
-//------------------------------------------------------------------------------
+////------------------------------------------------------------------------------
 int
 s11_sgw_handle_delete_session_response (
   NwGtpv2cStackHandleT * stack_p,

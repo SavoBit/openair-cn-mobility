@@ -191,6 +191,66 @@ nas_proc_establish_ind (
   OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
 }
 
+
+///****************************************************************************
+// **                                                                        **
+// ** Name:    nas_proc_handover_ind()                                  **
+// **                                                                        **
+// ** Description: Processes the NAS handover finalization **
+// **      indication message received from the network   (after MBR)           **
+// **                                                                        **
+// ** Inputs:  ueid:      UE identifier                              **
+// **      tac:       The code of the tracking area the initia-  **
+// **             ting UE belongs to                         **
+// **      data:      The initial NAS message transfered within  **
+// **             the message                                **
+// **      len:       The length of the initial NAS message      **
+// **      Others:    None                                       **
+// **                                                                        **
+// ** Outputs:     None                                                      **
+// **      Return:    RETURNok, RETURNerror                      **
+// **      Others:    None                                       **
+// **                                                                        **
+// ***************************************************************************/
+//int
+//nas_proc_handover_ind (
+//  const mme_ue_s1ap_id_t ue_id,
+//  const tai_t originating_tai,
+//  const ecgi_t cgi)
+//{
+//  OAILOG_FUNC_IN (LOG_NAS_EMM);
+//  int                                     rc = RETURNerror;
+//
+////  if (msg) {
+//    emm_sap_t                               emm_sap = {0};
+//
+//    MSC_LOG_TX_MESSAGE (MSC_NAS_MME, MSC_NAS_EMM_MME, NULL, 0, "0 EMMAS_HANDOVER_REQ ue id " MME_UE_S1AP_ID_FMT " tai:  plmn %c%c%c.%c%c%c tac %u",
+//        ue_id,
+//        (char)(originating_tai.plmn.mcc_digit1 + 0x30), (char)(originating_tai.plmn.mcc_digit2 + 0x30), (char)(originating_tai.plmn.mcc_digit3 + 0x30),
+//        (char)(originating_tai.plmn.mnc_digit1 + 0x30), (char)(originating_tai.plmn.mnc_digit2 + 0x30),
+//        (9 < originating_tai.plmn.mnc_digit3) ? ' ': (char)(originating_tai.plmn.mnc_digit3 + 0x30),
+//            originating_tai.tac);
+//    /*
+//     * Notify the EMM procedure call manager that NAS signalling
+//     * connection establishment indication message has been received
+//     * from the Access-Stratum sublayer
+//     */
+//
+//    emm_sap.primitive = EMMAS_HANDOVER_CNF;
+//    emm_sap.u.emm_as.u.handover.ue_id              = ue_id;
+//
+////    emm_sap.u.emm_as.u.handover.nas_msg            = *msg;
+////    *msg = NULL;
+//    emm_sap.u.emm_as.u.handover.plmn_id            = &originating_tai.plmn;
+//    emm_sap.u.emm_as.u.handover.tac                = originating_tai.tac;
+//    emm_sap.u.emm_as.u.handover.ecgi               = cgi;
+//    rc = emm_sap_send (&emm_sap);
+////  }
+//
+//  OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
+//}
+
+
 /****************************************************************************
  **                                                                        **
  ** Name:    nas_proc_dl_transfer_cnf()                                **
@@ -482,6 +542,39 @@ nas_proc_pdn_connectivity_fail (
   rc = emm_sap_send (&emm_sap);
   OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
 }
+
+//------------------------------------------------------------------------------
+int
+nas_proc_ho_bearer_modification_res (
+   emm_cn_ho_bearer_mod_res_t * emm_cn_ho_bearer_mod_res)
+{
+  int                                     rc = RETURNerror;
+  emm_sap_t                               emm_sap = {0};
+
+  OAILOG_FUNC_IN (LOG_NAS_EMM);
+  MSC_LOG_TX_MESSAGE (MSC_NAS_MME, MSC_NAS_EMM_MME, NULL, 0, "0 EMMCN_HO_BEARER_MODIFICATION_RES");
+  emm_sap.primitive = EMMCN_HO_BEARER_MODIFICATION_RES;
+  emm_sap.u.emm_cn.u.emm_cn_pdn_res = emm_cn_ho_bearer_mod_res;
+  rc = emm_sap_send (&emm_sap);
+  OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
+}
+
+//------------------------------------------------------------------------------
+int
+nas_proc_ho_bearer_modification_fail (
+    emm_cn_ho_bearer_mod_fail_t * emm_cn_ho_bearer_mod_fail)
+{
+  int                                     rc = RETURNerror;
+  emm_sap_t                               emm_sap = {0};
+
+  OAILOG_FUNC_IN (LOG_NAS_EMM);
+  MSC_LOG_TX_MESSAGE (MSC_NAS_MME, MSC_NAS_EMM_MME, NULL, 0, "0 EMMCN_HO_BEARER_MODIFICATION_FAIL");
+  emm_sap.primitive = EMMCN_HO_BEARER_MODIFICATION_FAIL;
+  emm_sap.u.emm_cn.u.emm_cn_ho_bearer_mod_fail = emm_cn_ho_bearer_mod_fail;
+  rc = emm_sap_send (&emm_sap);
+  OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
+}
+
 //------------------------------------------------------------------------------
 int
 nas_proc_smc_fail (

@@ -173,12 +173,29 @@ s1ap_mme_thread (
         s1ap_handle_conn_est_cnf (&MME_APP_CONNECTION_ESTABLISHMENT_CNF (received_message_p));
       }
       break;
+
+    // Handover messages from MME_APP after validation or rejection from nas and S11/SAE-GW --> the respective handover method will be checked inside
+    case MME_APP_HANDOVER_CNF: {
+        s1ap_handle_handover_cnf(&MME_APP_HANDOVER_CNF (received_message_p));
+    }
+    break;
+
+    case MME_APP_HANDOVER_REJ: {
+        s1ap_handle_handover_rej(&MME_APP_HANDOVER_REJ (received_message_p));
+    }
+    break;
     
     case MME_APP_S1AP_MME_UE_ID_NOTIFICATION:{
         s1ap_handle_mme_ue_id_notification (&MME_APP_S1AP_MME_UE_ID_NOTIFICATION (received_message_p));
       }
       break;
     
+    // Messages to continue to initial UE establishment after duplicate check
+    case MME_APP_S1AP_INITIAL_UE_MESSAGE_DUPLICATE_CNF:{
+        s1ap_mme_handle_initial_ue_message_duplicate_cnf(&MME_APP_S1AP_INITIAL_UE_MESSAGE_DUPLICATE_CNF (received_message_p));
+       }
+        break;
+
     case S1AP_ENB_INITIATED_RESET_ACK:{
         s1ap_handle_enb_initiated_reset_ack (&S1AP_ENB_INITIATED_RESET_ACK (received_message_p));
       }

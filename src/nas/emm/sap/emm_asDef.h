@@ -64,6 +64,12 @@ typedef enum emm_as_primitive_u {
   _EMMAS_ESTABLISH_REQ, /* EMM->AS: Connection establish request  */
   _EMMAS_ESTABLISH_CNF, /* AS->EMM: Connection establish confirm  */
   _EMMAS_ESTABLISH_REJ, /* AS->EMM: Connection establish reject   */
+  // handover
+  _EMMAS_HO_BEARER_MODIFICATION_CNF, /* AS->EMM: Handover confirmation */
+  _EMMAS_HO_BEARER_MODIFICATION_REJ, /* AS->EMM: Handover rejection */
+
+  // handover (after
+
   _EMMAS_RELEASE_REQ,   /* EMM->AS: Connection release request    */
   _EMMAS_RELEASE_IND,   /* AS->EMM: Connection release indication */
   _EMMAS_DATA_REQ,      /* EMM->AS: Data transfer request     */
@@ -193,6 +199,53 @@ typedef struct emm_as_establish_s {
   uint32_t              *t3412_extended;              /* TAU GPRS timer   */
 } emm_as_establish_t;
 
+typedef struct emm_as_ho_bearer_modification_s {
+  mme_ue_s1ap_id_t       ue_id;                       /* UE lower layer identifier         */
+  emm_as_EPS_identity_t  eps_id;                      /* UE's EPS mobile identity      */
+  emm_as_security_data_t sctx;                        /* EPS NAS security context      */
+  bool                   switch_off;                  /* true if the UE is switched off    */
+  uint8_t                type;                        /* Network attach/detach type        */
+  uint8_t                rrc_cause;                   /* Connection establishment cause    */
+  uint8_t                rrc_type;                    /* Associated call type          */
+  const plmn_t          *plmn_id;                     /* Identifier of the selected PLMN   */
+  ksi_t                  ksi;                         /* NAS key set identifier        */
+  uint8_t                encryption:4;                /* Ciphering algorithm           */
+  uint8_t                integrity:4;                 /* Integrity protection algorithm    */
+  int                    emm_cause;                   /* EMM failure cause code        */
+  const guti_t          *new_guti;                    /* New GUTI, if re-allocated         */
+  int                    n_tacs;                      /* Number of consecutive tracking areas
+                                                       * the UE is registered to       */
+  tac_t                  tac;                         /* Code of the first tracking area the UE
+                                                       * is registered to          */
+  ecgi_t                 ecgi;                        /* E-UTRAN CGI This information element is used to globally identify a cell */
+#define EMM_AS_NAS_INFO_ATTACH  0x01                  /* Attach request        */
+#define EMM_AS_NAS_INFO_DETACH  0x02                  /* Detach request        */
+#define EMM_AS_NAS_INFO_TAU     0x03                  /* Tracking Area Update request  */
+#define EMM_AS_NAS_INFO_SR      0x04                  /* Service Request       */
+#define EMM_AS_NAS_INFO_EXTSR   0x05                  /* Extended Service Request  */
+#define EMM_AS_NAS_INFO_HO      0x05                  /* Handover */
+#define EMM_AS_NAS_INFO_NONE    0xFF                  /* No Nas Message  */
+  uint8_t                nas_info;                    /* Type of initial NAS information to transfer   */
+  bstring                nas_msg;                     /* NAS message to be transfered within
+                                                       * initial NAS information message   */
+
+  uint8_t                eps_update_result;           /* TAU EPS update result   */
+  uint32_t              *t3412;                       /* GPRS T3412 timer   */
+  guti_t                *guti;                        /* TAU GUTI   */
+  TAI_LIST_T(16)         tai_list;                    /* Valid field if num tai > 0 */
+  uint16_t              *eps_bearer_context_status;   /* TAU EPS bearer context status   */
+  void                  *location_area_identification;/* TAU Location area identification */
+  //void                *ms_identity;                 /* TAU 8.2.26.7   MS identity This IE may be included to assign or unassign a new TMSI to a UE during a combined TA/LA update. */
+  int                   *combined_tau_emm_cause;      /* TAU EMM failure cause code   */
+  uint32_t              *t3402;                       /* TAU GPRS T3402 timer   */
+  uint32_t              *t3423;                       /* TAU GPRS T3423 timer   */
+  void                  *equivalent_plmns;            /* TAU Equivalent PLMNs   */
+  void                  *emergency_number_list;       /* TAU Emergency number list   */
+  uint8_t               *eps_network_feature_support; /* TAU Network feature support   */
+  uint8_t               *additional_update_result;    /* TAU Additional update result   */
+  uint32_t              *t3412_extended;              /* TAU GPRS timer   */
+} emm_as_ho_bearer_modification_t;
+
 /*
  * EMMAS primitive for connection release
  * --------------------------------------
@@ -279,6 +332,9 @@ typedef struct emm_as_s {
     emm_as_security_t  security;
     emm_as_establish_t establish;
     emm_as_release_t   release;
+    // handover
+//    emm_as_handover_t handover;
+
     emm_as_data_t      data;
     emm_as_page_t      page;
     emm_as_status_t    status;
