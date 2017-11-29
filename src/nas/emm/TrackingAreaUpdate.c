@@ -273,6 +273,21 @@ emm_proc_tracking_area_update_request (
     tai_t                                   new_tai = {.plmn = {0}, .tac = INVALID_TAC_0000},
                                           *p_new_tai = NULL;
     // todo: nullcheck
+
+    /**
+     *
+     * todo: for meshflow
+     *
+     * 1- Get the old context from the old MME via S10 (if not already received via handover)
+     * 2- ULR to HSS to update the location (if not already received via handover)
+     * 3- Create a new GUTI for the MME (at handover ?)
+     * 4- SAEGW change (EPC Book 267 // CSR // MBR)
+     * 5- TAU complete (wait for tau complete, if it returns?)
+     * 6- Report TA to PCRF for tracking
+     * 7- If MME changes but not the SAE-GW update the SAEGW (distributed system)
+     * 8- Check bearer establishment flag in TAU // MBR)
+     */
+
     p_new_tai = &new_tai;
     new_tai.tac = new_tac;
     new_tai.plmn.mcc_digit1 = plmn_id->mcc_digit1;

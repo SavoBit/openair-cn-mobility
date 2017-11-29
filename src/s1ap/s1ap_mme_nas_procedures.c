@@ -297,7 +297,8 @@ s1ap_mme_handle_initial_ue_message_duplicate_cnf (
       s1ap_remove_ue (ue_ref);
     }
   }else{
-    OAILOG_DEBUG (LOG_S1AP, "No old ue_reference found. Processing initial ue message furhter \n");
+    OAILOG_DEBUG (LOG_S1AP, "No old ue_reference found. Not processing initial ue message furhter \n");
+    OAILOG_FUNC_RETURN (LOG_S1AP, RETURNok);
   }
   return s1ap_mme_process_new_initial_ue_message(initial_ue_message_duplicate_cnf_p->sctp_assoc_id,
       initial_ue_message_duplicate_cnf_p->stream_id,
