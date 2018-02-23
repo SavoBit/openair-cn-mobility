@@ -157,11 +157,11 @@ ue_description_t* s1ap_is_ue_enb_id_in_list(enb_description_t *enb_ref,
 ue_description_t* s1ap_is_ue_mme_id_in_list(const mme_ue_s1ap_id_t ue_mme_id);
 ue_description_t* s1ap_is_s11_sgw_teid_in_list(const s11_teid_t teid);
 
-/** \brief Look for given ue mme id in the list of UEs for a particular enb.
- * \param enb_id The unique ue_mme_id to search in list
- * @returns NULL if no UE matchs the ue_mme_id, or reference to the ue element in list if matches
+/** \brief Look for given ue enb s1ap id in the list of UEs for a particular enb.
+ * \param enb_id The unique ue_enb_id to search in list
+ * @returns NULL if no UE matchs the ue_enb_id, or reference to the ue element in list if matches
  **/
-ue_description_t* s1ap_is_ue_mme_id_in_list_per_enb ( const mme_ue_s1ap_id_t mme_ue_s1ap_id, const uint32_t  enb_id);
+ue_description_t* s1ap_is_enb_ue_s1ap_id_in_list_per_enb ( const enb_ue_s1ap_id_t enb_ue_s1ap_id, const uint32_t  enb_id);
 
 /** \brief associate mainly 2(3) identifiers in S1AP layer: {mme_ue_s1ap_id_t, sctp_assoc_id (,enb_ue_s1ap_id)}
  **/

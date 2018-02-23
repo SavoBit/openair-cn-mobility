@@ -1409,7 +1409,7 @@ s1ap_mme_handle_handover_notification(const sctp_assoc_id_t assoc_id, const sctp
   handoverNotification_p= &message->msg.s1ap_HandoverNotifyIEs;
   // eNB UE S1AP ID is limited to 24 bits
   enb_ue_s1ap_id = (enb_ue_s1ap_id_t) (handoverNotification_p->eNB_UE_S1AP_ID & ENB_UE_S1AP_ID_MASK);
-  mme_ue_s1ap_id = (uint32_t) handoverNotification_p->mme_ue_s1ap_id;
+  mme_ue_s1ap_id = (mme_ue_s1ap_id_t) handoverNotification_p->mme_ue_s1ap_id;
 
   OAILOG_DEBUG (LOG_S1AP, "Handover Notify message received from eNB UE S1AP ID: " ENB_UE_S1AP_ID_FMT "\n", enb_ue_s1ap_id);
   /**
@@ -1520,11 +1520,9 @@ s1ap_mme_handle_handover_resource_allocation_response(const sctp_assoc_id_t asso
   mme_ue_s1ap_id = handoverRequestAcknowledge_p->mme_ue_s1ap_id;
   OAILOG_DEBUG (LOG_S1AP, "Handover Request Acknowledge received from eNB UE S1AP ID: " ENB_UE_S1AP_ID_FMT "\n", enb_ue_s1ap_id);
 
-  /** Will return NULL if an UE-Reference already exists in the UE_MAP of the target-eNB. */
-
-  /*
+  /** Will return NULL if an UE-Reference already exists in the UE_MAP of the target-eNB.
    * This UE eNB Id has currently no known s1 association.
-   * * * * Create new UE context by associating new mme_ue_s1ap_id.
+   * * * * Create new UE Reference. Associate in the MME_APP to the new mme_ue_s1ap_id.
    * * * * Update eNB UE list.
    * * * * Forward message to NAS.
    */
@@ -1583,11 +1581,28 @@ s1ap_mme_handle_handover_resource_allocation_response(const sctp_assoc_id_t asso
     s1ap_handle_ue_context_release_command(ue_context_release_cmd_p); /**< Send a removal message and remove the context also directly. */
     OAILOG_FUNC_RETURN (LOG_S1AP, RETURNok);
   }
+
   /**
-   * UE Reference will be in IDLE state.
-   * We can already set the streams on which we received the messsage.
+   * Only create a new UE_REFERENCE!Set the (new) ue_reference to S1AP_UE_HANDOVER state.
+   * todo: not setting to this state if intra-MME S1AP handover is being done.
    */
+  // Will be allocated by NAS
+  // todo: searching ue_reference just by enb_ue_s1ap id or mme_ue_s1ap_id ?
+  ue_ref_p->mme_ue_s1ap_id = handoverRequestAcknowledge_p->mme_ue_s1ap_id; /**< In contrary to X2, it can be set. */
+
+  OAILOG_DEBUG(LOG_S1AP, "UE_DESCRIPTION REFERENCE @ NEW HANDOVER_REQUEST ACKNOWLEDGE %x \n", ue_ref_p);
+  OAILOG_DEBUG(LOG_S1AP, "UE_DESCRIPTION REFERENCE @ NEW HANDOVER_REQUEST ACKNOWLEDGE %p \n", ue_ref_p);
+  OAILOG_DEBUG(LOG_S1AP, "SET ENB_UE_S1AP_ID (0)   @ NEW HANDOVER_REQUEST ACKNOWLEDGE %d \n", ue_ref_p->enb_ue_s1ap_id);
+
+  // todo: UE_REFERENCE
+  ue_ref_p->s1ap_ue_context_rel_timer.id  = S1AP_TIMER_INACTIVE_ID;
+  ue_ref_p->s1ap_ue_context_rel_timer.sec = S1AP_UE_CONTEXT_REL_COMP_TIMER;
+
+  // On which stream we received the message
   ue_ref_p->sctp_stream_recv = stream;
+  /**
+   * todo: Lionel: this (if no run condition occurs= should be the same stream where we sent the HANDOVER_REQUEST... might not be if run-condition occurs!
+   */
   ue_ref_p->sctp_stream_send = ue_ref_p->enb->next_sctp_stream;
 
   /*
@@ -1598,20 +1613,16 @@ s1ap_mme_handle_handover_resource_allocation_response(const sctp_assoc_id_t asso
 
   /*
    * TODO task#15456359.
-   * todo: updating the sctp streams?!
    * Below logic seems to be incorrect , revisit it.
+   *
+   * todo: always setting to 0 might work?!
    */
   ue_ref_p->enb->next_sctp_stream += 1;
   if (ue_ref_p->enb->next_sctp_stream >= ue_ref_p->enb->instreams) {
     ue_ref_p->enb->next_sctp_stream = 1;
   }
-
-  /** Set the new association and the new stream. */
-  ue_ref_p->enb->sctp_assoc_id = assoc_id;
-  ue_ref_p->enb->next_sctp_stream = stream;
-
-  // set the new enb id
-  ue_ref_p->enb_ue_s1ap_id = enb_ue_s1ap_id;
+  s1ap_dump_enb (ue_ref_p->enb);
+  /** UE Reference will be in IDLE state. */
 
   /**
    * E-RAB Admitted List.
@@ -1643,8 +1654,8 @@ s1ap_mme_handle_handover_resource_allocation_response(const sctp_assoc_id_t asso
    */
   handover_request_acknowledge_p->target_to_source_eutran_container = blk2bstr(handoverRequestAcknowledge_p->target_ToSource_TransparentContainer.buf,
       handoverRequestAcknowledge_p->target_ToSource_TransparentContainer.size);
-  // todo @ Lionel: do we need to run this method?
-  //  free_wrapper((void**) &(handover_request_acknowledge_pP->transparent_container.buf));
+  // todo @ Lionel: do we need to run this method? Message deallocated later?
+  // free_wrapper((void**) &(handover_request_acknowledge_pP->transparent_container.buf));
 
   /** Not checking if the Target-to-Source Transparent container exists. */
   MSC_LOG_TX_MESSAGE (MSC_S1AP_MME,
@@ -1762,36 +1773,34 @@ s1ap_mme_handle_enb_status_transfer(const sctp_assoc_id_t assoc_id, const sctp_s
   mme_ue_s1ap_id = enbStatusTransfer_p->mme_ue_s1ap_id;
   OAILOG_DEBUG (LOG_S1AP, "Enb Status Transfer received from source eNodeB for UE with eNB UE S1AP ID: " ENB_UE_S1AP_ID_FMT "\n", enb_ue_s1ap_id);
 
+  /** In the single-MME case as well, the MME_UE_S1AP_ID should provide the source eNB. */
   if ((ue_ref_p = s1ap_is_ue_mme_id_in_list (mme_ue_s1ap_id)) == NULL) {
     /*
      * The MME UE S1AP ID provided by eNB doesn't point to any valid UE.
      * Since the message is optional, just disregard the message.
-     * No need to remove the UE implicitly.
-     * HANDOVER_NOTIFY timeout will purge the UE-Context.
+     * No need to remove the UE implicitly, and if it is a intra-MME HO, the handover completion timer will purge it anyway.
      */
-    OAILOG_ERROR( LOG_S1AP, "MME UE S1AP ID provided by eNB doesn't point to any valid UE: " MME_UE_S1AP_ID_FMT "\n", mme_ue_s1ap_id);
+    OAILOG_ERROR( LOG_S1AP, "MME UE S1AP ID provided by eNB doesn't point to any valid UE: " MME_UE_S1AP_ID_FMT " for the ENB_STATUS_TRANFER message. \n", mme_ue_s1ap_id);
     OAILOG_FUNC_RETURN (LOG_S1AP, RETURNerror);
   }
   /** UE resources will not be released yet. */
   /** ENB Status Transfer message sent to MME_APP layer. It will decide if the target MME lies in the same MME or different MME. */
   message_p = itti_alloc_new_message (TASK_S1AP, S1AP_ENB_STATUS_TRANSFER);
   AssertFatal (message_p != NULL, "itti_alloc_new_message Failed");
-  memset ((void *)&message_p->ittiMsg.s1ap_enb_status_transfer, 0, sizeof (itti_s1ap_status_transfer_t));
-  S1AP_ENB_STATUS_TRANSFER (message_p).mme_ue_s1ap_id = ue_ref_p->mme_ue_s1ap_id;
-  S1AP_ENB_STATUS_TRANSFER (message_p).enb_ue_s1ap_id = ue_ref_p->enb_ue_s1ap_id;
-  S1AP_ENB_STATUS_TRANSFER (message_p).bearerStatusTransferList_buffer = blk2bstr(enbStatusTransfer_p->eNB_StatusTransfer_TransparentContainer.bearers_SubjectToStatusTransferList.list.array[0]->value.buf,
+  itti_s1ap_status_transfer_t *enb_status_transfer_p = &message_p->ittiMsg.s1ap_enb_status_transfer;
+  memset (enb_status_transfer_p, 0, sizeof (itti_s1ap_status_transfer_t));
+  enb_status_transfer_p->mme_ue_s1ap_id = ue_ref_p->mme_ue_s1ap_id;
+  enb_status_transfer_p->enb_ue_s1ap_id = ue_ref_p->enb_ue_s1ap_id;
+  /** Set the E-UTRAN container. The S1AP octet string should be purged in the outer method. */
+  enb_status_transfer_p->bearerStatusTransferList_buffer = blk2bstr(enbStatusTransfer_p->eNB_StatusTransfer_TransparentContainer.bearers_SubjectToStatusTransferList.list.array[0]->value.buf,
       enbStatusTransfer_p->eNB_StatusTransfer_TransparentContainer.bearers_SubjectToStatusTransferList.list.array[0]->value.size);
-
-//  OCTET_STRING_fromBuf (&S1AP_ENB_STATUS_TRANSFER(message_p).bearerStatusTransferList_buffer,
-//      (char *)(enbStatusTransfer_p->eNB_StatusTransfer_TransparentContainer.bearers_SubjectToStatusTransferList.list.array[0]->value.buf),
-//      enbStatusTransfer_p->eNB_StatusTransfer_TransparentContainer.bearers_SubjectToStatusTransferList.list.array[0]->value.size);
 
   /** Assuming that the OCTET-STRING will be freed automatically. */
   MSC_LOG_TX_MESSAGE (MSC_S1AP_MME,
       MSC_MMEAPP_MME,
       NULL, 0,
       "0 S1AP_ENB_STATUS_TRANSFER mme_ue_s1ap_id " MME_UE_S1AP_ID_FMT,
-      S1AP_ENB_STATUS_TRANSFER (message_p).mme_ue_s1ap_id);
+      enb_status_transfer_p->mme_ue_s1ap_id);
   rc =  itti_send_msg_to_task (TASK_MME_APP, INSTANCE_DEFAULT, message_p);
   OAILOG_FUNC_RETURN (LOG_S1AP, RETURNok);
 }

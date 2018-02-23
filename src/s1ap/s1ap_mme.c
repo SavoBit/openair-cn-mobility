@@ -513,21 +513,19 @@ s1ap_is_ue_mme_id_in_list (
 
 //------------------------------------------------------------------------------
 ue_description_t                       *
-s1ap_is_ue_mme_id_in_list_per_enb (
-  const mme_ue_s1ap_id_t mme_ue_s1ap_id,
+s1ap_is_enb_ue_s1ap_id_in_list_per_enb (
+  const enb_ue_s1ap_id_t enb_ue_s1ap_id,
   const uint32_t  enb_id)
 {
   ue_description_t                       *ue_ref = NULL;
-  mme_ue_s1ap_id_t                       *mme_ue_s1ap_id_p = (mme_ue_s1ap_id_t*)&mme_ue_s1ap_id;
+  mme_ue_s1ap_id_t                       *mme_ue_s1ap_id_p = (mme_ue_s1ap_id_t*)&enb_ue_s1ap_id;
   enb_description_t                      *enb_ref = NULL;
   enb_ref = s1ap_is_enb_id_in_list(enb_id);
   if(enb_ref == NULL){
     return NULL;
   }
   /** Continue to search. */
-  hashtable_ts_apply_callback_on_elements(&enb_ref->ue_coll, s1ap_enb_find_ue_by_mme_ue_id_cb, (void *)mme_ue_s1ap_id_p, (void**)&ue_ref);
-  OAILOG_TRACE(LOG_S1AP, "Return ue_ref %p for enb_id %d \n", ue_ref, enb_id);
-  return ue_ref;
+  return s1ap_is_ue_enb_id_in_list(enb_ref, enb_ue_s1ap_id);
 }
 
 //------------------------------------------------------------------------------

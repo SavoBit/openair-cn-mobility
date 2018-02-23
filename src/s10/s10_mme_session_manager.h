@@ -27,7 +27,7 @@
 *
 * \author Andreas Eberlein
 * \company Blackned GmbH
-* \email: aberlein@blackned.de
+* \email: aeberlein@blackned.de
 */
 
 #ifndef FILE_S10_MME_SESSION_MANAGER_SEEN

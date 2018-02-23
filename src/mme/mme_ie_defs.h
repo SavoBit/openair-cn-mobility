@@ -27,7 +27,7 @@
 *
 * \author Andreas Eberlein
 * \company Blackned GmbH
-* \email: aberlein@blackned.de
+* \email: aeberlein@blackned.de
 */
 
 #ifndef FILE_MME_IE_DEFS_SEEN
@@ -217,6 +217,7 @@ typedef struct bearer_context_s {
   ip_address_t            p_gw_address;
 
   /* QoS for this bearer */
+  uint8_t                 ebi;
   qci_t                   qci;
   priority_level_t        prio_level;
   pre_emp_vulnerability_t pre_emp_vulnerability;

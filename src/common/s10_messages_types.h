@@ -35,7 +35,7 @@
 *
 * \author Andreas Eberlein
 * \company Blackned GmbH
-* \email: aberlein@blackned.de
+* \email: aeberlein@blackned.de
 *
 */
 
@@ -435,7 +435,7 @@ typedef struct itti_s10_remove_ue_tunnel_s {
   // here fields listed in 3GPP TS 29.274
 
   /** Cause to set (like error cause in GTPV2c State Machine). */
-  MMECause_t               cause;
+//  MMECause_t               cause;
 
 } itti_s10_remove_ue_tunnel_t;
 

@@ -116,6 +116,19 @@ mme_app_handle_detach_req (
    * and we enter this stage only if EMM has triggered detach (which sets EMM state to EMM_DEREGSITERED) --> todo: set to EMM_DEREGISTER initiated, if it is an implicit MME detach!
    *
    */
+  /** Remove the local S10 Tunnel if one exist. */
+  /**
+   * Remove the S10 Tunnel Endpoint. No more messages to send.
+   * Assuming that new S10 messages (if any, will be sent with new TEIDs).
+   * todo: this as the only point to remove the S10 tunnel.
+   */
+  MessageDef *message_p = itti_alloc_new_message (TASK_MME_APP, S10_REMOVE_UE_TUNNEL);
+  DevAssert (message_p != NULL);
+  message_p->ittiMsg.s10_remove_ue_tunnel.teid  = ue_context->local_mme_s10_teid;
+//  message_p->ittiMsg.s10_remove_ue_tunnel.cause = LOCAL_DETACH;
+  MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME, MSC_NAS_MME, NULL, 0, "0 NAS_IMPLICIT_DETACH_UE_IND_MESSAGE");
+  itti_send_msg_to_task (TASK_S10, INSTANCE_DEFAULT, message_p);
+
   /**
    * todo: if it is an MME triggered implicit detach, the UE should be in EMM_DEREGISTER_INITIATED state --> from there determine if it is an implicit detach or not..
    * If it is concluded that it is an implicit detach --> perform paging, leave the state as it is in EMM_DEREGISTER_INITIATED

@@ -2108,6 +2108,20 @@ mme_app_handle_relocation_cancel_response(
      "Accepting Handover Cancellation. \n", ue_context_p->mme_ue_s1ap_id);
 
  // todo: when to accept these values from the target-MME side.
+ /**
+  * Send an handover_cancel_accept if UE is in UE_REGISTERED state, else additionally perform an implicit detach.
+  * todo: assuming that this won't crash if UE is not in EMM_REGISTERED state.
+  */
  mme_app_send_s1ap_handover_cancel_acknowledge(ue_context_p->mme_ue_s1ap_id, ue_context_p->enb_ue_s1ap_id, ue_context_p->sctp_assoc_id_key);
+ if(ue_context_p->mm_state != UE_REGISTERED){
+   OAILOG_ERROR(LOG_MME_APP, "RELOCATION_CANCEL_REPONSE received by UE with mmeUeS1apId " MME_UE_S1AP_ID_FMT " not in UE_REGISTERED state, instead in %d. Performing NAS-Implicit-Detach. \n", ue_context_p->mme_ue_s1ap_id);
+   ue_context_p->ue_context_rel_cause = S1AP_NETWORK_ERROR;
+   message_p = itti_alloc_new_message (TASK_MME_APP, NAS_IMPLICIT_DETACH_UE_IND);
+   DevAssert (message_p != NULL);
+   itti_nas_implicit_detach_ue_ind_t *nas_implicit_detach_ue_ind_p = &message_p->ittiMsg.nas_implicit_detach_ue_ind;
+   memset ((void*)nas_implicit_detach_ue_ind_p, 0, sizeof (itti_nas_implicit_detach_ue_ind_t));
+   message_p->ittiMsg.nas_implicit_detach_ue_ind.ue_id = ue_context_p->mme_ue_s1ap_id;
+   itti_send_msg_to_task (TASK_NAS_MME, INSTANCE_DEFAULT, message_p);
+ }
  OAILOG_FUNC_OUT (LOG_MME_APP);
 }

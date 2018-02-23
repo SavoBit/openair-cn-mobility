@@ -796,6 +796,7 @@ s10_complete_request_message_ie_get (
 
 /**
  * F_Container IE Getter.
+ * Allocated a new bstring in the heap and copies the container in it.
  */
 NwRcT
 s10_f_container_ie_get (

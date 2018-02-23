@@ -27,7 +27,7 @@
 *
 * \author Andreas Eberlein
 * \company Blackned GmbH
-* \email: aberlein@blackned.de
+* \email: aeberlein@blackned.de
 *
 */
 
