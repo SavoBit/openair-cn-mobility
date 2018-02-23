@@ -57,6 +57,16 @@ void nas_itti_pdn_connectivity_req(
   esm_proc_data_t        *proc_data_pP,
   esm_proc_pdn_request_t  request_typeP);
 
+void nas_itti_ue_context_req(
+  const uint32_t        ue_idP,
+  const imsi64_t        imsi64_P,
+  const guti_t        * const guti_p,
+  const bool            is_initial_reqP,
+  tai_t         * const new_taiP,
+  tai_t         * const last_visited_taiP,
+  Complete_Request_Message_Type_t request_type,
+  bstring               request_msg);
+
 void nas_itti_auth_info_req(
   const uint32_t        ue_idP,
   const imsi64_t        imsi64_P,
@@ -77,13 +87,13 @@ void nas_itti_establish_cnf(
   const uint16_t         selected_encryption_algorithmP,
   const uint16_t         selected_integrity_algorithmP);
 
-void nas_itti_handover_cnf(
+void nas_itti_handover_tau_cnf(
   const uint32_t         ue_idP,
   const nas_error_code_t error_codeP,
   const uint16_t         selected_encryption_algorithmP,
   const uint16_t         selected_integrity_algorithmP);
 
-void nas_itti_handover_rej(
+void nas_itti_handover_tau_rej(
   const uint32_t         ue_idP,
   const nas_error_code_t error_codeP);
 

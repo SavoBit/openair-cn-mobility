@@ -58,4 +58,7 @@
  */
 #define MAX_EPS_AUTH_VECTORS          1
 
+// todo: check where this belongs!
+#define MAX_EPS_APN                   1
+
 #endif /* FILE_3GPP_33_401_SEEN */

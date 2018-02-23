@@ -168,7 +168,7 @@ emm_fsm_initialize (
  **                                                                        **
  ***************************************************************************/
 int
-emm_fsm_set_status (
+emm_fsm_set_status (  /**< Sets the EMM status in the NAS context and th MME_APP context UE status. */
     mme_ue_s1ap_id_t ue_id,
   void *ctx,
   emm_fsm_state_t status)
@@ -181,13 +181,14 @@ emm_fsm_set_status (
     if (status != emm_ctx->_emm_fsm_status) {
       OAILOG_INFO (LOG_NAS_EMM, "UE " MME_UE_S1AP_ID_FMT" EMM-FSM   - Status changed: %s ===> %s\n", ue_id, _emm_fsm_status_str[emm_ctx->_emm_fsm_status], _emm_fsm_status_str[status]);
       MSC_LOG_EVENT (MSC_NAS_EMM_MME, "EMM state %s UE " MME_UE_S1AP_ID_FMT" ", _emm_fsm_status_str[status], ue_id);
-      emm_ctx->_emm_fsm_status = status;
+      emm_ctx->_emm_fsm_status = status; /**< Sets the NAS EMM_CTX FSM status. */
       if (status == EMM_REGISTERED) {
         new_emm_state = UE_REGISTERED;
       } else if (status == EMM_DEREGISTERED) {
-        new_emm_state = UE_UNREGISTERED;
+        new_emm_state = UE_UNREGISTERED;    /**< Intentionally not called DEREGISTERED (would be an EMM state). */
       }
       // Update mme_ue_context's emm_state and overall stats
+      // todo: So we can communicate via ITTI's and we can call methods directly!
       mme_ue_context_update_ue_emm_state (emm_ctx->ue_id, new_emm_state);
     }
 

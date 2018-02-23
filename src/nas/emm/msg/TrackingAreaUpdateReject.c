@@ -49,6 +49,37 @@ decode_tracking_area_update_reject (
   else
     decoded += decoded_result;
 
+
+  /*
+   * Decoding optional fields
+   */
+  while (len - decoded > 0) {
+    uint8_t                                 ieiDecoded = *(buffer + decoded);
+
+    /*
+     * Type | value iei are below 0x80 so just return the first 4 bits
+     */
+    if (ieiDecoded >= 0x80)
+      ieiDecoded = ieiDecoded & 0xf0;
+
+    switch (ieiDecoded) {
+    case TRACKING_AREA_UPDATE_REJECT_T3346_VALUE_IEI:
+      if ((decoded_result = decode_gprs_timer(&tracking_area_update_reject->t3346value, TRACKING_AREA_UPDATE_REJECT_T3346_VALUE_IEI, buffer + decoded, len - decoded))
+          <= 0)
+        return decoded_result;
+
+      decoded += decoded_result;
+      /*
+       * Set corresponding mask to 1 in presencemask
+       */
+      tracking_area_update_reject->presencemask |= TRACKING_AREA_UPDATE_REJECT_T3346_VALUE_PRESENT;
+      break;
+
+    default:
+      errorCodeDecoder = TLV_UNEXPECTED_IEI;
+      return TLV_UNEXPECTED_IEI;
+    }
+  }
   return decoded;
 }
 
@@ -70,6 +101,17 @@ encode_tracking_area_update_reject (
     return encode_result;
   else
     encoded += encode_result;
+
+  if ((tracking_area_update_reject->presencemask & TRACKING_AREA_UPDATE_REJECT_T3346_VALUE_PRESENT)
+      == TRACKING_AREA_UPDATE_REJECT_T3346_VALUE_PRESENT) {
+    if ((encode_result = encode_gprs_timer (&tracking_area_update_reject->t3346value, TRACKING_AREA_UPDATE_REJECT_T3346_VALUE_IEI, buffer + encoded, len - encoded)) < 0) {
+      OAILOG_ERROR (LOG_NAS_EMM, "Failed encode_gprs_timer\n");
+      // Return in case of error
+      OAILOG_FUNC_RETURN (LOG_NAS_EMM, encode_result);
+    } else
+      encoded += encode_result;
+  }
+
 
   return encoded;
 }

@@ -62,4 +62,21 @@ void esm_sap_initialize(void);
 
 int esm_sap_send(esm_sap_t *msg);
 
+#include "../esm_proc.h"
+#include "../msg/esm_msg.h"
+
+int
+_emm_sap_process_esm_message(
+    ESM_msg                                *esm_msg_p,
+    int                                     esm_cause,
+    int                                     is_discarded,
+    int                                     triggered_by_ue,
+    int                                     pti,
+    unsigned int                            ebi,
+    int                                     is_standalone,
+    esm_sap_error_t                        *err,
+    esm_proc_procedure_t                    esm_procedure,
+    emm_data_context_t                     *ctx);
+
+
 #endif /* __ESM_SAP_H__*/

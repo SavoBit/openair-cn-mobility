@@ -39,6 +39,9 @@
 #define S11_DELETE_SESSION_RESPONSE(mSGpTR)        (mSGpTR)->ittiMsg.s11_delete_session_response
 #define S11_RELEASE_ACCESS_BEARERS_REQUEST(mSGpTR) (mSGpTR)->ittiMsg.s11_release_access_bearers_request
 #define S11_RELEASE_ACCESS_BEARERS_RESPONSE(mSGpTR) (mSGpTR)->ittiMsg.s11_release_access_bearers_response
+/** Paging related signaling.  */
+#define S11_DOWNLINK_DATAN_NOTIFICATION(mSGpTR) (mSGpTR)->ittiMsg.s11_downlink_data_notification
+#define S11_DOWNLINK_DATAN_NOTIFICATION_ACKNOWLEDGE(mSGpTR) (mSGpTR)->ittiMsg.s11_downlink_data_notification_acknowledge
 
 //-----------------------------------------------------------------------------
 /** @struct itti_s11_create_session_request_t
@@ -248,6 +251,9 @@ typedef struct itti_s11_create_session_request_s {
   ///< MME/SGSN receives PCO from UE (during the attach
   ///< procedures), the MME/SGSN shall forward the PCO IE to
   ///< SGW. The SGW shall also forward it to PGW.
+
+  APNRestriction_t         apn_restriction;     ///< This IE shall be included on the S5/S8 and S4/S11
+
 
   bearer_contexts_to_be_created_t bearer_contexts_to_be_created;    ///< Bearer Contexts to be created
   ///< Several IEs with the same type and instance value shall be
@@ -934,4 +940,37 @@ typedef struct itti_s11_release_access_bearers_response_s {
   void       *trxn;
   uint32_t    peer_ip;
 } itti_s11_release_access_bearers_response_t;
+
+
+//-----------------------------------------------------------------------------
+/** @struct itti_s11_downlink_data_notification_t
+ *  @brief Downlink Data Notification
+ *
+ * The Downlink Data Notification message is sent on the S11 interface by the SGW to the MME as part of the S1 paging procedure.
+ */
+typedef struct itti_s11_downlink_data_notification_s {
+  teid_t      teid;                   ///< Tunnel Endpoint Identifier
+  SGWCause_t  cause;
+  // Recovery           ///< optional This IE shall be included if contacting the peer for the first time
+  // Private Extension  ///< optional
+  /* GTPv2-C specific parameters */
+  void       *trxn;
+  uint32_t    peer_ip;
+}itti_s11_downlink_data_notification_t;
+
+//-----------------------------------------------------------------------------
+/** @struct itti_s11_downlink_data_notification_acknowledge_t
+ *  @brief Downlink Data Notification Acknowledge
+ *
+ * The Downlink Data Notification Acknowledge message is sent on the S11 interface by the MME to the SGW as part of the S1 paging procedure.
+ */
+typedef struct itti_s11_downlink_data_notification_acknowledge_s {
+  teid_t      teid;                   ///< Tunnel Endpoint Identifier
+  MMECause_t  cause;
+  // Recovery           ///< optional This IE shall be included if contacting the peer for the first time
+  // Private Extension  ///< optional
+  /* GTPv2-C specific parameters */
+  void       *trxn;
+  uint32_t    peer_ip;
+}itti_s11_downlink_data_notification_acknowledge_t;
 #endif /* FILE_S11_MESSAGES_TYPES_SEEN */

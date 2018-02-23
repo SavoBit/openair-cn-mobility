@@ -49,6 +49,8 @@
 #define MME_CONFIG_STRING_MAXUE                          "MAXUE"
 #define MME_CONFIG_STRING_RELATIVE_CAPACITY              "RELATIVE_CAPACITY"
 #define MME_CONFIG_STRING_STATISTIC_TIMER                "MME_STATISTIC_TIMER"
+#define MME_CONFIG_STRING_MME_MOBILITY_COMPLETION_TIMER  "MME_MOBILITY_COMPLETION_TIMER"
+#define MME_CONFIG_STRING_MME_PAGING_TIMEOUT_TIMER       "MME_PAGING_TIMEOUT_TIMER"
 
 #define MME_CONFIG_STRING_EMERGENCY_ATTACH_SUPPORTED     "EMERGENCY_ATTACH_SUPPORTED"
 #define MME_CONFIG_STRING_UNAUTHENTICATED_IMSI_SUPPORTED "UNAUTHENTICATED_IMSI_SUPPORTED"
@@ -65,6 +67,7 @@
 #define MME_CONFIG_STRING_S6A_CONFIG                     "S6A"
 #define MME_CONFIG_STRING_S6A_CONF_FILE_PATH             "S6A_CONF"
 #define MME_CONFIG_STRING_S6A_HSS_HOSTNAME               "HSS_HOSTNAME"
+#define MME_CONFIG_STRING_S6A_MME_HOSTNAME               "MME_HOSTNAME"
 
 #define MME_CONFIG_STRING_SCTP_CONFIG                    "SCTP"
 #define MME_CONFIG_STRING_SCTP_INSTREAMS                 "SCTP_INSTREAMS"
@@ -79,9 +82,11 @@
 #define MME_CONFIG_STRING_MME_CODE                       "MME_CODE"
 #define MME_CONFIG_STRING_MME_GID                        "MME_GID"
 #define MME_CONFIG_STRING_TAI_LIST                       "TAI_LIST"
+#define MME_CONFIG_STRING_NEIGHBORING_MME_LIST           "NEIGHBORING_MME_LIST"
 #define MME_CONFIG_STRING_MCC                            "MCC"
 #define MME_CONFIG_STRING_MNC                            "MNC"
 #define MME_CONFIG_STRING_TAC                            "TAC"
+#define MME_CONFIG_STRING_NGHB_MME_IPV4_ADDR             "NGHB_MME_IPV4_ADDR"
 
 #define MME_CONFIG_STRING_NETWORK_INTERFACES_CONFIG      "NETWORK_INTERFACES"
 #define MME_CONFIG_STRING_INTERFACE_NAME_FOR_S1_MME      "MME_INTERFACE_NAME_FOR_S1_MME"
@@ -89,6 +94,9 @@
 #define MME_CONFIG_STRING_INTERFACE_NAME_FOR_S11_MME     "MME_INTERFACE_NAME_FOR_S11_MME"
 #define MME_CONFIG_STRING_IPV4_ADDRESS_FOR_S11_MME       "MME_IPV4_ADDRESS_FOR_S11_MME"
 #define MME_CONFIG_STRING_MME_PORT_FOR_S11               "MME_PORT_FOR_S11_MME"
+#define MME_CONFIG_STRING_INTERFACE_NAME_FOR_S10_MME     "MME_INTERFACE_NAME_FOR_S10_MME"
+#define MME_CONFIG_STRING_IPV4_ADDRESS_FOR_S10_MME       "MME_IPV4_ADDRESS_FOR_S10_MME"
+#define MME_CONFIG_STRING_MME_PORT_FOR_S10               "MME_PORT_FOR_S10_MME"
 
 
 #define MME_CONFIG_STRING_NAS_CONFIG                     "NAS"
@@ -101,6 +109,8 @@
 #define MME_CONFIG_STRING_NAS_T3486_TIMER                "T3486"
 #define MME_CONFIG_STRING_NAS_T3489_TIMER                "T3489"
 #define MME_CONFIG_STRING_NAS_T3495_TIMER                "T3495"
+#define MME_CONFIG_STRING_NAS_T3346_TIMER                "T3346"
+
 
 #define MME_CONFIG_STRING_ASN1_VERBOSITY                 "ASN1_VERBOSITY"
 #define MME_CONFIG_STRING_ASN1_VERBOSITY_NONE            "none"
@@ -129,6 +139,8 @@ typedef struct mme_config_s {
   uint8_t relative_capacity;
 
   uint32_t mme_statistic_timer;
+  uint32_t mme_mobility_completion_timer;
+  uint32_t mme_paging_timeout_timer;
 
   uint8_t unauthenticated_imsi_supported;
 
@@ -143,6 +155,11 @@ typedef struct mme_config_s {
     int      nb;
     gummei_t gummei[MAX_GUMMEI];
   } gummei;
+
+  struct {
+    int      nb;
+    nghMme_t nghMme[MAX_NGH_MMES];
+  } nghMme;
 
 #define TRACKING_AREA_IDENTITY_LIST_TYPE_ONE_PLMN_NON_CONSECUTIVE_TACS 0x00
 #define TRACKING_AREA_IDENTITY_LIST_TYPE_ONE_PLMN_CONSECUTIVE_TACS     0x01
@@ -176,12 +193,18 @@ typedef struct mme_config_s {
     int        netmask_s11;
     uint16_t   port_s11;
 
+    bstring    if_name_s10;
+    ipv4_nbo_t s10;
+    int        netmask_s10;
+    uint16_t   port_s10;
+
     ipv4_nbo_t sgw_s11;
   } ipv4;
 
   struct {
     bstring conf_file;
     bstring hss_host_name;
+    bstring mme_host_name;
   } s6a_config;
   struct {
     uint32_t  queue_size;
@@ -197,6 +220,7 @@ typedef struct mme_config_s {
     uint32_t t3486_sec;
     uint32_t t3489_sec;
     uint32_t t3495_sec;
+    uint32_t t3346_sec;
   } nas_config;
 
   log_config_t log_config;

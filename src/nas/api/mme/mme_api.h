@@ -44,6 +44,7 @@ Description Implements the API used by the NAS layer running in the MME
 #include "common_types.h"
 #include "securityDef.h"
 #include "bstrlib.h"
+#include "EpsUpdateType.h"
 
 /****************************************************************************/
 /*********************  G L O B A L    C O N S T A N T S  *******************/
@@ -73,6 +74,8 @@ typedef enum mme_api_ip_version_e {
 typedef enum {
   UE_UNREGISTERED = 0,
   UE_REGISTERED,
+  UE_HANDOVER_TAU,
+  UE_CONTEXT_STATE_MAX
 } mm_state_t;
 
 /*
@@ -82,11 +85,15 @@ typedef enum {
 typedef struct mme_api_emm_config_s {
   mme_api_feature_t features; /* Supported features           */
   gummei_t          gummei;   /* EPS Globally Unique MME Identity */
+  nghMme_t          nghMme[MAX_NGH_MMES];   /* Neighboring MME information. */
   uint8_t           prefered_integrity_algorithm[8];// choice in NAS_SECURITY_ALGORITHMS_EIA0, etc
   uint8_t           prefered_ciphering_algorithm[8];// choice in NAS_SECURITY_ALGORITHMS_EEA0, etc
   uint8_t           eps_network_feature_support;
   bool              force_push_pco;
   TAI_LIST_T(16)    tai_list;
+
+  /** Further features. */
+  uint32_t          t3346_reattachment_timeout;
 } mme_api_emm_config_t;
 
 /*
@@ -124,6 +131,7 @@ typedef struct mme_api_tft_s {
 /****************************************************************************/
 /******************  E X P O R T E D    F U N C T I O N S  ******************/
 /****************************************************************************/
+void mme_api_free_ue_radio_capabilities(mme_ue_s1ap_id_t ue_id);
 
 int mme_api_get_emm_config(mme_api_emm_config_t *config, mme_config_t *mme_config_p);
 
@@ -150,16 +158,40 @@ int mme_api_new_guti(const imsi_t * const imsi,
                      const tai_t  * const originating_tai,
                      tai_list_t   * const tai_list);
 
+bool
+mme_api_check_tai_ngh_existing (  const tai_t      * const originating_tai  );
+
+bool
+mme_api_check_tai_local_mme(
+  const tai_t      * const originating_tai );
+
 int
 mme_api_add_tai (
   mme_ue_s1ap_id_t       mme_ue_s1ap_id,
   const tai_t * const new_tai,
   tai_list_t * const tai_list);
 
+/** Temporary function to delete the s11 session until multi apn is implemented in ESM! */
+int
+mme_api_delete_session_request(mme_ue_s1ap_id_t ue_id);
+
 int mme_api_subscribe(bstring *apn, mme_api_ip_version_t mme_pdn_index, bstring *pdn_addr,
                       int is_emergency, mme_api_qos_t *qos);
 int mme_api_unsubscribe(bstring apn);
 
 void mme_ue_context_update_ue_emm_state (mme_ue_s1ap_id_t mme_ue_s1ap_id, mm_state_t new_emm_state);
+
+EpsUpdateType* mme_api_get_epsUpdateType(mme_ue_s1ap_id_t       mme_ue_s1ap_id);
+
+int mme_api_is_subscription_known(mme_ue_s1ap_id_t mme_ue_s1ap_id);
+
+int mme_api_send_update_location_request(mme_ue_s1ap_id_t mme_ue_s1ap_id);
+
+int mme_api_send_s11_create_session_req(mme_ue_s1ap_id_t mme_ue_s1ap_id);
+
+bool mme_api_get_pending_bearer_deactivation (mme_ue_s1ap_id_t mme_ue_s1ap_id);
+
+void
+mme_api_set_pending_bearer_deactivation (mme_ue_s1ap_id_t mme_ue_s1ap_id, bool pending_bearer_deactivation);
 
 #endif /* FILE_MME_API_SEEN*/

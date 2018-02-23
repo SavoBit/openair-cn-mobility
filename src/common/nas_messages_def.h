@@ -51,6 +51,9 @@ MESSAGE_DEF(NAS_PDN_CONNECTIVITY_REQ,           MESSAGE_PRIORITY_MED,   itti_nas
 MESSAGE_DEF(NAS_INITIAL_UE_MESSAGE,             MESSAGE_PRIORITY_MED,   itti_nas_initial_ue_message_t,   nas_initial_ue_message)
 MESSAGE_DEF(NAS_CONNECTION_ESTABLISHMENT_CNF,   MESSAGE_PRIORITY_MED,   itti_nas_conn_est_cnf_t,         nas_conn_est_cnf)
 MESSAGE_DEF(NAS_CONNECTION_RELEASE_IND,         MESSAGE_PRIORITY_MED,   itti_nas_conn_rel_ind_t,         nas_conn_rel_ind)
+/** todo: for multi-pdn. */
+MESSAGE_DEF(NAS_PDN_DISCONNECT_REQ,             MESSAGE_PRIORITY_MED,   itti_nas_pdn_disconnect_req_t,   nas_pdn_disconnect_req)
+MESSAGE_DEF(NAS_PDN_DISCONNECT_RSP,             MESSAGE_PRIORITY_MED,   itti_nas_pdn_disconnect_rsp_t,   nas_pdn_disconnect_rsp)
 
 MESSAGE_DEF(NAS_UPLINK_DATA_IND,                MESSAGE_PRIORITY_MED,   itti_nas_ul_data_ind_t,          nas_ul_data_ind)
 MESSAGE_DEF(NAS_DOWNLINK_DATA_REQ,              MESSAGE_PRIORITY_MED,   itti_nas_dl_data_req_t,          nas_dl_data_req)
@@ -62,7 +65,7 @@ MESSAGE_DEF(NAS_RAB_RELEASE_REQ,                MESSAGE_PRIORITY_MED,   itti_nas
 
 /* NAS layer -> MME app messages */
 MESSAGE_DEF(NAS_AUTHENTICATION_PARAM_REQ,       MESSAGE_PRIORITY_MED,   itti_nas_auth_param_req_t,       nas_auth_param_req)
-MESSAGE_DEF(NAS_DETACH_REQ,       		MESSAGE_PRIORITY_MED,   itti_nas_detach_req_t,           	nas_detach_req)
+MESSAGE_DEF(NAS_DETACH_REQ,       		          MESSAGE_PRIORITY_MED,   itti_nas_detach_req_t,           	nas_detach_req)
 
 /* MME app -> NAS layer messages */
 MESSAGE_DEF(NAS_PDN_CONNECTIVITY_RSP,           MESSAGE_PRIORITY_MED,   itti_nas_pdn_connectivity_rsp_t,   nas_pdn_connectivity_rsp)
@@ -71,10 +74,18 @@ MESSAGE_DEF(NAS_PDN_CONNECTIVITY_FAIL,          MESSAGE_PRIORITY_MED,   itti_nas
 // handover (Forwarding the MBR to NAS for handover processing)
 MESSAGE_DEF(NAS_HO_BEARER_MODIFICATION_RSP,     MESSAGE_PRIORITY_MED,   itti_nas_ho_bearer_modification_rsp_t,    nas_ho_bearer_modification_rsp)
 MESSAGE_DEF(NAS_HO_BEARER_MODIFICATION_FAIL,    MESSAGE_PRIORITY_MED,   itti_nas_ho_bearer_modification_fail_t,   nas_ho_bearer_modification_fail)
+MESSAGE_DEF(NAS_HO_FORWARD_RELOCATION_REQ,      MESSAGE_PRIORITY_MED,   itti_nas_ho_forward_relocation_req_t,     nas_ho_forward_relocation_req)
+MESSAGE_DEF(NAS_HO_FORWARD_RELOCATION_FAIL,     MESSAGE_PRIORITY_MED,   itti_nas_ho_forward_reloc_fail_t,         nas_ho_forward_relocation_fail)
 
 // handover (after NAS processing, confirming or rejecting the handover procedure)
-MESSAGE_DEF(NAS_HANDOVER_CNF,                   MESSAGE_PRIORITY_MED,   itti_nas_handover_cnf_t,         nas_handover_cnf)
-MESSAGE_DEF(NAS_HANDOVER_REJ,                   MESSAGE_PRIORITY_MED,   itti_nas_handover_rej_t,         nas_handover_rej)
+MESSAGE_DEF(NAS_HANDOVER_TAU_CNF,               MESSAGE_PRIORITY_MED,   itti_nas_handover_tau_cnf_t,        nas_handover_tau_cnf)
+MESSAGE_DEF(NAS_HANDOVER_TAU_REJ,               MESSAGE_PRIORITY_MED,   itti_nas_handover_tau_rej_t,        nas_handover_tau_rej)
+/** Handover Notify */
+MESSAGE_DEF(NAS_HANDOVER_ESTABLISH_IND,         MESSAGE_PRIORITY_MED,   itti_nas_handover_establish_ind_t,         nas_handover_establish_ind)
+
+/** S10 Context Transfer (TAU). */
+MESSAGE_DEF(NAS_UE_CONTEXT_REQ,                 MESSAGE_PRIORITY_MED,   itti_nas_ue_context_req_t,         nas_ue_context_req)
+MESSAGE_DEF(NAS_UE_CONTEXT_RSP,                 MESSAGE_PRIORITY_MED,   itti_nas_ue_context_rsp_t,         nas_ue_context_rsp)
 
 MESSAGE_DEF(NAS_IMPLICIT_DETACH_UE_IND,         MESSAGE_PRIORITY_MED,   itti_nas_implicit_detach_ue_ind_t, nas_implicit_detach_ue_ind)
 

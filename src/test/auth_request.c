@@ -87,6 +87,7 @@ typedef struct {
   struct dict_object *dataobj_s6a_cla; /* s6a Cancel Location ans */
 
   /* Some standard basic AVPs */
+  struct dict_object *dataobj_s6a_origin_host;
   struct dict_object *dataobj_s6a_destination_host;
   struct dict_object *dataobj_s6a_destination_realm;
   struct dict_object *dataobj_s6a_user_name;
@@ -98,6 +99,7 @@ typedef struct {
   /* S6A specific AVPs */
   struct dict_object *dataobj_s6a_visited_plmn_id;
   struct dict_object *dataobj_s6a_rat_type;
+  struct dict_object *dataobj_s6a_cancellation_type;
   struct dict_object *dataobj_s6a_ulr_flags;
   struct dict_object *dataobj_s6a_ula_flags;
   struct dict_object *dataobj_s6a_subscription_data;
@@ -247,6 +249,7 @@ fd_init_dict_objs (
   /*
    * Pre-loading base avps
    */
+  CHECK_FD_FCT (fd_dict_search (fd_g_config->cnf_dict, DICT_AVP, AVP_BY_NAME, "Origin-Host", &s6a_fd_cnf.dataobj_s6a_origin_host, ENOENT));
   CHECK_FD_FCT (fd_dict_search (fd_g_config->cnf_dict, DICT_AVP, AVP_BY_NAME, "Destination-Host", &s6a_fd_cnf.dataobj_s6a_destination_host, ENOENT));
   CHECK_FD_FCT (fd_dict_search (fd_g_config->cnf_dict, DICT_AVP, AVP_BY_NAME, "Destination-Realm", &s6a_fd_cnf.dataobj_s6a_destination_realm, ENOENT));
   CHECK_FD_FCT (fd_dict_search (fd_g_config->cnf_dict, DICT_AVP, AVP_BY_NAME, "User-Name", &s6a_fd_cnf.dataobj_s6a_user_name, ENOENT));
@@ -259,6 +262,7 @@ fd_init_dict_objs (
    */
   CHECK_FD_FCT (fd_dict_search (fd_g_config->cnf_dict, DICT_AVP, AVP_BY_NAME_ALL_VENDORS, "Visited-PLMN-Id", &s6a_fd_cnf.dataobj_s6a_visited_plmn_id, ENOENT));
   CHECK_FD_FCT (fd_dict_search (fd_g_config->cnf_dict, DICT_AVP, AVP_BY_NAME_ALL_VENDORS, "RAT-Type", &s6a_fd_cnf.dataobj_s6a_rat_type, ENOENT));
+  CHECK_FD_FCT (fd_dict_search (fd_g_config->cnf_dict, DICT_AVP, AVP_BY_NAME_ALL_VENDORS, "Cancellation-Type", &s6a_fd_cnf.dataobj_s6a_cancellation_type, ENOENT));
   CHECK_FD_FCT (fd_dict_search (fd_g_config->cnf_dict, DICT_AVP, AVP_BY_NAME_ALL_VENDORS, "ULR-Flags", &s6a_fd_cnf.dataobj_s6a_ulr_flags, ENOENT));
   CHECK_FD_FCT (fd_dict_search (fd_g_config->cnf_dict, DICT_AVP, AVP_BY_NAME_ALL_VENDORS, "ULA-Flags", &s6a_fd_cnf.dataobj_s6a_ula_flags, ENOENT));
   CHECK_FD_FCT (fd_dict_search (fd_g_config->cnf_dict, DICT_AVP, AVP_BY_NAME_ALL_VENDORS, "Subscription-Data", &s6a_fd_cnf.dataobj_s6a_subscription_data, ENOENT));

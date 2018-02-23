@@ -32,13 +32,15 @@
 #include "intertask_interface.h"
 #include "mme_app_ue_context.h"
 
+// todo: need to extend this with enb's connected?!
 typedef struct {
   /* UE contexts + some statistics variables */
   mme_ue_context_t mme_ue_contexts;
 
   long statistic_timer_id;
   uint32_t statistic_timer_period;
-  
+  uint32_t mme_mobility_management_timer_period;
+
   /* Reader/writer lock */
   pthread_rwlock_t rw_lock;
   
@@ -80,30 +82,41 @@ int mme_app_send_s11_release_access_bearers_req (struct ue_context_s *const ue_c
 
 int mme_app_send_s11_create_session_req      (struct ue_context_s * const ue_context_pP);
 
+/** Trigger a Create_Session_Request from an Handover. */
+int mme_app_send_s11_create_session_req_from_handover_tau ( mme_ue_s1ap_id_t ue_id);
+
 int mme_app_send_s6a_update_location_req     (struct ue_context_s * const ue_context_pP);
 
 int mme_app_handle_s6a_update_location_ans   (const s6a_update_location_ans_t * const ula_pP);
 
+int mme_app_handle_s6a_cancel_location_req  (const s6a_cancel_location_req_t * const clr_pP);
+
+int mme_app_handle_s6a_reset_req  (const s6a_reset_req_t * const rr_pP);
+
 int mme_app_handle_nas_pdn_connectivity_req  ( itti_nas_pdn_connectivity_req_t * const nas_pdn_connectivity_req_p);
+
+int mme_app_handle_nas_pdn_connectivity_fail ( itti_nas_pdn_connectivity_fail_t * const nas_pdn_connectivity_fail_pP);
 
 void mme_app_handle_detach_req (const itti_nas_detach_req_t * const detach_req_p);
 
 void mme_app_handle_conn_est_cnf             (const itti_nas_conn_est_cnf_t * const nas_conn_est_cnf_pP);
 
 // Handover messaging
-void mme_app_handle_handover_cnf    (  const itti_nas_handover_cnf_t * const nas_handover_cnf_pP);
+void mme_app_handle_handover_tau_cnf    (  const itti_nas_handover_tau_cnf_t * const nas_handover_tau_cnf_pP);
 
-void mme_app_handle_handover_rej (   const itti_nas_handover_rej_t * const nas_handover_rej_pP);
+void mme_app_handle_handover_tau_rej (   const itti_nas_handover_tau_rej_t * const nas_handover_tau_rej_pP);
 
 void mme_app_handle_initial_ue_message       (itti_mme_app_initial_ue_message_t * const conn_est_ind_pP);
 
 void mme_app_handle_initial_ue_message_check_duplicate (itti_mme_app_initial_ue_message_check_duplicate_t * const initial_check_duplicate_pP);
 
-int mme_app_handle_create_sess_resp          (itti_s11_create_session_response_t * const create_sess_resp_pP); //not const because we need to free internal stucts
+int mme_app_handle_create_sess_resp          (const itti_s11_create_session_response_t * const create_sess_resp_pP); //not const because we need to free internal stucts
 
-int mme_app_handle_modify_bearer_resp          (itti_s11_modify_bearer_response_t * const modify_bearer_resp_pP);
+int mme_app_handle_modify_bearer_resp          (const itti_s11_modify_bearer_response_t * const modify_bearer_resp_pP);
 
 void mme_app_handle_delete_session_rsp	     (const itti_s11_delete_session_response_t * const delete_sess_respP);
+
+void mme_app_handle_downlink_data_notification (const itti_s11_downlink_data_notification_t * const saegw_dl_data_ntf_pP);
 
 int mme_app_handle_establish_ind             (const nas_establish_ind_t * const nas_establish_ind_pP);
 
@@ -130,15 +143,66 @@ void mme_app_handle_mobile_reachability_timer_expiry (struct ue_context_s *ue_co
 
 void mme_app_handle_implicit_detach_timer_expiry (struct ue_context_s *ue_context_p); 
 
+void mme_app_handle_mme_mobility_completion_timer_expiry (struct ue_context_s *ue_context_p);
+
+void mme_app_handle_mme_paging_timeout_timer_expiry (struct ue_context_s *ue_context_p);
+
 void mme_app_handle_initial_context_setup_rsp_timer_expiry (struct ue_context_s *ue_context_p);
 
 void mme_app_handle_enb_reset_req( const itti_s1ap_enb_initiated_reset_req_t const * enb_reset_req);
 
-// handover messaging
+/** X2 Handover messaging. */
 void mme_app_handle_path_switch_req(
      const itti_mme_app_path_switch_req_t * const path_switch_req_pP
     );
 
+/** S1AP Handover messaging. */
+void mme_app_handle_handover_required( const itti_s1ap_handover_required_t * const handover_required_pP );
+
+void mme_app_handle_handover_cancel( const itti_s1ap_handover_cancel_t * const handover_cancel_pP );
+
+/** Handling S10 Messages.
+ * todo: handle errors..
+ */
+void mme_app_handle_forward_relocation_request( const itti_s10_forward_relocation_request_t * const forward_relocation_request_pP );
+
+void mme_app_handle_nas_ho_forward_relocation_fail( const itti_nas_ho_forward_reloc_fail_t * const forward_relocation_fail_pP );
+
+void mme_app_handle_forward_relocation_response(    const itti_s10_forward_relocation_response_t* const forward_relocation_response_pP );
+
+void mme_app_handle_forward_access_context_notification( const itti_s10_forward_access_context_notification_t * const forward_access_context_notification_pP );
+
+void mme_app_handle_forward_access_context_acknowledge( const itti_s10_forward_access_context_acknowledge_t* const forward_access_context_acknowledge_pP );
+
+void mme_app_handle_handover_request_acknowledge(const itti_s1ap_handover_request_acknowledge_t * const handover_request_acknowledge_pP    );
+
+void mme_app_handle_handover_failure(const itti_s1ap_handover_failure_t * const handover_failure_pP    );
+
+void mme_app_handle_enb_status_transfer(const itti_s1ap_status_transfer_t* const s1ap_status_transfer_pP    );
+
+void mme_app_handle_forward_relocation_complete_notification(const itti_s10_forward_relocation_complete_notification_t* const forward_relocation_complete_notification_pP    );
+
+void mme_app_handle_forward_relocation_complete_acknowledge(const itti_s10_forward_relocation_complete_acknowledge_t* const forward_relocation_complete_acknowledge_pP    );
+
+/** Relocation Cancel Request & Response. */
+void
+mme_app_handle_relocation_cancel_request(
+     const itti_s10_relocation_cancel_request_t * const relocation_cancel_request_pP
+    );
+
+void
+mme_app_handle_relocation_cancel_response(
+     const itti_s10_relocation_cancel_response_t * const relocation_cancel_response_pP
+    );
+
+/** TAU Related Messaging. */
+void mme_app_handle_nas_ue_context_req(const itti_nas_ue_context_req_t * const nas_ue_context_req_pP);
+
+void mme_app_handle_s10_context_request( const itti_s10_context_request_t * const context_request_pP );
+
+void mme_app_handle_s10_context_response( const itti_s10_context_response_t * const context_response_pP );
+
+void mme_app_handle_s10_context_acknowledge( const itti_s10_context_acknowledge_t * const context_acknowledge_pP );
 
 #define mme_stats_read_lock(mMEsTATS)  pthread_rwlock_rdlock(&(mMEsTATS)->rw_lock)
 #define mme_stats_write_lock(mMEsTATS) pthread_rwlock_wrlock(&(mMEsTATS)->rw_lock)

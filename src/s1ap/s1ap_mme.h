@@ -53,8 +53,7 @@ enum mme_s1_enb_state_s {
 enum s1_ue_state_s {
   S1AP_UE_INVALID_STATE,
   S1AP_UE_WAITING_CSR,    ///< Waiting for Initial Context Setup Response
-  S1AP_UE_HANDOVER_X2,    ///< X2 Handover procedure triggered
-  S1AP_UE_HANDOVER_S1AP,  ///< S1AP Handover procedure triggered
+//  S1AP_UE_HANDOVER_X2,    ///< X2 Handover procedure triggered
   S1AP_UE_CONNECTED,      ///< UE context ready
   S1AP_UE_WAITING_CRR,   /// UE Context release Procedure initiated , waiting for UE context Release Complete
 };
@@ -66,6 +65,8 @@ typedef struct ue_description_s {
   struct enb_description_s *enb;           ///< Which eNB this UE is attached to
 
   enum s1_ue_state_s        s1_ue_state;       ///< S1AP UE state
+  /** Set the release cause, since we must now differentiate between them. */
+  enum s1cause              s1_release_cause;  ///< S1AP Release Cause
 
   enb_ue_s1ap_id_t enb_ue_s1ap_id:24;    ///< Unique UE id over eNB (24 bits wide)
   mme_ue_s1ap_id_t mme_ue_s1ap_id;       ///< Unique UE id over MME (32 bits wide)
@@ -155,6 +156,12 @@ ue_description_t* s1ap_is_ue_enb_id_in_list(enb_description_t *enb_ref,
  **/
 ue_description_t* s1ap_is_ue_mme_id_in_list(const mme_ue_s1ap_id_t ue_mme_id);
 ue_description_t* s1ap_is_s11_sgw_teid_in_list(const s11_teid_t teid);
+
+/** \brief Look for given ue mme id in the list of UEs for a particular enb.
+ * \param enb_id The unique ue_mme_id to search in list
+ * @returns NULL if no UE matchs the ue_mme_id, or reference to the ue element in list if matches
+ **/
+ue_description_t* s1ap_is_ue_mme_id_in_list_per_enb ( const mme_ue_s1ap_id_t mme_ue_s1ap_id, const uint32_t  enb_id);
 
 /** \brief associate mainly 2(3) identifiers in S1AP layer: {mme_ue_s1ap_id_t, sctp_assoc_id (,enb_ue_s1ap_id)}
  **/

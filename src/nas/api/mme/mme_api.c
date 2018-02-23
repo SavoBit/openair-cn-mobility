@@ -45,6 +45,7 @@
 #include "conversions.h"
 #include "sgw_ie_defs.h"
 #include "mme_app_ue_context.h"
+
 #include "mme_app_defs.h"
 #include "mme_config.h"
 #include <string.h>             // memcpy
@@ -85,6 +86,20 @@ static tmsi_t                           mme_m_tmsi_generator = 0x00000001;
 /****************************************************************************/
 /*********************  L O C A L    F U N C T I O N S  *********************/
 /****************************************************************************/
+void mme_api_free_ue_radio_capabilities(mme_ue_s1ap_id_t ue_id){
+  ue_context_t                           *ue_context_p = NULL;
+
+  OAILOG_FUNC_IN (LOG_NAS);
+  ue_context_p = mme_ue_context_exists_mme_ue_s1ap_id (&mme_app_desc.mme_ue_contexts, ue_id);
+
+  if (ue_context_p) {
+    // Note: this is safe from double-free errors because it sets to NULL
+    // after freeing, which free treats as a no-op.
+    free_wrapper((void**) &ue_context_p->ue_radio_capabilities);
+    ue_context_p->ue_radio_cap_length = 0;  // Logically "deletes" info
+  }
+  OAILOG_FUNC_OUT(LOG_NAS);
+}
 
 /****************************************************************************
  **                                                                        **
@@ -133,8 +148,14 @@ mme_api_get_emm_config (
   }
   config->tai_list.list_type = mme_config_p->served_tai.list_type;
 
+  /** todo: multiple GUMMEI. */
   config->gummei = mme_config_p->gummei.gummei[0];
 
+  /** Set the preconfigured neighboring MMEs. */
+  // todo: currently just set one neighboring MME.
+  for(int i = 0; i < MAX_NGH_MMES ; i++){
+    config->nghMme[i] = mme_config_p->nghMme.nghMme[i];
+  }
 
   // hardcoded
   config->eps_network_feature_support = EPS_NETWORK_FEATURE_SUPPORT_CS_LCS_LOCATION_SERVICES_VIA_CS_DOMAIN_NOT_SUPPORTED;
@@ -238,6 +259,7 @@ mme_api_notify_imsi (
         id,
         imsi64,
         ue_context->mme_s11_teid,
+        ue_context->local_mme_s10_teid,
         &ue_context->guti);
     OAILOG_FUNC_RETURN (LOG_NAS, RETURNok);
   }
@@ -276,6 +298,7 @@ mme_api_notify_new_guti (
         id,
         ue_context->imsi,
         ue_context->mme_s11_teid,
+        ue_context->local_mme_s10_teid,
         guti);
     OAILOG_FUNC_RETURN (LOG_NAS, RETURNok);
   }
@@ -406,6 +429,72 @@ mme_api_new_guti (
 
 }
 
+bool
+mme_api_check_tai_ngh_existing (
+  const tai_t      * const originating_tai )
+{
+  ue_context_t                           *ue_context = NULL;
+  imsi64_t                                mme_imsi = 0;
+
+  OAILOG_FUNC_IN (LOG_NAS);
+
+  if(!originating_tai){
+    OAILOG_INFO (LOG_NAS, "Missing originating_TAI IE to check MME neighbor. \n");
+    return false;
+  }
+
+  for(int i = 0; i < MAX_NGH_MMES; i++ ) {
+    if(TAIS_ARE_EQUAL(_emm_data.conf.nghMme[i].ngh_mme_tai, *originating_tai)){
+      OAILOG_DEBUG (LOG_MME_APP, "The originating (previous) TAI " TAI_FMT " is configured as an S10 MME neighbor. \n", *originating_tai);
+      return true;
+    }
+  }
+  OAILOG_DEBUG (LOG_MME_APP, "The originating (previous) TAI " TAI_FMT " is NOT configured as an S10 MME neighbor. \n ", *originating_tai);
+  return false;
+}
+
+bool
+mme_api_check_tai_local_mme(
+  const tai_t      * const originating_tai )
+{
+  ue_context_t                           *ue_context = NULL;
+  imsi64_t                                mme_imsi = 0;
+
+  OAILOG_FUNC_IN (LOG_NAS);
+
+  if(!originating_tai){
+    OAILOG_INFO (LOG_NAS, "Missing originating_TAI IE to check neighbor. \n");
+    return false;
+  }
+
+  /*Verify that the PLMN matches. */
+  if ((originating_tai->plmn.mcc_digit2 == _emm_data.conf.gummei.plmn.mcc_digit2) &&
+      (originating_tai->plmn.mcc_digit1 == _emm_data.conf.gummei.plmn.mcc_digit1) &&
+      (originating_tai->plmn.mnc_digit3 == _emm_data.conf.gummei.plmn.mnc_digit3) &&
+      (originating_tai->plmn.mcc_digit3 == _emm_data.conf.gummei.plmn.mcc_digit3) &&
+      (originating_tai->plmn.mnc_digit2 == _emm_data.conf.gummei.plmn.mnc_digit2) &&
+      (originating_tai->plmn.mnc_digit1 == _emm_data.conf.gummei.plmn.mnc_digit1)){
+    OAILOG_INFO (LOG_NAS, "The given PLMN " PLMN_FMT " in the NAS originating_TAI IE matches the configured PLMN. \n. ",
+        originating_tai->plmn, _emm_data.conf.gummei.plmn);
+  }else{
+    OAILOG_INFO (LOG_NAS, "The given PLMN " PLMN_FMT " in the NAS originating_TAI IE does not match the configured PLMN. \n. ",
+        originating_tai->plmn, _emm_data.conf.gummei.plmn);
+    return false;
+  }
+
+  /** Check that the TAC is supported. */
+  for (int i=0; i < _emm_data.conf.tai_list.n_tais; i++) {
+    if (TAIS_ARE_EQUAL(_emm_data.conf.tai_list.tai[i], *originating_tai)) {
+      OAILOG_INFO (LOG_NAS, "The given PLMN " PLMN_FMT " & TAC " TAC_FMT " are configured in the MME. \n. ",
+          originating_tai->plmn, originating_tai->tac);
+      return true;
+    }
+  }
+  OAILOG_INFO (LOG_NAS, "The given PLMN " PLMN_FMT " & TAC " TAC_FMT " are NOT configured in the MME. \n. ",
+            originating_tai->plmn, originating_tai->tac);
+  return false;
+}
+
 /****************************************************************************
  **                                                                        **
  ** Name:    mme_api_add_tai()                                        **
@@ -466,6 +555,19 @@ mme_api_add_tai (
   OAILOG_FUNC_RETURN (LOG_NAS, RETURNok);
 }
 
+int
+mme_api_delete_session_request(mme_ue_s1ap_id_t ue_id){
+  OAILOG_FUNC_IN (LOG_NAS);
+
+  ue_context_t                           *ue_context = NULL;
+
+  OAILOG_FUNC_IN (LOG_NAS);
+  ue_context = mme_ue_context_exists_mme_ue_s1ap_id(&mme_app_desc.mme_ue_contexts, ue_id);
+
+  mme_app_send_delete_session_request (ue_context);
+  OAILOG_FUNC_RETURN (LOG_NAS, RETURNok);
+
+}
 /****************************************************************************
  **                                                                        **
  ** Name:        mme_api_subscribe()                                       **
@@ -533,4 +635,74 @@ mme_api_unsubscribe ( bstring apn)
    */
   _mme_api_pdn_id -= 1;
   OAILOG_FUNC_RETURN (LOG_NAS, rc);
+}
+
+EpsUpdateType*
+mme_api_get_epsUpdateType(mme_ue_s1ap_id_t       mme_ue_s1ap_id){
+  OAILOG_FUNC_IN (LOG_NAS);
+  int                                     rc = RETURNok;
+  ue_context_t                           *ue_context = NULL;
+  ue_context = mme_ue_context_exists_mme_ue_s1ap_id(&mme_app_desc.mme_ue_contexts, mme_ue_s1ap_id);
+
+  if(ue_context){
+    return &ue_context->pending_tau_epsUpdateType;
+  }
+  return NULL;
+}
+
+int mme_api_is_subscription_known(mme_ue_s1ap_id_t mme_ue_s1ap_id){
+  OAILOG_FUNC_IN (LOG_NAS);
+  ue_context_t                           *ue_context = NULL;
+  ue_context = mme_ue_context_exists_mme_ue_s1ap_id(&mme_app_desc.mme_ue_contexts, mme_ue_s1ap_id);
+
+  if(ue_context){
+    return ue_context->subscription_known;
+  }
+  return SUBSCRIPTION_UNKNOWN;
+}
+
+int mme_api_send_update_location_request(mme_ue_s1ap_id_t mme_ue_s1ap_id){
+  OAILOG_FUNC_IN (LOG_NAS);
+  int                                     rc = RETURNok;
+  ue_context_t                           *ue_context = NULL;
+  ue_context = mme_ue_context_exists_mme_ue_s1ap_id(&mme_app_desc.mme_ue_contexts, mme_ue_s1ap_id);
+
+  if(ue_context){
+    return mme_app_send_s6a_update_location_req(ue_context);
+  }
+  return RETURNerror;
+}
+
+int mme_api_send_s11_create_session_req(mme_ue_s1ap_id_t mme_ue_s1ap_id){
+  OAILOG_FUNC_IN (LOG_NAS);
+  int                                     rc = RETURNok;
+  ue_context_t                           *ue_context = NULL;
+  ue_context = mme_ue_context_exists_mme_ue_s1ap_id(&mme_app_desc.mme_ue_contexts, mme_ue_s1ap_id);
+
+  if(ue_context){
+    return mme_app_send_s11_create_session_req(ue_context);
+  }
+  return RETURNerror;
+}
+
+bool
+mme_api_get_pending_bearer_deactivation (mme_ue_s1ap_id_t mme_ue_s1ap_id) {
+  OAILOG_FUNC_IN (LOG_NAS);
+  int                                     rc = RETURNok;
+  ue_context_t                           *ue_context = NULL;
+  ue_context = mme_ue_context_exists_mme_ue_s1ap_id(&mme_app_desc.mme_ue_contexts, mme_ue_s1ap_id);
+  if(ue_context){
+    return ue_context->pending_bearer_deactivation;
+  }
+}
+
+void
+mme_api_set_pending_bearer_deactivation (mme_ue_s1ap_id_t mme_ue_s1ap_id, bool pending_bearer_deactivation) {
+  OAILOG_FUNC_IN (LOG_NAS);
+  int                                     rc = RETURNok;
+  ue_context_t                           *ue_context = NULL;
+  ue_context = mme_ue_context_exists_mme_ue_s1ap_id(&mme_app_desc.mme_ue_contexts, mme_ue_s1ap_id);
+  if(ue_context){
+    ue_context->pending_bearer_deactivation = pending_bearer_deactivation;
+  }
 }

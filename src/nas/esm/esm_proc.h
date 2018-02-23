@@ -88,10 +88,12 @@ typedef ProtocolConfigurationOptions esm_proc_pco_t;
 
 /* PDN connection and EPS bearer context data */
 typedef struct {
-  bstring             apn;
+  bstring             apn;              /**< APN.      */
+  ambr_t              apn_ambr;         /**< APN-AMBR. */
+  APNRestriction_t    apn_restriction;
   esm_proc_pdn_type_t pdn_type;
   bstring             pdn_addr;
-  esm_proc_qos_t      qos;
+  esm_proc_qos_t      qos;              /**< Bearer Level QoS sent in the bearer context. */
   esm_proc_tft_t      tft;
   esm_proc_pco_t      pco;
 } esm_proc_data_t;

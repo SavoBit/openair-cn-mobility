@@ -34,4 +34,6 @@ int s11_mme_delete_session_request (NwGtpv2cStackHandleT * stack_p, itti_s11_del
 
 int s11_mme_handle_delete_session_response (NwGtpv2cStackHandleT * stack_p, NwGtpv2cUlpApiT * pUlpApi);
 
+int s11_mme_handle_ulp_error_indicatior(NwGtpv2cStackHandleT * stack_p, NwGtpv2cUlpApiT * pUlpApi);
+
 #endif /* FILE_S11_MME_SESSION_MANAGER_SEEN */

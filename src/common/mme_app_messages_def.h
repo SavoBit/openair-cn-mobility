@@ -33,16 +33,15 @@ MESSAGE_DEF(MME_APP_INITIAL_UE_MESSAGE_CHECK_DUPLICATE   , MESSAGE_PRIORITY_MED,
 
 MESSAGE_DEF(MME_APP_CONNECTION_ESTABLISHMENT_CNF  , MESSAGE_PRIORITY_MED, itti_mme_app_connection_establishment_cnf_t  , mme_app_connection_establishment_cnf)
 
-// handover messages from NAS to MME_APP after NAS validation (will be forwarded to S1AP)
-MESSAGE_DEF(MME_APP_HANDOVER_CNF  , MESSAGE_PRIORITY_MED, itti_mme_app_handover_cnf_t  , mme_app_handover_cnf)
-MESSAGE_DEF(MME_APP_HANDOVER_REJ  , MESSAGE_PRIORITY_MED, itti_mme_app_handover_rej_t  , mme_app_handover_rej)
-
 // DUPLICATE CONFIRMATION (todo: if signal saving, we might not need this)
 MESSAGE_DEF(MME_APP_S1AP_INITIAL_UE_MESSAGE_DUPLICATE_CNF  , MESSAGE_PRIORITY_MED, itti_mme_app_s1ap_initial_ue_message_duplicate_cnf_t  , mme_app_s1ap_initial_ue_message_duplicate_cnf)
 
 MESSAGE_DEF(MME_APP_INITIAL_CONTEXT_SETUP_RSP     , MESSAGE_PRIORITY_MED, itti_mme_app_initial_context_setup_rsp_t  ,    mme_app_initial_context_setup_rsp)
-MESSAGE_DEF(MME_APP_PATH_SWITCH_REQ               , MESSAGE_PRIORITY_MED, itti_mme_app_path_switch_req_t  ,    mme_app_path_switch_req)
-MESSAGE_DEF(MME_APP_INITIAL_CONTEXT_SETUP_FAILURE , MESSAGE_PRIORITY_MED, itti_mme_app_initial_context_setup_failure_t  ,    mme_app_initial_context_setup_failure)
-MESSAGE_DEF(MME_APP_DELETE_SESSION_RSP     	      , MESSAGE_PRIORITY_MED, itti_mme_app_delete_session_rsp_t  ,    	     mme_app_delete_session_rsp)
-MESSAGE_DEF(MME_APP_S1AP_MME_UE_ID_NOTIFICATION	  , MESSAGE_PRIORITY_MED, itti_mme_app_s1ap_mme_ue_id_notification_t  ,  mme_app_s1ap_mme_ue_id_notification)
+MESSAGE_DEF(MME_APP_PATH_SWITCH_REQ               , MESSAGE_PRIORITY_MED, itti_mme_app_path_switch_req_t    ,    mme_app_path_switch_req)
 
+MESSAGE_DEF(MME_APP_INITIAL_CONTEXT_SETUP_FAILURE , MESSAGE_PRIORITY_MED, itti_mme_app_initial_context_setup_failure_t  ,    mme_app_initial_context_setup_failure)
+MESSAGE_DEF(MME_APP_DELETE_SESSION_RSP     	      , MESSAGE_PRIORITY_MED, itti_mme_app_delete_session_rsp_t             ,    	     mme_app_delete_session_rsp)
+MESSAGE_DEF(MME_APP_S1AP_MME_UE_ID_NOTIFICATION	  , MESSAGE_PRIORITY_MED, itti_mme_app_s1ap_mme_ue_id_notification_t    ,  mme_app_s1ap_mme_ue_id_notification)
+
+/** Message to send to NAS layer to inform about the updated subscription information. */
+MESSAGE_DEF(MME_APP_NAS_UPDATE_LOCATION_CNF       , MESSAGE_PRIORITY_MED, itti_mme_app_nas_update_location_cnf_t    ,  mme_app_nas_update_location_cnf)

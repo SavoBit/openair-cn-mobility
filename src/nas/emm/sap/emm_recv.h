@@ -92,7 +92,14 @@ int emm_recv_attach_request (
     const ecgi_t             * const originating_ecgi,
     const attach_request_msg * const msg,
     int * const emm_cause,
-    const nas_message_decode_status_t  * const decode_status);
+    const nas_message_decode_status_t  * const decode_status,
+    const bstring nas_msg);
+
+int emm_recv_s1ap_handover_notify(
+  const mme_ue_s1ap_id_t ue_id,
+  const tai_t              * const originating_tai,
+  const ecgi_t             * const originating_ecgi,
+  int * const emm_cause);
 
 int emm_recv_attach_complete(mme_ue_s1ap_id_t ueid, const attach_complete_msg *msg,
                              int *emm_cause, const nas_message_decode_status_t * status);
@@ -104,9 +111,12 @@ int emm_recv_tracking_area_update_request(
     const mme_ue_s1ap_id_t ueid,
     const tracking_area_update_request_msg *msg,
     int *emm_cause,
-    tac_t new_tac,
-    const plmn_t          *plmn_id,
-    const nas_message_decode_status_t  * decode_status);
+    const tai_t *originating_tai,
+    const nas_message_decode_status_t  * decode_status,
+    const bstring nas_msg);
+
+int emm_recv_tracking_area_update_complete(mme_ue_s1ap_id_t ueid, const tracking_area_update_complete_msg *msg,
+    int *emm_cause, const nas_message_decode_status_t * status);
 
 int emm_recv_service_request(mme_ue_s1ap_id_t ueid,
     const service_request_msg *msg,

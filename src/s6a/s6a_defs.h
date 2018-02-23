@@ -83,8 +83,12 @@ typedef struct {
   struct dict_object *dataobj_s6a_pua; /* s6a purge ue answer */
   struct dict_object *dataobj_s6a_clr; /* s6a Cancel Location req */
   struct dict_object *dataobj_s6a_cla; /* s6a Cancel Location ans */
+  struct dict_object *dataobj_s6a_rr;  /* s6a Reset req */
+  struct dict_object *dataobj_s6a_ra;  /* s6a Reset ans */
 
   /* Some standard basic AVPs */
+  struct dict_object *dataobj_s6a_origin_host;
+
   struct dict_object *dataobj_s6a_destination_host;
   struct dict_object *dataobj_s6a_destination_realm;
   struct dict_object *dataobj_s6a_user_name;
@@ -96,8 +100,10 @@ typedef struct {
   /* S6A specific AVPs */
   struct dict_object *dataobj_s6a_visited_plmn_id;
   struct dict_object *dataobj_s6a_rat_type;
+  struct dict_object *dataobj_s6a_cancellation_type;
   struct dict_object *dataobj_s6a_ulr_flags;
   struct dict_object *dataobj_s6a_ula_flags;
+  struct dict_object *dataobj_s6a_clr_flags;
   struct dict_object *dataobj_s6a_subscription_data;
   struct dict_object *dataobj_s6a_req_eutran_auth_info;
   struct dict_object *dataobj_s6a_number_of_requested_vectors;
@@ -112,6 +118,7 @@ typedef struct {
   struct disp_hdl *ula_hdl;   /* Update Location Answer Handle */
   struct disp_hdl *pua_hdl;   /* Purge UE Answer Handle */
   struct disp_hdl *clr_hdl;   /* Cancel Location Request Handle */
+  struct disp_hdl *rr_hdl;    /* Reset Request Handle */
 } s6a_fd_cnf_t;
 
 extern s6a_fd_cnf_t s6a_fd_cnf;

@@ -1598,7 +1598,7 @@ s11_indication_flags_ie_set (
       (indication_flags->israu  << ISRAU_FLAG_BIT_POS) |
       (indication_flags->ccrsi  << CCRSI_FLAG_BIT_POS);
 
-  rc = nwGtpv2cMsgAddIe (*msg, NW_GTPV2C_IE_INDICATION, 1, 3, (uint8_t*)value);
+  rc = nwGtpv2cMsgAddIe (*msg, NW_GTPV2C_IE_INDICATION, 3, 0, (uint8_t*)value);
   DevAssert (NW_OK == rc);
   return RETURNok;
 }

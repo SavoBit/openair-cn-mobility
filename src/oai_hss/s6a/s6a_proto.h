@@ -108,9 +108,12 @@ typedef struct {
   struct dict_object *dataobj_s6a_kasme;
   struct dict_object *dataobj_s6a_ulr_flags;
   struct dict_object *dataobj_s6a_ula_flags;
+  struct dict_object *dataobj_s6a_clr_flags;
+  struct dict_object *dataobj_s6a_cla_flags;
   struct dict_object *dataobj_s6a_pur_flags;
   struct dict_object *dataobj_s6a_pua_flags;
   struct dict_object *dataobj_s6a_rat_type;
+  struct dict_object *dataobj_s6a_cancellation_type;
   struct dict_object *dataobj_s6a_terminal_info;
   struct dict_object *dataobj_s6a_ue_srvcc_cap;
   struct dict_object *dataobj_s6a_gmlc_addr;

@@ -56,6 +56,15 @@ int s1ap_mme_handle_s1_setup_request(const sctp_assoc_id_t assoc_id, const sctp_
 int s1ap_mme_handle_path_switch_request(const sctp_assoc_id_t assoc_id, const sctp_stream_id_t stream,
                                         struct s1ap_message_s *message_p);
 
+int s1ap_mme_handle_handover_preparation(const sctp_assoc_id_t assoc_id, const sctp_stream_id_t stream,
+                                        struct s1ap_message_s *message_p);
+
+int s1ap_mme_handle_handover_cancel(const sctp_assoc_id_t assoc_id, const sctp_stream_id_t stream,
+                                        struct s1ap_message_s *message);
+
+int s1ap_mme_handle_handover_notification(const sctp_assoc_id_t assoc_id, const sctp_stream_id_t stream,
+                                        struct s1ap_message_s *message);
+
 int s1ap_mme_handle_ue_context_release_request(const sctp_assoc_id_t assoc_id,
                                                const sctp_stream_id_t stream, struct s1ap_message_s *message_p);
 
@@ -90,6 +99,18 @@ int s1ap_mme_handle_error_ind_message (const sctp_assoc_id_t assoc_id,
 
 int s1ap_mme_handle_enb_reset (const sctp_assoc_id_t assoc_id,
                                const sctp_stream_id_t stream, struct s1ap_message_s *message);
+
+int
+s1ap_mme_handle_handover_resource_allocation_response(const sctp_assoc_id_t assoc_id, const sctp_stream_id_t stream,
+                                        struct s1ap_message_s *message);
+
+int
+s1ap_mme_handle_handover_resource_allocation_failure(const sctp_assoc_id_t assoc_id, const sctp_stream_id_t stream,
+                                        struct s1ap_message_s *message);
+
+int
+s1ap_mme_handle_enb_status_transfer(const sctp_assoc_id_t assoc_id, const sctp_stream_id_t stream,
+                                        struct s1ap_message_s *message);
 
 int s1ap_handle_enb_initiated_reset_ack (const itti_s1ap_enb_initiated_reset_ack_t * const enb_reset_ack_p);
 #endif /* FILE_S1AP_MME_HANDLERS_SEEN */

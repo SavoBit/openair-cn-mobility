@@ -80,6 +80,8 @@ typedef uint32_t                 teid_t;
 #define TEID_FMT                "0x%"PRIX32
 typedef teid_t                   s11_teid_t;
 typedef teid_t                   s1u_teid_t;
+typedef teid_t                   s10_teid_t;
+
 
 //------------------------------------------------------------------------------
 // IMSI
@@ -171,6 +173,12 @@ typedef uint8_t       ksi_t;
 #define KSI_NO_KEY_AVAILABLE     0x07
 
 
+typedef struct count_s{
+  uint32_t spare:8;
+  uint32_t overflow:16;
+  uint32_t seq_num:8;
+} count_t;
+
 
 typedef uint8_t     AcT_t;      /* Access Technology    */
 
@@ -188,6 +196,14 @@ typedef enum {
   RAT_UMB            = 2002,
   RAT_EHRPD          = 2003,
 } rat_type_t;
+
+typedef enum {
+ MME_UPDATE_PROCEDURE       = 0,
+ SGSN_UPDATE_PROCEDURE      = 1,
+ SUBSCRIPTION_WITHDRAWAL    = 2,
+ UPDATE_PROCEDURE_IWF       = 3,
+ INITIAL_ATTACH_PROCEDURE   = 4,
+}cancellation_type_t;
 
 #define NUMBER_OF_RAT_TYPE 11
 

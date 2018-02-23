@@ -133,7 +133,8 @@ emm_recv_attach_request (
   const ecgi_t             * const originating_ecgi,
   const attach_request_msg * const msg,
   int * const emm_cause,
-  const nas_message_decode_status_t  * decode_status)
+  const nas_message_decode_status_t  * decode_status,
+  const bstring nas_msg)
 {
   int                                     rc = RETURNok;
   uint8_t                                 gea = 0;
@@ -263,6 +264,12 @@ emm_recv_attach_request (
     imei.u.num.snr6 = msg->oldgutiorimsi.imei.digit14;
     imei.u.num.cdsd = msg->oldgutiorimsi.imei.digit15;
     imei.u.num.parity = msg->oldgutiorimsi.imei.oddeven;
+  } else{
+    OAILOG_INFO (LOG_NAS_EMM, "EMMAS-SAP - Received Attach Request with unknown identity type %d for mmeS1apUeId " MME_UE_S1AP_ID_FMT ". \n", msg->oldgutiorimsi.guti.typeofidentity, ue_id);
+    *emm_cause = EMM_CAUSE_PROTOCOL_ERROR;
+    rc = emm_proc_attach_reject(ue_id, *emm_cause);
+    *emm_cause = EMM_CAUSE_SUCCESS;
+    OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
   }
 
   /*
@@ -284,6 +291,7 @@ emm_recv_attach_request (
     last_visited_registered_tai.plmn.mnc_digit2 = msg->lastvisitedregisteredtai.mncdigit2;
     last_visited_registered_tai.plmn.mnc_digit3 = msg->lastvisitedregisteredtai.mncdigit3;
     last_visited_registered_tai.tac = msg->lastvisitedregisteredtai.tac;
+    /** Not sending a reject back in this case but perform authentication/security procedure!. */
   }
 
   /*
@@ -313,6 +321,83 @@ emm_recv_attach_request (
                                 (gea >= (MS_NETWORK_CAPABILITY_GEA1 >> 1)),
                                 msg->esmmessagecontainer,
                                 decode_status);
+  OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
+}
+
+int
+emm_recv_s1ap_handover_notify(
+  const mme_ue_s1ap_id_t ue_id,
+  const tai_t              * const originating_tai,
+  const ecgi_t             * const originating_ecgi,
+  int * const emm_cause)
+{
+  int                                     rc = RETURNok;
+  uint8_t                                 gea = 0;
+
+  OAILOG_FUNC_IN (LOG_NAS_EMM);
+  OAILOG_INFO (LOG_NAS_EMM, "EMMAS-SAP - Received S1AP Handover Notify message\n");
+
+  /*
+   * Get the EPS mobile identity
+   */
+  guti_t                                  guti     = {.gummei.plmn = {0},
+                                                      .gummei.mme_gid = 0,
+                                                      .gummei.mme_code = 0,
+                                                      .m_tmsi = INVALID_M_TMSI};
+  guti_t                                 *p_guti = NULL;
+  imsi_t                                  imsi = {0},
+                                         *p_imsi = NULL;
+  imei_t                                  imei = {0},
+                                         *p_imei = NULL;
+
+  /**
+   * No Old GUTI will be received at inter-MME handover case.
+   * todo: This will be updated @ intra-MME handover. */
+  // todo: @ TAC --> will use this!
+//  if (msg->oldgutiorimsi.guti.typeofidentity == EPS_MOBILE_IDENTITY_GUTI) {
+//    OAILOG_INFO (LOG_NAS_EMM, "EMMAS-SAP - get GUTI\n");
+//    /*
+//     * Get the GUTI
+//     */
+//    p_guti = &guti;
+//    guti.gummei.plmn.mcc_digit1 = msg->oldgutiorimsi.guti.mccdigit1;
+//    guti.gummei.plmn.mcc_digit2 = msg->oldgutiorimsi.guti.mccdigit2;
+//    guti.gummei.plmn.mcc_digit3 = msg->oldgutiorimsi.guti.mccdigit3;
+//    guti.gummei.plmn.mnc_digit1 = msg->oldgutiorimsi.guti.mncdigit1;
+//    guti.gummei.plmn.mnc_digit2 = msg->oldgutiorimsi.guti.mncdigit2;
+//    guti.gummei.plmn.mnc_digit3 = msg->oldgutiorimsi.guti.mncdigit3;
+//    guti.gummei.mme_gid = msg->oldgutiorimsi.guti.mmegroupid;
+//    guti.gummei.mme_code = msg->oldgutiorimsi.guti.mmecode;
+//    guti.m_tmsi = msg->oldgutiorimsi.guti.mtmsi;
+//  } else if (msg->oldgutiorimsi.imsi.typeofidentity == EPS_MOBILE_IDENTITY_IMSI) {
+//    OAILOG_INFO (LOG_NAS_EMM, "EMMAS-SAP - get IMSI\n");
+//    /*
+//     * Get the IMSI
+//     */
+//    p_imsi = &imsi;
+//    imsi.u.num.digit1 = msg->oldgutiorimsi.imsi.digit1;
+//    imsi.u.num.digit2 = msg->oldgutiorimsi.imsi.digit2;
+//    imsi.u.num.digit3 = msg->oldgutiorimsi.imsi.digit3;
+//    imsi.u.num.digit4 = msg->oldgutiorimsi.imsi.digit4;
+//    imsi.u.num.digit5 = msg->oldgutiorimsi.imsi.digit5;
+//    imsi.u.num.digit6 = msg->oldgutiorimsi.imsi.digit6;
+//    imsi.u.num.digit7 = msg->oldgutiorimsi.imsi.digit7;
+//    imsi.u.num.digit8 = msg->oldgutiorimsi.imsi.digit8;
+//    imsi.u.num.digit9 = msg->oldgutiorimsi.imsi.digit9;
+//    imsi.u.num.digit10 = msg->oldgutiorimsi.imsi.digit10;
+//    imsi.u.num.digit11 = msg->oldgutiorimsi.imsi.digit11;
+//    imsi.u.num.digit12 = msg->oldgutiorimsi.imsi.digit12;
+//    imsi.u.num.digit13 = msg->oldgutiorimsi.imsi.digit13;
+//    imsi.u.num.digit14 = msg->oldgutiorimsi.imsi.digit14;
+//    imsi.u.num.digit15 = msg->oldgutiorimsi.imsi.digit15;
+//    imsi.u.num.parity = msg->oldgutiorimsi.imsi.oddeven;
+//  }
+
+  /*
+   * Execute the requested UE attach procedure
+   */
+  rc = emm_proc_s1ap_handover_notify (ue_id,
+                                originating_tai,originating_ecgi);
   OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
 }
 
@@ -346,6 +431,39 @@ emm_recv_attach_complete (
    * Execute the attach procedure completion
    */
   rc = emm_proc_attach_complete (ue_id, msg->esmmessagecontainer);
+  OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
+}
+
+/****************************************************************************
+ **                                                                        **
+ ** Name:    emm_recv_tracking_area_update_complete()                                **
+ **                                                                        **
+ ** Description: Processes Tracking Area Update Complete message                     **
+ **                                                                        **
+ ** Inputs:  ue_id:      UE lower layer identifier                  **
+ **      msg:       The received EMM message                   **
+ **      Others:    None                                       **
+ **                                                                        **
+ ** Outputs:     emm_cause: EMM cause code                             **
+ **      Return:    RETURNok, RETURNerror                      **
+ **      Others:    None                                       **
+ **                                                                        **
+ ***************************************************************************/
+int
+emm_recv_tracking_area_update_complete (
+  mme_ue_s1ap_id_t ue_id,
+  const tracking_area_update_complete_msg * msg,
+  int *emm_cause,
+  const nas_message_decode_status_t * status)
+{
+  OAILOG_FUNC_IN (LOG_NAS_EMM);
+  int                                     rc;
+
+  OAILOG_INFO (LOG_NAS_EMM, "EMMAS-SAP - Received Tracking Area Update Complete message\n");
+  /*
+   * Execute the TAU completion
+   */
+  rc = emm_proc_tracking_area_update_complete(ue_id);
   OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
 }
 
@@ -501,23 +619,122 @@ emm_recv_tracking_area_update_request (
   const mme_ue_s1ap_id_t ue_id,
   const tracking_area_update_request_msg * msg,
   int *emm_cause,
-  const tac_t new_tac,
-  const plmn_t          *plmn_id,
-  const nas_message_decode_status_t  * decode_status)
+  const tai_t *originating_tai,
+  const nas_message_decode_status_t  * decode_status,
+  const bstring nas_msg)
 {
   int                                     rc = RETURNok;
+  uint8_t                                 gea = 0;
 
   OAILOG_FUNC_IN (LOG_NAS_EMM);
-  OAILOG_INFO (LOG_NAS_EMM, "EMMAS-SAP - Received Tracking Area Update Request message, Security context %s Integrity protected %s MAC matched %s Ciphered %s\n",
+  OAILOG_INFO (LOG_NAS_EMM, "EMMAS-SAP - Received Tracking Area Update Request message, Security context %s Integrity protected %s MAC matched %s Ciphered %s NAS message %s\n",
       (decode_status->security_context_available)?"yes":"no",
       (decode_status->integrity_protected_message)?"yes":"no",
       (decode_status->mac_matched)?"yes":"no",
-      (decode_status->ciphered_message)?"yes":"no");
-  /* Basic Periodic TAU Request handling is supported. Only mandatory IEs are supported
-   * TODO - Add support for re-auth during TAU , Implicit GUTI Re-allocation & TAU Complete,
-   * TAU due to change in TAs, optional IEs 
+      (decode_status->ciphered_message)?"yes":"no",
+      (nas_msg)?"yes":"no");
+  /*
+   * Message checking
    */
-  rc = emm_proc_tracking_area_update_request(ue_id, msg, emm_cause, new_tac, plmn_id, decode_status);
+  if (msg->uenetworkcapability.spare != 0b000) {
+    /*
+     * Spare bits shall be coded as zero
+     */
+    *emm_cause = EMM_CAUSE_PROTOCOL_ERROR;
+    OAILOG_WARNING (LOG_NAS_EMM, "EMMAS-SAP - [%08x] - Non zero spare bits is suspicious\n", ue_id);
+  }
+
+  /*
+   * Handle message checking error
+   */
+  if (*emm_cause != EMM_CAUSE_SUCCESS) {
+    /*
+     * Requirement MME24.301R10_5.5.1.2.7_b Protocol error
+     */
+    rc = emm_proc_tracking_area_update_reject(ue_id, *emm_cause);
+    OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
+  }
+
+  /*
+    * Get the EPS mobile identity (set the old_guti).
+    */
+   guti_t                                  old_guti     = {.gummei.plmn = {0},
+                                                       .gummei.mme_gid = 0,
+                                                       .gummei.mme_code = 0,
+                                                       .m_tmsi = INVALID_M_TMSI};
+   guti_t                                 *p_old_guti = NULL;
+
+   /** Get the mandatory old GUTI. No presence flag for that necessary. */
+   if (msg->oldguti.guti.typeofidentity == EPS_MOBILE_IDENTITY_GUTI) {
+     OAILOG_INFO (LOG_NAS_EMM, "EMMAS-SAP - GUTI received. \n");
+     /*
+      * Get the GUTI
+      */
+     p_old_guti = &old_guti;
+     old_guti.gummei.plmn.mcc_digit1 = msg->oldguti.guti.mccdigit1;
+     old_guti.gummei.plmn.mcc_digit2 = msg->oldguti.guti.mccdigit2;
+     old_guti.gummei.plmn.mcc_digit3 = msg->oldguti.guti.mccdigit3;
+     old_guti.gummei.plmn.mnc_digit1 = msg->oldguti.guti.mncdigit1;
+     old_guti.gummei.plmn.mnc_digit2 = msg->oldguti.guti.mncdigit2;
+     old_guti.gummei.plmn.mnc_digit3 = msg->oldguti.guti.mncdigit3;
+     old_guti.gummei.mme_gid = msg->oldguti.guti.mmegroupid;
+     old_guti.gummei.mme_code = msg->oldguti.guti.mmecode;
+     old_guti.m_tmsi = msg->oldguti.guti.mtmsi;
+   } else{
+     OAILOG_INFO (LOG_NAS_EMM, "EMMAS-SAP - Received TAU-Request with unknown identity type %d for mmeS1apUeId " MME_UE_S1AP_ID_FMT ". \n", msg->oldguti.guti.typeofidentity, ue_id);
+     *emm_cause = EMM_CAUSE_PROTOCOL_ERROR;
+     rc = emm_proc_tracking_area_update_reject(ue_id, *emm_cause);
+     OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
+   }
+
+
+  /* TODO - Add support for re-auth during TAU (if S10 fails --> AuthReq/Rsp//SecModeCmd/SecModeComplete.
+   * Implicit GUTI Re-allocation
+   * optional IEs
+   */
+
+  /*
+   * Get the Last visited registered TAI.
+   */
+  tai_t                                   last_visited_registered_tai = {.plmn = {0}, .tac = INVALID_TAC_0000},
+      *p_last_visited_registered_tai = NULL;
+
+  if (msg->presencemask & TRACKING_AREA_UPDATE_REQUEST_LAST_VISITED_REGISTERED_TAI_PRESENT) {
+    OAILOG_INFO (LOG_NAS_EMM, "EMMAS-SAP - get LAST VISITED REGISTERED TAI in TAU \n");
+    p_last_visited_registered_tai = &last_visited_registered_tai;
+    last_visited_registered_tai.plmn.mcc_digit1 = msg->lastvisitedregisteredtai.mccdigit1;
+    last_visited_registered_tai.plmn.mcc_digit2 = msg->lastvisitedregisteredtai.mccdigit2;
+    last_visited_registered_tai.plmn.mcc_digit3 = msg->lastvisitedregisteredtai.mccdigit3;
+    last_visited_registered_tai.plmn.mnc_digit1 = msg->lastvisitedregisteredtai.mncdigit1;
+    last_visited_registered_tai.plmn.mnc_digit2 = msg->lastvisitedregisteredtai.mncdigit2;
+    last_visited_registered_tai.plmn.mnc_digit3 = msg->lastvisitedregisteredtai.mncdigit3;
+    last_visited_registered_tai.tac = msg->lastvisitedregisteredtai.tac;
+  }else{
+    /** Since later in the tau_request function, also tau_reject is called, we may  call it here, too. */
+    OAILOG_INFO (LOG_NAS_EMM, "EMMAS-SAP - Received Tracking Area Update Request does not contain last visited TAI. "
+        "Cannot retrieve UE context from source MME for mmeS1apUeId " MME_UE_S1AP_ID_FMT ". \n", ue_id);
+    *emm_cause = EMM_CAUSE_PROTOCOL_ERROR;
+    rc = emm_proc_tracking_area_update_reject(ue_id, *emm_cause);
+    OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
+  }
+
+  /*
+   * Execute the requested UE attach procedure
+   */
+  if (msg->presencemask & TRACKING_AREA_UPDATE_REQUEST_MS_NETWORK_CAPABILITY_PRESENT) {
+    gea = msg->msnetworkcapability.gea1;
+
+    if (gea) {
+      gea = (gea << 6) | msg->msnetworkcapability.egea;
+    }
+  }
+
+  rc = emm_proc_tracking_area_update_request(ue_id, msg, emm_cause,
+      originating_tai, /**< Originating TAC and originating PLMN_ID (ECGI), received from the Initial S1AP UE Context Request. */
+      p_last_visited_registered_tai, /**< TAC and PLMN from the NAS message. */
+      gea, (gea >= (MS_NETWORK_CAPABILITY_GEA1 >> 1)), /**< GPRS & GPRS present. */
+      p_old_guti, /**< Send the decoded old GUTI. */
+      decode_status, nas_msg);
 
   OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
 }
@@ -563,7 +780,7 @@ emm_recv_service_request (
    * 2. Move UE ECM state to Connected 
    * 3. Stop Mobile reachability time and Implicit Deatch timer ( if running)
    */
-  rc = _emm_initiate_default_bearer_re_establishment(emm_ctx);
+  rc = _emm_initiate_default_bearer_re_establishment(emm_ctx); /**< Jest estalish S1 connection (since in UE_REGISTERED state, will trigger MBR). */
   if (rc == RETURNok) { 
     *emm_cause = EMM_CAUSE_SUCCESS;
   }

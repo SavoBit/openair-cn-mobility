@@ -67,6 +67,22 @@ void *mme_app_thread (
       }
       break;
 
+    case S6A_CANCEL_LOCATION_REQ:{
+        /*
+         * We received the cancel location request message from HSS -> Handle it
+         */
+        mme_app_handle_s6a_cancel_location_req (&received_message_p->ittiMsg.s6a_cancel_location_req);
+      }
+      break;
+
+    case S6A_RESET_REQ:{
+        /*
+         * We received the reset request message from HSS -> Handle it
+         */
+        mme_app_handle_s6a_reset_req (&received_message_p->ittiMsg.s6a_reset_req);
+      }
+      break;
+
     // Processing S11 messages rawly -- no further internal signals
     case S11_CREATE_SESSION_RESPONSE:{
         mme_app_handle_create_sess_resp (&received_message_p->ittiMsg.s11_create_session_response);
@@ -88,12 +104,20 @@ void *mme_app_thread (
       }
       break;
 
+    case S11_DOWNLINK_DATA_NOTIFICATION: {
+        mme_app_handle_downlink_data_notification (&received_message_p->ittiMsg.s11_downlink_data_notification);
+      }
+      break;
 
     // NAS PDN STATE CHANGES!
-
     case NAS_PDN_CONNECTIVITY_REQ:{
         mme_app_handle_nas_pdn_connectivity_req (&received_message_p->ittiMsg.nas_pdn_connectivity_req);
       }
+      break;
+
+    case NAS_HO_FORWARD_RELOCATION_FAIL: {
+      mme_app_handle_nas_ho_forward_relocation_fail(&received_message_p->ittiMsg.nas_ho_forward_relocation_fail);
+    }
       break;
 
     case NAS_DETACH_REQ: {
@@ -106,17 +130,17 @@ void *mme_app_thread (
       }
       break;
     //Handover messaging (NAS -> MME_APP --> S11 // PART 2 --> After Handover has been accepted by the nas layer, and NH/NCC have been calculated)
-    case NAS_HANDOVER_CNF:{
-        mme_app_handle_handover_cnf (&NAS_HANDOVER_CNF (received_message_p));
+    case NAS_HANDOVER_TAU_CNF:{
+        mme_app_handle_handover_tau_cnf (&NAS_HANDOVER_TAU_CNF (received_message_p));
       }
       break;
 
-    case NAS_HANDOVER_REJ:{
-            mme_app_handle_handover_rej (&NAS_HANDOVER_REJ (received_message_p));
-          }
-          break;
+    case NAS_HANDOVER_TAU_REJ:{
+      mme_app_handle_handover_tau_rej (&NAS_HANDOVER_TAU_REJ (received_message_p));
+    }
+    break;
 
-      // From S1AP Initiating Message/EMM Attach Request
+    // From S1AP Initiating Message/EMM Attach Request
     case MME_APP_INITIAL_UE_MESSAGE:{
         mme_app_handle_initial_ue_message (&MME_APP_INITIAL_UE_MESSAGE (received_message_p));
       }
@@ -132,14 +156,139 @@ void *mme_app_thread (
       }
       break;
 
-    // Handover messaging
+    /** X2 Handover. */
     case MME_APP_PATH_SWITCH_REQ:{
-          mme_app_handle_path_switch_req (
-              &MME_APP_PATH_SWITCH_REQ (received_message_p)
-              );
+      mme_app_handle_path_switch_req (
+          &MME_APP_PATH_SWITCH_REQ (received_message_p)
+      );
+    }
+    break;
+
+    /** S1AP Handover. */
+    case S1AP_HANDOVER_REQUIRED:{
+      mme_app_handle_handover_required (
+          &S1AP_HANDOVER_REQUIRED(received_message_p)
+      );
+    }
+    break;
+
+    case S1AP_HANDOVER_CANCEL:{
+      mme_app_handle_handover_cancel(
+          &S1AP_HANDOVER_CANCEL(received_message_p)
+      );
+    }
+    break;
+
+    /** S10 Forward Relocation Messages. */
+    case S10_FORWARD_RELOCATION_REQUEST:{
+        mme_app_handle_forward_relocation_request(
+            &S10_FORWARD_RELOCATION_REQUEST(received_message_p)
+            );
+      }
+      break;
+    case S10_FORWARD_RELOCATION_RESPONSE:{
+        mme_app_handle_forward_relocation_response(
+            &S10_FORWARD_RELOCATION_RESPONSE(received_message_p)
+            );
+      }
+      break;
+
+    /** S10 Forward Relocation Messages. */
+    case S10_FORWARD_ACCESS_CONTEXT_NOTIFICATION:{
+        mme_app_handle_forward_access_context_notification(
+            &S10_FORWARD_ACCESS_CONTEXT_NOTIFICATION(received_message_p)
+            );
+      }
+      break;
+    /** S10 Forward Relocation Messages. */
+     case S10_FORWARD_ACCESS_CONTEXT_ACKNOWLEDGE:{
+         mme_app_handle_forward_access_context_acknowledge(
+             &S10_FORWARD_ACCESS_CONTEXT_ACKNOWLEDGE(received_message_p)
+             );
+       }
+       break;
+    /** Forward Relocation Complete Notification (After Handover_Notify : end of handover). */
+    case S10_FORWARD_RELOCATION_COMPLETE_NOTIFICATION:{
+        mme_app_handle_forward_relocation_complete_notification(
+            &S10_FORWARD_RELOCATION_COMPLETE_NOTIFICATION(received_message_p)
+            );
         }
         break;
-    
+    case S10_FORWARD_RELOCATION_COMPLETE_ACKNOWLEDGE:{
+        mme_app_handle_forward_relocation_complete_acknowledge(
+            &S10_FORWARD_RELOCATION_COMPLETE_ACKNOWLEDGE(received_message_p)
+            );
+        }
+        break;
+
+    /** S10 Relocation Cancel Request/Response. */
+    case S10_RELOCATION_CANCEL_REQUEST:{
+        mme_app_handle_relocation_cancel_request(
+            &S10_RELOCATION_CANCEL_REQUEST(received_message_p)
+            );
+        }
+        break;
+    case S10_RELOCATION_CANCEL_RESPONSE:{
+        mme_app_handle_relocation_cancel_response(
+            &S10_RELOCATION_CANCEL_RESPONSE(received_message_p)
+            );
+        }
+        break;
+
+    /** S10 Context Request Messages. */
+    case NAS_UE_CONTEXT_REQ:{
+        mme_app_handle_nas_ue_context_req (&received_message_p->ittiMsg.nas_ue_context_req);
+      }
+      break;
+    /** Context Acknowledgment will be handled via State Change Callback Handler. */
+
+    case S10_CONTEXT_REQUEST: {
+      mme_app_handle_s10_context_request(
+          &S10_CONTEXT_REQUEST(received_message_p)
+      );
+    }
+    break;
+    case S10_CONTEXT_RESPONSE: {
+      mme_app_handle_s10_context_response(
+          &S10_CONTEXT_RESPONSE(received_message_p)
+      );
+    }
+    break;
+    case S10_CONTEXT_ACKNOWLEDGE: {
+      mme_app_handle_s10_context_acknowledge(
+          &S10_CONTEXT_ACKNOWLEDGE(received_message_p)
+      );
+    }
+    break;
+    /** Handover Messages from target-eNB. */
+    case S1AP_HANDOVER_REQUEST_ACKNOWLEDGE:{
+        mme_app_handle_handover_request_acknowledge(
+            &S1AP_HANDOVER_REQUEST_ACKNOWLEDGE(received_message_p)
+            );
+        }
+        break;
+   case S1AP_HANDOVER_FAILURE:{
+        mme_app_handle_handover_failure(
+            &S1AP_HANDOVER_FAILURE(received_message_p)
+            );
+        }
+        break;
+
+    /** Status Transfer . */
+    case S1AP_ENB_STATUS_TRANSFER:{
+        mme_app_handle_enb_status_transfer(
+            &S1AP_ENB_STATUS_TRANSFER(received_message_p)
+            );
+        }
+        break;
+
+    case S1AP_HANDOVER_NOTIFY:{
+        mme_app_handle_s1ap_handover_notify(
+            &S1AP_HANDOVER_NOTIFY(received_message_p)
+            );
+        }
+        break;
+
     case MME_APP_INITIAL_CONTEXT_SETUP_FAILURE:{
         mme_app_handle_initial_context_setup_failure (&MME_APP_INITIAL_CONTEXT_SETUP_FAILURE (received_message_p));
       }
@@ -154,10 +303,14 @@ void *mme_app_thread (
         /*
          * Check statistic timer
          */
+
         if (received_message_p->ittiMsg.timer_has_expired.timer_id == mme_app_desc.statistic_timer_id) {
           mme_app_statistics_display ();
         } else if (received_message_p->ittiMsg.timer_has_expired.arg != NULL) { 
           mme_ue_s1ap_id_t mme_ue_s1ap_id = *((mme_ue_s1ap_id_t *)(received_message_p->ittiMsg.timer_has_expired.arg));
+
+          OAILOG_WARNING (LOG_MME_APP, "TIMER_HAS_EXPIRED with ID %u and FOR UE id %d \n", received_message_p->ittiMsg.timer_has_expired.timer_id, mme_ue_s1ap_id);
+
           ue_context_p = mme_ue_context_exists_mme_ue_s1ap_id (&mme_app_desc.mme_ue_contexts, mme_ue_s1ap_id);
           if (ue_context_p == NULL) {
             OAILOG_WARNING (LOG_MME_APP, "Timer expired but no assoicated UE context for UE id %d\n",mme_ue_s1ap_id);
@@ -172,6 +325,12 @@ void *mme_app_thread (
           } else if (received_message_p->ittiMsg.timer_has_expired.timer_id == ue_context_p->initial_context_setup_rsp_timer.id) {
             // Initial Context Setup Rsp Timer expiry handler
             mme_app_handle_initial_context_setup_rsp_timer_expiry (ue_context_p);
+          } else if (received_message_p->ittiMsg.timer_has_expired.timer_id == ue_context_p->mme_mobility_completion_timer.id) {
+            // MME Mobility Completion Timer expiry handler
+            mme_app_handle_mme_mobility_completion_timer_expiry (ue_context_p);
+          } else if (received_message_p->ittiMsg.timer_has_expired.timer_id == ue_context_p->mme_paging_timeout_timer.id) {
+            // MME Paging Timeout Timer expiry handler
+            mme_app_handle_mme_paging_timeout_timer_expiry (ue_context_p);
           } else {
             OAILOG_WARNING (LOG_MME_APP, "Timer expired but no assoicated timer_id for UE id %d\n",mme_ue_s1ap_id);
           }
@@ -186,6 +345,7 @@ void *mme_app_thread (
         timer_remove(mme_app_desc.statistic_timer_id);
         hashtable_ts_destroy (mme_app_desc.mme_ue_contexts.imsi_ue_context_htbl);
         hashtable_ts_destroy (mme_app_desc.mme_ue_contexts.tun11_ue_context_htbl);
+        hashtable_ts_destroy (mme_app_desc.mme_ue_contexts.tun10_ue_context_htbl);
         hashtable_ts_destroy (mme_app_desc.mme_ue_contexts.mme_ue_s1ap_id_ue_context_htbl);
         hashtable_ts_destroy (mme_app_desc.mme_ue_contexts.enb_ue_s1ap_id_ue_context_htbl);
         obj_hashtable_ts_destroy (mme_app_desc.mme_ue_contexts.guti_ue_context_htbl);
@@ -242,10 +402,17 @@ mme_app_init (
   bstring b = bfromcstr("mme_app_imsi_ue_context_htbl");
   mme_app_desc.mme_ue_contexts.imsi_ue_context_htbl = hashtable_ts_create (mme_config.max_ues, NULL, hash_free_int_func, b);
   btrunc(b, 0);
+  /** S11. */
   bassigncstr(b, "mme_app_tun11_ue_context_htbl");
   mme_app_desc.mme_ue_contexts.tun11_ue_context_htbl = hashtable_ts_create (mme_config.max_ues, NULL, hash_free_int_func, b);
-  AssertFatal(sizeof(uintptr_t) >= sizeof(uint64_t), "Problem with mme_ue_s1ap_id_ue_context_htbl in MME_APP");
+  AssertFatal(sizeof(uintptr_t) >= sizeof(uint64_t), "Problem with mme_app_tun11_ue_context_htbl in MME_APP");
   btrunc(b, 0);
+  /** S10. */
+  bassigncstr(b, "mme_app_tun10_ue_context_htbl");
+  mme_app_desc.mme_ue_contexts.tun10_ue_context_htbl = hashtable_ts_create (mme_config.max_ues, NULL, hash_free_int_func, b);
+  AssertFatal(sizeof(uintptr_t) >= sizeof(uint64_t), "Problem with mme_app_tun10_ue_context_htbl in MME_APP");
+  btrunc(b, 0);
+
   bassigncstr(b, "mme_app_mme_ue_s1ap_id_ue_context_htbl");
   mme_app_desc.mme_ue_contexts.mme_ue_s1ap_id_ue_context_htbl = hashtable_ts_create (mme_config.max_ues, NULL, NULL, b);
   btrunc(b, 0);
@@ -264,7 +431,8 @@ mme_app_init (
     OAILOG_FUNC_RETURN (LOG_MME_APP, RETURNerror);
   }
 
-  mme_app_desc.statistic_timer_period = mme_config_p->mme_statistic_timer;
+  mme_app_desc.statistic_timer_period               = mme_config_p->mme_statistic_timer;
+  mme_app_desc.mme_mobility_management_timer_period = mme_config_p->mme_mobility_completion_timer;
 
   /*
    * Request for periodic timer

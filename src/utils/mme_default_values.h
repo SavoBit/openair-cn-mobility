@@ -34,6 +34,9 @@
  * Timer Constants
  ******************************************************************************/
 #define MME_STATISTIC_TIMER_S  (60)
+#define MME_MOBILITY_MANAGEMENT_TIMER_S  (1)
+#define MME_MOBILITY_COMPLETION_TIMER_S  (1)
+#define MME_PAGING_TIMEOUT_TIMER_S       (3)
 
 /*******************************************************************************
  * GTPV1 User Plane Constants

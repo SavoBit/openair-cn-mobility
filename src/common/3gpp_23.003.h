@@ -454,6 +454,13 @@ typedef struct ecgi_s {
 // 22 Addressing and identification for ANDSF
 // 23 Numbering, addressing and identification for the Relay Node OAM System
 
+/*! \struct  nghMme_t
+ * \brief Structure containing the Neighboring MMEs.
+ */
+typedef struct nghMme_s {
+  tai_t         ngh_mme_tai;
+  uint32_t      ipAddr;                                      /*!< \brief  IP Address           */
+} nghMme_t;
 
 
 

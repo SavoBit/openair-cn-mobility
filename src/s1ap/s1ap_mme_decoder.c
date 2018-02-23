@@ -73,9 +73,38 @@ s1ap_mme_decode_initiating (
     case S1ap_ProcedureCode_id_PathSwitchRequest: {
         ret = s1ap_decode_s1ap_pathswitchrequesties(&message->msg.s1ap_PathSwitchRequestIEs, &initiating_p->value);
         s1ap_xer_print_s1ap_pathswitchrequest (s1ap_xer__print2sp, message_string, message);
-        *message_id = S1AP_PATHSWITCHREQUEST_LOG;
+        *message_id = S1AP_PATH_SWITCH_REQUEST_LOG;
       }
       break;
+
+    /** S1AP Handover. */
+    case S1ap_ProcedureCode_id_HandoverPreparation: {
+      OAILOG_INFO (LOG_S1AP, "! RECEIVED_HANDOVER_PREPARATION! \n");
+      ret = s1ap_decode_s1ap_handoverrequiredies(&message->msg.s1ap_HandoverRequiredIEs, &initiating_p->value);
+      s1ap_xer_print_s1ap_handoverrequired(s1ap_xer__print2sp, message_string, message);
+      *message_id = S1AP_HANDOVER_REQUIRED_LOG;
+    }
+    break;
+    case S1ap_ProcedureCode_id_HandoverCancel: {
+      ret = s1ap_decode_s1ap_handovercancelies(&message->msg.s1ap_HandoverCancelIEs, &initiating_p->value);
+      s1ap_xer_print_s1ap_handovercancel (s1ap_xer__print2sp, message_string, message);
+      *message_id = S1AP_PATH_SWITCH_REQUEST_LOG;
+    }
+    break;
+    case S1ap_ProcedureCode_id_eNBStatusTransfer: {
+      OAILOG_INFO (LOG_S1AP, "! RECEIVED_ENB_STATUS_TRANSFER! \n");
+      ret = s1ap_decode_s1ap_enbstatustransferies(&message->msg.s1ap_ENBStatusTransferIEs, &initiating_p->value);
+      s1ap_xer_print_s1ap_enbstatustransfer(s1ap_xer__print2sp, message_string, message);
+      *message_id = S1AP_ENB_STATUS_TRANSFER_LOG;
+    }
+    break;
+    case S1ap_ProcedureCode_id_HandoverNotification: {
+      OAILOG_INFO (LOG_S1AP, "! RECEIVED_HANDOVER_NOTIFY! \n");
+      ret = s1ap_decode_s1ap_handovernotifyies(&message->msg.s1ap_HandoverNotifyIEs, &initiating_p->value);
+      s1ap_xer_print_s1ap_handovernotify(s1ap_xer__print2sp, message_string, message);
+      *message_id = S1AP_HANDOVER_NOTIFY_LOG;
+    }
+    break;
 
     case S1ap_ProcedureCode_id_initialUEMessage: {
         ret = s1ap_decode_s1ap_initialuemessageies (&message->msg.s1ap_InitialUEMessageIEs, &initiating_p->value);
@@ -178,6 +207,14 @@ s1ap_mme_decode_successfull_outcome (
       }
       break;
 
+    /** Handover Messaging. */
+    case S1ap_ProcedureCode_id_HandoverResourceAllocation: {
+        ret = s1ap_decode_s1ap_handoverrequestacknowledgeies(&message->msg.s1ap_HandoverRequestAcknowledgeIEs, &successfullOutcome_p->value);
+        s1ap_xer_print_s1ap_handoverrequestacknowledge(s1ap_xer__print2sp, message_string, message);
+        *message_id = S1AP_HANDOVER_REQUEST_ACKNOWLEDGE_LOG;
+      }
+      break;
+
     default: {
         OAILOG_ERROR (LOG_S1AP, "Unknown procedure ID (%ld) for successfull outcome message\n", successfullOutcome_p->procedureCode);
       }
@@ -276,8 +313,18 @@ int s1ap_free_mme_decode_pdu(
     return free_s1ap_uplinknastransport(&message->msg.s1ap_UplinkNASTransportIEs);
   case S1AP_S1_SETUP_LOG:
     return free_s1ap_s1setuprequest(&message->msg.s1ap_S1SetupRequestIEs);
-  case S1AP_PATHSWITCHREQUEST_LOG:
+  case S1AP_PATH_SWITCH_REQUEST_LOG:
     return free_s1ap_pathswitchrequest(&message->msg.s1ap_PathSwitchRequestIEs);
+  case S1AP_HANDOVER_CANCEL_LOG:
+    return free_s1ap_handovercancel(&message->msg.s1ap_HandoverCancelIEs);
+  case S1AP_HANDOVER_REQUIRED_LOG:
+    return free_s1ap_handoverrequired(&message->msg.s1ap_HandoverRequiredIEs);
+  case S1AP_ENB_STATUS_TRANSFER_LOG:
+    return free_s1ap_enbstatustransfer(&message->msg.s1ap_ENBStatusTransferIEs);
+  case S1AP_HANDOVER_NOTIFY_LOG:
+    return free_s1ap_handovernotify(&message->msg.s1ap_HandoverNotifyIEs);
+  case S1AP_HANDOVER_REQUEST_ACKNOWLEDGE_LOG:
+    return free_s1ap_handoverrequestacknowledge(&message->msg.s1ap_HandoverRequestAcknowledgeIEs);
   case S1AP_INITIAL_UE_MESSAGE_LOG:
     return free_s1ap_initialuemessage(&message->msg.s1ap_InitialUEMessageIEs);
   case S1AP_UE_CONTEXT_RELEASE_REQ_LOG:

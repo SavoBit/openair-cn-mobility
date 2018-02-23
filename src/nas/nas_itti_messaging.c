@@ -253,7 +253,8 @@ void nas_itti_pdn_connectivity_req(
   }
 
   bassign(NAS_PDN_CONNECTIVITY_REQ(message_p).apn, proc_data_pP->apn);
-  bassign(NAS_PDN_CONNECTIVITY_REQ(message_p).pdn_addr, proc_data_pP->pdn_addr);
+//  bassign(NAS_PDN_CONNECTIVITY_REQ(message_p).apn_ambr, proc_data_pP->apn_ambr);
+  bassign(NAS_PDN_CONNECTIVITY_REQ(message_p).pdn_addr, proc_data_pP->pdn_addr);    /**< Set the requested address. */
 
   switch (proc_data_pP->pdn_type) {
   case ESM_PDN_TYPE_IPV4:
@@ -299,6 +300,55 @@ void nas_itti_pdn_connectivity_req(
 }
 
 //------------------------------------------------------------------------------
+void nas_itti_ue_context_req(
+  const uint32_t        ue_idP,
+  const imsi64_t        imsi64_P,
+  const guti_t        * const guti_p,
+  const bool            is_initial_reqP,
+  tai_t         * const new_taiP,
+  tai_t         * const last_visited_taiP,
+  Complete_Request_Message_Type_t request_type,
+  bstring               request_msg)
+{
+  OAILOG_FUNC_IN(LOG_NAS);
+  MessageDef                             *message_p = NULL;
+  itti_nas_ue_context_req_t              *nas_ue_context_req_p = NULL;
+  struct emm_data_context_s              *emm_ctx = NULL;
+  s10_context_rsp_timer_arg_t            *timer_arg = NULL;
+
+  /** Start timer to wait for S10 Context Request. */
+  emm_ctx = emm_data_context_get (&_emm_data, ue_idP);
+  DevAssert (emm_ctx);
+
+  message_p = itti_alloc_new_message (TASK_NAS_MME, NAS_UE_CONTEXT_REQ);
+  nas_ue_context_req_p = &message_p->ittiMsg.nas_ue_context_req;
+  memset(nas_ue_context_req_p, 0, sizeof(itti_nas_ue_context_req_t));
+
+  /* GUTI. */
+  memcpy((void*)&nas_ue_context_req_p->old_guti, (void*)guti_p, sizeof(guti_t));
+
+  /* RAT-Type. */
+  nas_ue_context_req_p->rat_type = RAT_EUTRAN;
+
+  /** UE_ID. */
+  nas_ue_context_req_p->ue_id = ue_idP;
+
+  /** Complete Request Message. */
+  nas_ue_context_req_p->request_type = request_type;
+  nas_ue_context_req_p->nas_msg = request_msg;
+
+  /** Originating TAI. */
+  nas_ue_context_req_p->originating_tai = *last_visited_taiP;
+
+  // todo: serving network from visited plmn?
+  MSC_LOG_TX_MESSAGE (MSC_NAS_MME, MSC_S10_MME, NULL, 0, "0 NAS_UE_CONTEXT_REQ GUTI "GUTI_FMT" originating tai " TAI_FMT "! \n", *guti_p, *last_visited_taiP);
+  itti_send_msg_to_task (TASK_S10, INSTANCE_DEFAULT, message_p);
+
+  /** No NAS S10 context response timer needs to be started. It will be started in the GTPv2c stack. */
+  OAILOG_FUNC_OUT(LOG_NAS);
+}
+
+//------------------------------------------------------------------------------
 void nas_itti_auth_info_req(
   const uint32_t        ue_idP,
   const imsi64_t        imsi64_P,
@@ -339,20 +389,20 @@ void nas_itti_auth_info_req(
       imsi64_P, PLMN_ARG(visited_plmnP), auth_info_req->re_synchronization);
   itti_send_msg_to_task (TASK_S6A, INSTANCE_DEFAULT, message_p);
 
-  //Start timer to wait for Auth Info Response 
+  //Start timer to wait for Auth Info Response
   emm_ctx = emm_data_context_get (&_emm_data, ue_idP);
   DevAssert (emm_ctx);
-  
+
   timer_arg = (s6a_auth_info_rsp_timer_arg_t *) calloc (1, sizeof (s6a_auth_info_rsp_timer_arg_t));
   DevAssert (timer_arg);
-  emm_ctx->timer_s6a_auth_info_rsp_arg = (void*) timer_arg; 
+  emm_ctx->timer_s6a_auth_info_rsp_arg = (void*) timer_arg;
   timer_arg->ue_id = emm_ctx->ue_id;
   timer_arg->resync = (auth_info_req->re_synchronization == 1) ? true : false;
 
-  emm_ctx->timer_s6a_auth_info_rsp.id = nas_timer_start (emm_ctx->timer_s6a_auth_info_rsp.sec, _s6a_auth_info_rsp_timer_expiry_handler, timer_arg); 
-  
-  OAILOG_DEBUG (LOG_NAS_EMM, "EMM-PROC  - Timer timer_s6_auth_info_rsp (%d) started in for UE  " MME_UE_S1AP_ID_FMT " \n ", emm_ctx->timer_s6a_auth_info_rsp.id, timer_arg->ue_id);
-  
+  emm_ctx->timer_s6a_auth_info_rsp.id = nas_timer_start (emm_ctx->timer_s6a_auth_info_rsp.sec, _s6a_auth_info_rsp_timer_expiry_handler, timer_arg);
+
+  OAILOG_DEBUG (LOG_NAS_EMM, "EMM-PROC  - Timer timer_s6a_auth_info_rsp (%d) started in for UE  " MME_UE_S1AP_ID_FMT " \n ", emm_ctx->timer_s6a_auth_info_rsp.id, timer_arg->ue_id);
+
   OAILOG_FUNC_OUT(LOG_NAS);
 }
 
@@ -531,7 +581,10 @@ void nas_itti_establish_cnf(
 //}
 
 //------------------------------------------------------------------------------
-void nas_itti_handover_cnf(
+/**
+ * Call this method after session establishment by an handover/TAU trigger.
+ */
+void nas_itti_handover_tau_cnf(
   const uint32_t         ue_idP,
   const nas_error_code_t error_codeP,
   const uint16_t         selected_encryption_algorithmP,
@@ -542,10 +595,10 @@ void nas_itti_handover_cnf(
   emm_data_context_t                     *emm_ctx = emm_data_context_get (&_emm_data, ue_idP);
 
   if (emm_ctx) {
-    message_p = itti_alloc_new_message(TASK_NAS_MME, NAS_HANDOVER_CNF);
-    memset(&message_p->ittiMsg.nas_handover_cnf, 0, sizeof(itti_nas_handover_cnf_t));
-    NAS_HANDOVER_CNF(message_p).ue_id                           = ue_idP;
-    NAS_HANDOVER_CNF(message_p).err_code                        = error_codeP;
+    message_p = itti_alloc_new_message(TASK_NAS_MME, NAS_HANDOVER_TAU_CNF);
+    memset(&message_p->ittiMsg.nas_handover_tau_cnf, 0, sizeof(itti_nas_handover_tau_cnf_t));
+    NAS_HANDOVER_TAU_CNF(message_p).ue_id                           = ue_idP;
+    NAS_HANDOVER_TAU_CNF(message_p).err_code                        = error_codeP;
 
     // According to 3GPP 9.2.1.40, the UE security capabilities are 16-bit
     // strings, EEA0 is inherently supported, so its support is not tracked in
@@ -557,19 +610,34 @@ void nas_itti_handover_cnf(
     //       Currently, the 16-bit string is 8-bit rotated to produce the string
     //       sent in the packets, which is why we're using bits 8-10 to
     //       represent EEA1/2/3 (and EIA1/2/3) support here.
-    NAS_HANDOVER_CNF(message_p)
+    NAS_HANDOVER_TAU_CNF(message_p)
       .encryption_algorithm_capabilities =
       ((uint16_t)emm_ctx->eea & ~(1 << 7)) << 1;
-    NAS_HANDOVER_CNF(message_p)
+    NAS_HANDOVER_TAU_CNF(message_p)
       .integrity_algorithm_capabilities =
       ((uint16_t)emm_ctx->eia & ~(1 << 7)) << 1;
+
+
+    //    NAS_HANDOVER_TAU_CNF(message_p).encryption_algorithm_capabilities = (((uint8_t)emm_ctx->eea) << 1 && 0x80) ? 0x8000 : 0x0000; // ; & ~(1 << 7)) << 1;
+    //    NAS_HANDOVER_TAU_CNF(message_p).encryption_algorithm_capabilities |= (((uint8_t)emm_ctx->eea) << 2 && 0x40) ? 0x4000 : 0x0000;
+    //    NAS_HANDOVER_TAU_CNF(message_p).encryption_algorithm_capabilities |= (((uint8_t)emm_ctx->eea) << 3 && 0x20) ? 0x2000 : 0x0000;
+    //    NAS_HANDOVER_TAU_CNF(message_p).encryption_algorithm_capabilities |= (((uint8_t)emm_ctx->eea) << 3 && 0x10) ? 0x1000 : 0x0000;
+    //
+    //
+
+    //    NAS_HANDOVER_TAU_CNF(message_p).encryption_algorithm_capabilities =  ((uint8_t)((emm_ctx->eea) << 1) && 0x80) ? 0x8000 : 0x0000; // ; & ~(1 << 7)) << 1;
+    //    NAS_HANDOVER_TAU_CNF(message_p).encryption_algorithm_capabilities |= ((uint8_t)((emm_ctx->eea) << 2) && 0x40) ? 0x4000 : 0x0000;
+    //    NAS_HANDOVER_TAU_CNF(message_p).encryption_algorithm_capabilities |= ((uint8_t)((emm_ctx->eea) << 3) && 0x20) ? 0x2000 : 0x0000;
+    //    NAS_HANDOVER_TAU_CNF(message_p).encryption_algorithm_capabilities |= ((uint8_t)((emm_ctx->eea) << 4) && 0x10) ? 0x1000 : 0x0000;
 
     AssertFatal((0 <= emm_ctx->_security.vector_index) && (MAX_EPS_AUTH_VECTORS > emm_ctx->_security.vector_index),
         "Invalid vector index %d", emm_ctx->_security.vector_index);
 
+    // todo: if the UE is established via FORWARD_RELOCATION_REQUEST --> make a flag to set nh/ncc..
+
 //    derive_keNB (emm_ctx->_vector[emm_ctx->_security.vector_index].kasme,
 //        emm_ctx->_security.ul_count.seq_num | (emm_ctx->_security.ul_count.overflow << 8),
-//        NAS_HANDOVER_CNF(message_p).kenb);
+//        NAS_HANDOVER_TAU_CNF(message_p).kenb);
 
     /** Reset the ncc value. */
 //    emm_ctx->_security.ncc = 1;
@@ -592,27 +660,28 @@ void nas_itti_handover_cnf(
     OAILOG_WARNING( LOG_NAS_EMM, "EMM-PROC  - Old NH value before derive_nh @ handover. \n");
     OAILOG_STREAM_HEX (OAILOG_LEVEL_DEBUG, LOG_NAS_EMM, "NEW NH:", emm_ctx->_vector[emm_ctx->_security.vector_index].nh_conj, 32);
 
-    derive_nh(emm_ctx->_vector[emm_ctx->_security.vector_index].kasme,
-        emm_ctx->_vector[emm_ctx->_security.vector_index].nh_conj);
+//    // todo: must check if this is an X2 or S1AP handover.. depending on that recalculating NH & incrementing NCC..
+//    derive_nh(emm_ctx->_vector[emm_ctx->_security.vector_index].kasme,
+//        emm_ctx->_vector[emm_ctx->_security.vector_index].nh_conj);
 
     OAILOG_WARNING( LOG_NAS_EMM, "EMM-PROC  - NEW NH value after derive_nh @ handover. \n");
     OAILOG_STREAM_HEX (OAILOG_LEVEL_DEBUG, LOG_NAS_EMM, "NEW NH:", emm_ctx->_vector[emm_ctx->_security.vector_index].nh_conj, 32);
 
 //    OAILOG_WARNING( LOG_NAS_EMM, "EMM-PROC  - NH value is 0 NH calculation. New Nh Value %x.", *(emm_ctx->_vector[emm_ctx->_security.vector_index].nh_conj));
 
-    memcpy(NAS_HANDOVER_CNF(message_p).nh_conj, emm_ctx->_vector[emm_ctx->_security.vector_index].nh_conj, 32 );
+    memcpy(NAS_HANDOVER_TAU_CNF(message_p).nh_conj, emm_ctx->_security.nh_conj /*_vector[emm_ctx->_security.vector_index].nh_conj*/, 32 );
 
     OAILOG_WARNING( LOG_NAS_EMM, "EMM-PROC  - Sent NH value after derive_nh @ handover.  \n");
-    OAILOG_STREAM_HEX (OAILOG_LEVEL_DEBUG, LOG_NAS_EMM, "NEW NH:", NAS_HANDOVER_CNF(message_p).nh_conj, 32);
+    OAILOG_STREAM_HEX (OAILOG_LEVEL_DEBUG, LOG_NAS_EMM, "NEW NH:", NAS_HANDOVER_TAU_CNF(message_p).nh_conj, 32);
 
     /** Calculate and set the next hop value into the context. */
 //    derive_nh(emm_ctx->_vector[emm_ctx->_security.vector_index].kasme,
 //        emm_ctx->_vector[emm_ctx->_security.vector_index].nh_conj, sizeof(emm_ctx->_vector[emm_ctx->_security.vector_index].nh_conj)/8,
-//        &NAS_HANDOVER_CNF(message_p).nh_conj);
+//        &NAS_HANDOVER_TAU_CNF(message_p).nh_conj);
 //
 //    derive_nh(emm_ctx->_vector[emm_ctx->_security.vector_index].kasme,
 //           emm_ctx->_vector[emm_ctx->_security.vector_index].nh_conj,
-//           NAS_HANDOVER_CNF(message_p).kenb);
+//           NAS_HANDOVER_TAU_CNF(message_p).kenb);
 
 
 
@@ -672,20 +741,20 @@ void nas_itti_handover_cnf(
 
 
 
-//    memcpy ((void *)emm_ctx->_vector[emm_ctx->_security.vector_index].nh_conj, NAS_HANDOVER_CNF(message_p).nh_conj,  sizeof(emm_ctx->_vector[emm_ctx->_security.vector_index].nh_conj)/8);
+//    memcpy ((void *)emm_ctx->_vector[emm_ctx->_security.vector_index].nh_conj, NAS_HANDOVER_TAU_CNF(message_p).nh_conj,  sizeof(emm_ctx->_vector[emm_ctx->_security.vector_index].nh_conj)/8);
 
-    /** Increase the next hop counter. */
-    emm_ctx->_security.ncc++;
+//    /** Increase the next hop counter. */
+//    emm_ctx->_security.ncc++;
     /* The NCC is a 3-bit key index (values from 0 to 7) for the NH and is sent to the
     UE in the handover command signaling. */
     emm_ctx->_security.ncc = emm_ctx->_security.ncc % 8;
-    NAS_HANDOVER_CNF(message_p).ncc = emm_ctx->_security.ncc;
+    NAS_HANDOVER_TAU_CNF(message_p).ncc = emm_ctx->_security.ncc;
 
     MSC_LOG_TX_MESSAGE(
         MSC_NAS_MME,
         MSC_MMEAPP_MME,
         NULL,0,
-        "NAS_HANDOVER_CNF ue id %06"PRIX32/*" len %u sea %x sia %x "*/,
+        "NAS_HANDOVER_TAU_CNF ue id %06"PRIX32/*" len %u sea %x sia %x "*/,
         ue_idP, /*blength(msgP),*/ selected_encryption_algorithmP, selected_integrity_algorithmP);
 
     itti_send_msg_to_task(TASK_MME_APP, INSTANCE_DEFAULT, message_p);
@@ -695,23 +764,23 @@ void nas_itti_handover_cnf(
 }
 
 //------------------------------------------------------------------------------
-void nas_itti_handover_rej(
+void nas_itti_handover_tau_rej(
   const uint32_t      ue_idP,
   const nas_error_code_t error_codeP)
 {
   OAILOG_FUNC_IN(LOG_NAS);
   MessageDef *message_p;
 
-  message_p = itti_alloc_new_message(TASK_NAS_MME, NAS_HANDOVER_REJ);
+  message_p = itti_alloc_new_message(TASK_NAS_MME, NAS_HANDOVER_TAU_REJ);
 
-  NAS_HANDOVER_CNF(message_p).err_code                        = error_codeP;
-  NAS_HANDOVER_REJ(message_p).ue_id                           = ue_idP;
+  NAS_HANDOVER_TAU_REJ(message_p).err_code                        = error_codeP;
+  NAS_HANDOVER_TAU_REJ(message_p).ue_id                           = ue_idP;
 
   MSC_LOG_TX_MESSAGE(
         MSC_NAS_MME,
         MSC_MMEAPP_MME,
         NULL,0,
-        "NAS_HANDOVER_REJ ue id %06"PRIX32" IMSI %s (establish reject)",
+        "NAS_HANDOVER_TAU_REJ ue id %06"PRIX32" IMSI %s (establish reject)",
         ue_idP, NAS_AUTHENTICATION_PARAM_REQ(message_p).imsi);
 
   itti_send_msg_to_task(TASK_MME_APP, INSTANCE_DEFAULT, message_p);
@@ -742,6 +811,7 @@ void nas_itti_detach_req(
   itti_send_msg_to_task(TASK_MME_APP, INSTANCE_DEFAULT, message_p);
   OAILOG_FUNC_OUT(LOG_NAS);
 }
+
 //***************************************************************************
 static void  *_s6a_auth_info_rsp_timer_expiry_handler (void *args)
 {

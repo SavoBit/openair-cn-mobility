@@ -505,8 +505,18 @@ add_library(S11_SGW
 )
 include_directories(${S11_DIR})
 
+set(S10_DIR ${OPENAIRCN_DIR}/src/s10)
+add_library(S10_MME
+  ${S10_DIR}/s10_common.c
+  ${S10_DIR}/s10_ie_formatter.c
+  ${S10_DIR}/s10_mme_task.c
+  ${S10_DIR}/s10_mme_session_manager.c
+)
+include_directories(${S10_DIR})
+
 set(S6A_DIR ${OPENAIRCN_DIR}/src/s6a)
 add_library(S6A
+  ${S6A_DIR}/s6a_common.c
   ${S6A_DIR}/s6a_auth_info.c
   ${S6A_DIR}/s6a_dict.c
   ${S6A_DIR}/s6a_error.c
@@ -514,6 +524,8 @@ add_library(S6A
   ${S6A_DIR}/s6a_subscription_data.c
   ${S6A_DIR}/s6a_task.c
   ${S6A_DIR}/s6a_up_loc.c
+  ${S6A_DIR}/s6a_clear_loc.c
+  ${S6A_DIR}/s6a_reset.c
   )
 
 set(SGW_DIR ${OPENAIRCN_DIR}/src/sgw)
@@ -890,7 +902,7 @@ if( ITTI_ANALYZER )
 endif( ITTI_ANALYZER )
 target_link_libraries (mme
   -Wl,--start-group
-   LIB_NAS_MME S1AP_LIB S1AP_EPC S11_MME GTPV2C SCTP_SERVER UDP_SERVER SECU_CN  S6A MME_APP LFDS ${MSC_LIB} ${ITTI_LIB} CN_UTILS HASHTABLE BSTR
+   LIB_NAS_MME S1AP_LIB S1AP_EPC S11_MME S10_MME GTPV2C SCTP_SERVER UDP_SERVER SECU_CN  S6A MME_APP LFDS ${MSC_LIB} ${ITTI_LIB} CN_UTILS HASHTABLE BSTR
   -Wl,--end-group
   pthread m sctp  rt crypt ${CRYPTO_LIBRARIES} ${OPENSSL_LIBRARIES} ${NETTLE_LIBRARIES} ${CONFIG_LIBRARIES} gnutls fdproto fdcore
   )

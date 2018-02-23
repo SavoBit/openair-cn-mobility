@@ -175,16 +175,35 @@ s1ap_mme_thread (
       break;
 
     // Handover messages from MME_APP after validation or rejection from nas and S11/SAE-GW --> the respective handover method will be checked inside
-    case MME_APP_HANDOVER_CNF: {
-        s1ap_handle_handover_cnf(&MME_APP_HANDOVER_CNF (received_message_p));
+    case S1AP_HANDOVER_PREPARATION_FAILURE: {
+      s1ap_handle_handover_preparation_failure(&S1AP_HANDOVER_PREPARATION_FAILURE (received_message_p));
+    }
+    break;
+    case S1AP_HANDOVER_REQUEST: {
+        s1ap_handle_handover_request(&S1AP_HANDOVER_REQUEST (received_message_p));
     }
     break;
 
-    case MME_APP_HANDOVER_REJ: {
-        s1ap_handle_handover_rej(&MME_APP_HANDOVER_REJ (received_message_p));
+    case S1AP_HANDOVER_CNF: {
+        s1ap_handle_handover_cnf(&S1AP_HANDOVER_CNF (received_message_p));
+    }
+    break;
+    case S1AP_HANDOVER_COMMAND: {
+      s1ap_handle_handover_command(&S1AP_HANDOVER_COMMAND(received_message_p));
     }
     break;
     
+    case S1AP_MME_STATUS_TRANSFER: {
+      s1ap_handle_mme_status_transfer(&S1AP_MME_STATUS_TRANSFER (received_message_p));
+    }
+    break;
+
+    /** PAGING. */
+    case S1AP_PAGING: {
+      s1ap_handle_paging(&S1AP_PAGING (received_message_p));
+    }
+    break;
+
     case MME_APP_S1AP_MME_UE_ID_NOTIFICATION:{
         s1ap_handle_mme_ue_id_notification (&MME_APP_S1AP_MME_UE_ID_NOTIFICATION (received_message_p));
       }
@@ -192,14 +211,14 @@ s1ap_mme_thread (
     
     // Messages to continue to initial UE establishment after duplicate check
     case MME_APP_S1AP_INITIAL_UE_MESSAGE_DUPLICATE_CNF:{
-        s1ap_mme_handle_initial_ue_message_duplicate_cnf(&MME_APP_S1AP_INITIAL_UE_MESSAGE_DUPLICATE_CNF (received_message_p));
-       }
-        break;
+      s1ap_mme_handle_initial_ue_message_duplicate_cnf(&MME_APP_S1AP_INITIAL_UE_MESSAGE_DUPLICATE_CNF (received_message_p));
+    }
+    break;
 
     case S1AP_ENB_INITIATED_RESET_ACK:{
-        s1ap_handle_enb_initiated_reset_ack (&S1AP_ENB_INITIATED_RESET_ACK (received_message_p));
-      }
-      break;
+      s1ap_handle_enb_initiated_reset_ack (&S1AP_ENB_INITIATED_RESET_ACK (received_message_p));
+    }
+    break;
 
     case TIMER_HAS_EXPIRED:{
         ue_description_t                       *ue_ref_p = NULL;
@@ -212,9 +231,9 @@ s1ap_mme_thread (
           if (received_message_p->ittiMsg.timer_has_expired.timer_id == ue_ref_p->s1ap_ue_context_rel_timer.id) {
             // UE context release complete timer expiry handler 
             s1ap_mme_handle_ue_context_rel_comp_timer_expiry (ue_ref_p);
-          } 
+          }
+          /* We cannot set a timer for the Handover_Request, since at that time we don't have a UE-Reference to the target-eNB, yet. */
         }
-        
         /* TODO - Commenting out below function as it is not used as of now. 
          * Need to handle it when we support other timers in S1AP
          */
@@ -493,6 +512,25 @@ s1ap_is_ue_mme_id_in_list (
 }
 
 //------------------------------------------------------------------------------
+ue_description_t                       *
+s1ap_is_ue_mme_id_in_list_per_enb (
+  const mme_ue_s1ap_id_t mme_ue_s1ap_id,
+  const uint32_t  enb_id)
+{
+  ue_description_t                       *ue_ref = NULL;
+  mme_ue_s1ap_id_t                       *mme_ue_s1ap_id_p = (mme_ue_s1ap_id_t*)&mme_ue_s1ap_id;
+  enb_description_t                      *enb_ref = NULL;
+  enb_ref = s1ap_is_enb_id_in_list(enb_id);
+  if(enb_ref == NULL){
+    return NULL;
+  }
+  /** Continue to search. */
+  hashtable_ts_apply_callback_on_elements(&enb_ref->ue_coll, s1ap_enb_find_ue_by_mme_ue_id_cb, (void *)mme_ue_s1ap_id_p, (void**)&ue_ref);
+  OAILOG_TRACE(LOG_S1AP, "Return ue_ref %p for enb_id %d \n", ue_ref, enb_id);
+  return ue_ref;
+}
+
+//------------------------------------------------------------------------------
 // TODO(amar) unused function check with OAI.
 ue_description_t                       *
 s1ap_is_s11_sgw_teid_in_list (
@@ -618,7 +656,10 @@ s1ap_remove_ue (
 
   ue_ref->s1_ue_state = S1AP_UE_INVALID_STATE;
   hashtable_ts_free (&enb_ref->ue_coll, ue_ref->enb_ue_s1ap_id);
+
+  /** We will try to remove the SCTP association too, but it will anyways be set after the handover is completed. */
   hashtable_ts_free (&g_s1ap_mme_id2assoc_id_coll, mme_ue_s1ap_id);
+
   if (!enb_ref->nb_ue_associated) {
     if (enb_ref->s1_state == S1AP_RESETING) {
       OAILOG_INFO(LOG_S1AP, "Moving eNB state to S1AP_INIT");

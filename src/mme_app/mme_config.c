@@ -103,6 +103,7 @@ static void mme_config_init (mme_config_t * config_pP)
   config_pP->log_config.mme_app_log_level  = MAX_LOG_LEVEL;
   config_pP->log_config.spgw_app_log_level = MAX_LOG_LEVEL;
   config_pP->log_config.s11_log_level      = MAX_LOG_LEVEL;
+  config_pP->log_config.s10_log_level      = MAX_LOG_LEVEL;
   config_pP->log_config.s6a_log_level      = MAX_LOG_LEVEL;
   config_pP->log_config.util_log_level     = MAX_LOG_LEVEL;
   config_pP->log_config.msc_log_level      = MAX_LOG_LEVEL;
@@ -131,6 +132,11 @@ static void mme_config_init (mme_config_t * config_pP)
   config_pP->ipv4.s11 = 0;
   config_pP->ipv4.port_s11 = 2123;
   config_pP->ipv4.sgw_s11 = 0;
+  /** S10 Interface. */
+  config_pP->ipv4.if_name_s10 = NULL;
+  config_pP->ipv4.s10 = 0;
+  config_pP->ipv4.port_s10 = 2123;
+//  config_pP->ipv4.sgw_s10 = 0;
   config_pP->s6a_config.conf_file = bfromcstr(S6A_CONF_FILE);
   config_pP->itti_config.queue_size = ITTI_QUEUE_MAX_ELEMENTS;
   config_pP->itti_config.log_file = NULL;
@@ -138,6 +144,8 @@ static void mme_config_init (mme_config_t * config_pP)
   config_pP->sctp_config.out_streams = SCTP_OUT_STREAMS;
   config_pP->relative_capacity = RELATIVE_CAPACITY;
   config_pP->mme_statistic_timer = MME_STATISTIC_TIMER_S;
+  config_pP->mme_mobility_completion_timer = MME_MOBILITY_COMPLETION_TIMER_S;
+  config_pP->mme_paging_timeout_timer = MME_PAGING_TIMEOUT_TIMER_S;
   config_pP->gummei.nb = 1;
   config_pP->gummei.gummei[0].mme_code = MMEC;
   config_pP->gummei.gummei[0].mme_gid = MMEGID;
@@ -173,6 +181,8 @@ static int mme_config_parse_file (mme_config_t * config_pP)
   config_setting_t                       *subsetting = NULL;
   config_setting_t                       *sub2setting = NULL;
   int                                     aint = 0;
+  int                                     aint_s11 = 0;
+  int                                     aint_s10 = 0;
   int                                     i = 0,n = 0,
                                           stop_index = 0,
                                           num = 0;
@@ -185,6 +195,9 @@ static int mme_config_parse_file (mme_config_t * config_pP)
   char                                   *if_name_s11 = NULL;
   char                                   *s11 = NULL;
   char                                   *sgw_ip_address_for_s11 = NULL;
+  char                                   *if_name_s10 = NULL;
+  char                                   *s10 = NULL;
+  char                                   *nghS10 = NULL;
   bool                                    swap = false;
   bstring                                 address = NULL;
   bstring                                 cidr = NULL;
@@ -262,8 +275,14 @@ static int mme_config_parse_file (mme_config_t * config_pP)
       if (config_setting_lookup_string (setting, LOG_CONFIG_STRING_UDP_LOG_LEVEL, (const char **)&astring))
         config_pP->log_config.udp_log_level = OAILOG_LEVEL_STR2INT (astring);
 
+      if (config_setting_lookup_string (setting, LOG_CONFIG_STRING_S10_LOG_LEVEL, (const char **)&astring))
+        config_pP->log_config.s10_log_level = OAILOG_LEVEL_STR2INT (astring);
+
       if (config_setting_lookup_string (setting, LOG_CONFIG_STRING_S11_LOG_LEVEL, (const char **)&astring))
         config_pP->log_config.s11_log_level = OAILOG_LEVEL_STR2INT (astring);
+
+      if (config_setting_lookup_string (setting, LOG_CONFIG_STRING_S10_LOG_LEVEL, (const char **)&astring))
+        config_pP->log_config.s10_log_level = OAILOG_LEVEL_STR2INT (astring);
 
       if (config_setting_lookup_string (setting, LOG_CONFIG_STRING_UTIL_LOG_LEVEL, (const char **)&astring))
         config_pP->log_config.util_log_level = OAILOG_LEVEL_STR2INT (astring);
@@ -318,6 +337,14 @@ static int mme_config_parse_file (mme_config_t * config_pP)
 
     if ((config_setting_lookup_int (setting_mme, MME_CONFIG_STRING_STATISTIC_TIMER, &aint))) {
       config_pP->mme_statistic_timer = (uint32_t) aint;
+    }
+
+    if ((config_setting_lookup_int (setting_mme, MME_CONFIG_STRING_MME_MOBILITY_COMPLETION_TIMER, &aint))) {
+      config_pP->mme_mobility_completion_timer = (uint32_t) aint;
+    }
+
+    if ((config_setting_lookup_int (setting_mme, MME_CONFIG_STRING_MME_PAGING_TIMEOUT_TIMER, &aint))) {
+      config_pP->mme_paging_timeout_timer = (uint32_t) aint;
     }
 
     if ((config_setting_lookup_string (setting_mme, EPS_NETWORK_FEATURE_SUPPORT_EMERGENCY_BEARER_SERVICES_IN_S1_MODE, (const char **)&astring))) {
@@ -383,6 +410,18 @@ static int mme_config_parse_file (mme_config_t * config_pP)
           }
         } else
           AssertFatal (1 == 0, "You have to provide a valid HSS hostname %s=...\n", MME_CONFIG_STRING_S6A_HSS_HOSTNAME);
+      }
+
+
+      if ((config_setting_lookup_string (setting, MME_CONFIG_STRING_S6A_MME_HOSTNAME, (const char **)&astring))) {
+        if (astring != NULL) {
+          if (config_pP->s6a_config.mme_host_name) {
+            bassigncstr(config_pP->s6a_config.mme_host_name , astring);
+          } else {
+            config_pP->s6a_config.mme_host_name = bfromcstr(astring);
+          }
+        } else
+          AssertFatal (1 == 0, "You have to provide a valid MME hostname %s=...\n", MME_CONFIG_STRING_S6A_MME_HOSTNAME);
       }
     }
     // SCTP SETTING
@@ -555,6 +594,62 @@ static int mme_config_parse_file (mme_config_t * config_pP)
         }
       }
     }
+
+    // NEIGHBORING MME's SETTING
+    setting = config_setting_get_member (setting_mme, MME_CONFIG_STRING_NEIGHBORING_MME_LIST);
+    config_pP->nghMme.nb = 0;
+    if (setting != NULL) {
+      num = config_setting_length (setting);
+      AssertFatal(num == 1, "Only one GUMMEI supported for this version of MME");
+      for (i = 0; i < num; i++) {
+        sub2setting = config_setting_get_elem (setting, i);
+
+        if (sub2setting != NULL) {
+          if ((config_setting_lookup_string (sub2setting, MME_CONFIG_STRING_MCC, &mcc))) {
+            AssertFatal( 3 == strlen(mcc), "Bad MCC length, it must be 3 digit ex: 001");
+            char c[2] = { mcc[0], 0};
+            config_pP->nghMme.nghMme[i].ngh_mme_tai.plmn.mcc_digit1 = (uint8_t) atoi (c);
+            c[0] = mcc[1];
+            config_pP->nghMme.nghMme[i].ngh_mme_tai.plmn.mcc_digit2 = (uint8_t) atoi (c);
+            c[0] = mcc[2];
+            config_pP->nghMme.nghMme[i].ngh_mme_tai.plmn.mcc_digit3 = (uint8_t) atoi (c);
+          }
+
+          if ((config_setting_lookup_string (sub2setting, MME_CONFIG_STRING_MNC, &mnc))) {
+            AssertFatal( (3 == strlen(mnc)) || (2 == strlen(mnc)) , "Bad MNC length, it must be 2 or 3 digits ex: 001");
+            char c[2] = { mnc[0], 0};
+            config_pP->nghMme.nghMme[i].ngh_mme_tai.plmn.mnc_digit1 = (uint8_t) atoi (c);
+            c[0] = mnc[1];
+            config_pP->nghMme.nghMme[i].ngh_mme_tai.plmn.mnc_digit2 = (uint8_t) atoi (c);
+            if (3 == strlen(mnc)) {
+              c[0] = mnc[2];
+              config_pP->nghMme.nghMme[i].ngh_mme_tai.plmn.mnc_digit3 = (uint8_t) atoi (c);
+            } else {
+              config_pP->nghMme.nghMme[i].ngh_mme_tai.plmn.mnc_digit3 = 0x0F;
+            }
+          }
+
+          /** TAC of neighboring MME. */
+          if ((config_setting_lookup_string (sub2setting, MME_CONFIG_STRING_TAC, &tac))) {
+            config_pP->nghMme.nghMme[i].ngh_mme_tai.tac = (uint16_t) atoi (tac);
+            AssertFatal(TAC_IS_VALID(config_pP->served_tai.tac[i]), "Invalid TAC value "TAC_FMT, config_pP->served_tai.tac[i]);
+          }
+
+          /** IP address of neighboring MME. */
+          if ((config_setting_lookup_string (sub2setting, MME_CONFIG_STRING_NGHB_MME_IPV4_ADDR, (const char **)&nghS10))) {
+//            config_pP->nghMme.nghMme[i].ipAddr = (uint16_t) atoi (tac);
+            /** NEIGHBORING MME S10. */
+            address= bfromcstr (nghS10);
+            IPV4_STR_ADDR_TO_INT_NWBO (bdata(address), config_pP->nghMme.nghMme[i].ipAddr, "BAD IP ADDRESS FORMAT FOR NEIGHBORING S10 !\n");
+            in_addr_var.s_addr = config_pP->nghMme.nghMme[i].ipAddr;
+            OAILOG_INFO (LOG_MME_APP, "Parsing configuration file found NEIGHBORING S10: %s \n", inet_ntoa (in_addr_var));
+          }
+
+          config_pP->gummei.nb += 1;
+        }
+      }
+    }
+
     // NETWORK INTERFACE SETTING
     setting = config_setting_get_member (setting_mme, MME_CONFIG_STRING_NETWORK_INTERFACES_CONFIG);
 
@@ -563,10 +658,15 @@ static int mme_config_parse_file (mme_config_t * config_pP)
            && config_setting_lookup_string (setting, MME_CONFIG_STRING_IPV4_ADDRESS_FOR_S1_MME, (const char **)&s1_mme)
            && config_setting_lookup_string (setting, MME_CONFIG_STRING_INTERFACE_NAME_FOR_S11_MME, (const char **)&if_name_s11)
            && config_setting_lookup_string (setting, MME_CONFIG_STRING_IPV4_ADDRESS_FOR_S11_MME, (const char **)&s11)
-           && config_setting_lookup_int (setting, MME_CONFIG_STRING_MME_PORT_FOR_S11, &aint)
+           && config_setting_lookup_int (setting, MME_CONFIG_STRING_MME_PORT_FOR_S11, &aint_s11)
+           /** S10. */
+           && config_setting_lookup_string (setting, MME_CONFIG_STRING_INTERFACE_NAME_FOR_S10_MME, (const char **)&if_name_s10)
+           && config_setting_lookup_string (setting, MME_CONFIG_STRING_IPV4_ADDRESS_FOR_S10_MME, (const char **)&s10)
+           && config_setting_lookup_int (setting, MME_CONFIG_STRING_MME_PORT_FOR_S10, &aint_s10)
           )
         ) {
-        config_pP->ipv4.port_s11 = (uint16_t)aint;
+        config_pP->ipv4.port_s11 = (uint16_t)aint_s11;
+        config_pP->ipv4.port_s10 = (uint16_t)aint_s10;
 
         config_pP->ipv4.if_name_s1_mme = bfromcstr(if_name_s1_mme);
         cidr = bfromcstr (s1_mme);
@@ -593,6 +693,21 @@ static int mme_config_parse_file (mme_config_t * config_pP)
         in_addr_var.s_addr = config_pP->ipv4.s11;
         OAILOG_INFO (LOG_MME_APP, "Parsing configuration file found S11: %s/%d on %s\n",
                        inet_ntoa (in_addr_var), config_pP->ipv4.netmask_s11, bdata(config_pP->ipv4.if_name_s11));
+
+        /** S10. */
+        config_pP->ipv4.if_name_s10 = bfromcstr(if_name_s10);
+        cidr = bfromcstr (s10);
+        list = bsplit (cidr, '/');
+        AssertFatal(2 == list->qty, "Bad CIDR address %s", bdata(cidr));
+        address = list->entry[0];
+        mask    = list->entry[1];
+        IPV4_STR_ADDR_TO_INT_NWBO (bdata(address), config_pP->ipv4.s10, "BAD IP ADDRESS FORMAT FOR S10 !\n");
+        config_pP->ipv4.netmask_s10 = atoi ((const char*)mask->data);
+        bstrListDestroy(list);
+        in_addr_var.s_addr = config_pP->ipv4.s10;
+        OAILOG_INFO (LOG_MME_APP, "Parsing configuration file found S10: %s/%d on %s\n",
+            inet_ntoa (in_addr_var), config_pP->ipv4.netmask_s10, bdata(config_pP->ipv4.if_name_s10));
+
       }
     }
     // NAS SETTING
@@ -666,6 +781,9 @@ static int mme_config_parse_file (mme_config_t * config_pP)
       if ((config_setting_lookup_int (setting, MME_CONFIG_STRING_NAS_T3495_TIMER, &aint))) {
         config_pP->nas_config.t3495_sec = (uint8_t) aint;
       }
+      if ((config_setting_lookup_int (setting, MME_CONFIG_STRING_NAS_T3346_TIMER, &aint))) {
+        config_pP->nas_config.t3346_sec = (uint8_t) aint;
+      }
     }
   }
 
@@ -712,6 +830,8 @@ static void mme_config_display (mme_config_t * config_pP)
   OAILOG_INFO (LOG_CONFIG, "- Unauth IMSI support ..................: %s\n", config_pP->unauthenticated_imsi_supported == 0 ? "false" : "true");
   OAILOG_INFO (LOG_CONFIG, "- Relative capa ........................: %u\n", config_pP->relative_capacity);
   OAILOG_INFO (LOG_CONFIG, "- Statistics timer .....................: %u (seconds)\n\n", config_pP->mme_statistic_timer);
+  OAILOG_INFO (LOG_CONFIG, "- MME Mobility Completion timer ........:%u (seconds)\n\n", config_pP->mme_mobility_completion_timer);
+  OAILOG_INFO (LOG_CONFIG, "- MME Paging Timeout timer .............:%u (seconds)\n\n", config_pP->mme_paging_timeout_timer);
   OAILOG_INFO (LOG_CONFIG, "- S1-MME:\n");
   OAILOG_INFO (LOG_CONFIG, "    port number ......: %d\n", config_pP->s1ap_config.port_number);
   OAILOG_INFO (LOG_CONFIG, "- IP:\n");
@@ -720,6 +840,9 @@ static void mme_config_display (mme_config_t * config_pP)
   OAILOG_INFO (LOG_CONFIG, "    s11 MME iface ....: %s\n", bdata(config_pP->ipv4.if_name_s11));
   OAILOG_INFO (LOG_CONFIG, "    s11 MME port .....: %d\n", config_pP->ipv4.port_s11);
   OAILOG_INFO (LOG_CONFIG, "    s11 MME ip .......: %s\n", inet_ntoa (*((struct in_addr *)&config_pP->ipv4.s11)));
+  OAILOG_INFO (LOG_CONFIG, "    s10 MME iface ....: %s\n", bdata(config_pP->ipv4.if_name_s10));
+  OAILOG_INFO (LOG_CONFIG, "    s10 MME port .....: %d\n", config_pP->ipv4.port_s10);
+  OAILOG_INFO (LOG_CONFIG, "    s10 MME ip .......: %s\n", inet_ntoa (*((struct in_addr *)&config_pP->ipv4.s10)));
   OAILOG_INFO (LOG_CONFIG, "- ITTI:\n");
   OAILOG_INFO (LOG_CONFIG, "    queue size .......: %u (bytes)\n", config_pP->itti_config.queue_size);
   OAILOG_INFO (LOG_CONFIG, "    log file .........: %s\n", bdata(config_pP->itti_config.log_file));
@@ -768,6 +891,7 @@ static void mme_config_display (mme_config_t * config_pP)
   OAILOG_INFO (LOG_CONFIG, "    MME_APP log level....: %s\n", OAILOG_LEVEL_INT2STR(config_pP->log_config.mme_app_log_level));
   OAILOG_INFO (LOG_CONFIG, "    S/P-GW APP log level.: %s\n", OAILOG_LEVEL_INT2STR(config_pP->log_config.spgw_app_log_level));
   OAILOG_INFO (LOG_CONFIG, "    S11 log level........: %s\n", OAILOG_LEVEL_INT2STR(config_pP->log_config.s11_log_level));
+  OAILOG_INFO (LOG_CONFIG, "    S10 log level........: %s\n", OAILOG_LEVEL_INT2STR(config_pP->log_config.s10_log_level));
   OAILOG_INFO (LOG_CONFIG, "    S6a log level........: %s\n", OAILOG_LEVEL_INT2STR(config_pP->log_config.s6a_log_level));
   OAILOG_INFO (LOG_CONFIG, "    UTIL log level.......: %s\n", OAILOG_LEVEL_INT2STR(config_pP->log_config.util_log_level));
   OAILOG_INFO (LOG_CONFIG, "    MSC log level........: %s (MeSsage Chart)\n", OAILOG_LEVEL_INT2STR(config_pP->log_config.msc_log_level));

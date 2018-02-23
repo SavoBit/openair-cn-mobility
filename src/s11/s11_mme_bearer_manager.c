@@ -246,7 +246,7 @@ s11_mme_handle_modify_bearer_response (
   if (rc != NW_OK) {
     MSC_LOG_RX_DISCARDED_MESSAGE (MSC_S11_MME, MSC_SGW, NULL, 0, "0 MODIFY_BEARER_RESPONSE local S11 teid " TEID_FMT " ", resp_p->teid);
     /*
-     * TODO: handle this case
+     * TODO: handle this case --> Eventually a handovered UE!
      */
     itti_free (ITTI_MSG_ORIGIN_ID (message_p), message_p);
     message_p = NULL;
@@ -263,5 +263,27 @@ s11_mme_handle_modify_bearer_response (
   DevAssert (NW_OK == rc);
   rc = nwGtpv2cMsgDelete (*stack_p, (pUlpApi->hMsg));
   DevAssert (NW_OK == rc);
+  return itti_send_msg_to_task (TASK_MME_APP, INSTANCE_DEFAULT, message_p);
+}
+
+/* @brief Handle Downlink Data Notification received from source MME. */
+int
+s11_mme_handle_downlink_data_notification(
+    NwGtpv2cStackHandleT * stack_p,
+    NwGtpv2cUlpApiT * pUlpApi)
+{
+  NwRcT                                   rc = NW_OK;
+  itti_s11_downlink_data_notification_t  *notif_p;
+  MessageDef                             *message_p;
+
+  DevAssert (stack_p );
+  message_p = itti_alloc_new_message (TASK_S10, S11_DOWNLINK_DATA_NOTIFICATION);
+  notif_p = &message_p->ittiMsg.s11_downlink_data_notification;
+  memset(notif_p, 0, sizeof(*notif_p));
+  notif_p->teid = nwGtpv2cMsgGetTeid(pUlpApi->hMsg); /**< When the message is sent, this is the field, where the MME_APP sets the destination TEID.
+  In this case, at reception and decoding, it is the local TEID, used to find the MME_APP ue_context. */
+  notif_p->trxn = (void *)pUlpApi->apiInfo.initialReqIndInfo.hTrxn;
+
+  MSC_LOG_RX_MESSAGE (MSC_S10_MME, MSC_SGW, NULL, 0, "DOWNLINK DATA NOTIFICATION to local S10 teid " TEID_FMT , notif_p->teid);
   return itti_send_msg_to_task (TASK_MME_APP, INSTANCE_DEFAULT, message_p);
 }

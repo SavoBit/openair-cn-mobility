@@ -106,6 +106,12 @@ int nas_proc_ul_transfer_ind(const mme_ue_s1ap_id_t ueid,
 int nas_proc_authentication_info_answer (s6a_auth_info_ans_t * ans);
 int nas_proc_auth_param_res (mme_ue_s1ap_id_t ue_id, uint8_t nb_vectors, eutran_vector_t *vectors);
 int nas_proc_auth_param_fail(mme_ue_s1ap_id_t ue_id, nas_cause_t cause);
+/** Update Location Answer. */
+int nas_proc_update_location_cnf(itti_mme_app_nas_update_location_cnf_t * ul_cnf);
+
+/** Context Response. */
+int nas_proc_context_fail(mme_ue_s1ap_id_t ue_id, nas_cause_t cause);
+
 int nas_proc_deregister_ue(uint32_t ue_id);
 int nas_proc_pdn_connectivity_res(itti_nas_pdn_connectivity_rsp_t *nas_pdn_connectivity_rsp);
 int nas_proc_pdn_connectivity_fail(itti_nas_pdn_connectivity_fail_t *nas_pdn_connectivity_fail);
@@ -113,6 +119,11 @@ int nas_proc_pdn_connectivity_fail(itti_nas_pdn_connectivity_fail_t *nas_pdn_con
 // handover messaging --> process message received from s11--> MME_APP
 int nas_proc_ho_bearer_modification_res (emm_cn_ho_bearer_mod_res_t * emm_cn_ho_bearer_mod_res);
 int nas_proc_ho_bearer_modification_fail (emm_cn_ho_bearer_mod_fail_t * emm_cn_ho_bearer_mod_fail);
+/** Handling Forward Relocation Request. */
+int nas_proc_ho_forward_relocation_request(emm_cn_ho_forward_relocation_req_t * emm_cn_ho_forward_relocation_req);
+
+// S1AP Handover Establishment
+int nas_proc_s1ap_ho_establishment_ind ( const mme_ue_s1ap_id_t ue_id, const tai_t originating_tai, const ecgi_t cgi);
 
 int nas_proc_implicit_detach_ue_ind (mme_ue_s1ap_id_t ue_id);
 int nas_proc_smc_fail(emm_cn_smc_fail_t *emm_cn_smc_fail);

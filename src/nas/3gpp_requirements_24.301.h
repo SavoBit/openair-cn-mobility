@@ -555,6 +555,12 @@ If the GUTI/IMSI mapping in the network was incorrect, the network should respon
     procedure."
 #define R10_5_4_4_6_d_BRIEF ""
 
+#define R10_5_4_4_6_f "Abnormal cases on the network side                                                               \
+    Collision of an identification procedure with an tracking area update procedure                                     \
+    If the network receives an TRACKING AREA UPDATE REQUEST message before the ongoing identification procedure has been\
+    completed, the network shall progress both procedures."
+#define R10_5_4_4_6_f_BRIEF ""
+
 //-----------------------------------------------------------------------------------------------------------------------
 // ATTACH
 //-----------------------------------------------------------------------------------------------------------------------
@@ -790,6 +796,13 @@ If the GUTI/IMSI mapping in the network was incorrect, the network should respon
     REQUEST is progressed."
 #define R10_5_5_1_2_7_f_BRIEF ""
 
+#define R10_5_5_1_2_7_g "Abnormal cases on the network side                                                             \
+    g) TRACKING AREA UPDATE REQUEST message received before ATTACH COMPLETE message.                                    \
+    Timer T3450 shall be stopped. The allocated GUTI in the attach procedure shall be considered as valid and the       \
+    tracking area updating procedure shall be rejected with the EMM cause #10 \"implicitly detached\" as described in   \
+    subclause 5.5.3.2.5."
+#define R10_5_5_1_2_7_g_BRIEF ""
+
 
 //-----------------------------------------------------------------------------------------------------------------------
 // TAU
@@ -967,36 +980,36 @@ If the GUTI/IMSI mapping in the network was incorrect, the network should respon
 //    TRACKING AREA UPDATE ACCEPT message. If the TRACKING AREA UPDATE ACCEPT message does not
 //    contain a list, then the UE shall delete the stored list."
 
-//#define R10_5_5_3_2_4__19 "Normal and periodic tracking area updating procedure accepted by the network
-//    The network may also indicate in the EPS update result IE in the TRACKING AREA UPDATE ACCEPT message that
-//    ISR is active. If the UE is attached for emergency bearer services, the network shall indicate in the EPS update result IE
-//    in the TRACKING AREA UPDATE ACCEPT message that ISR is not activated. If the TRACKING AREA UPDATE
-//    ACCEPT message contains:
-//    i) no indication that ISR is activated, the UE shall set the TIN to "GUTI";
-//    ii) an indication that ISR is activated, then:
-//      - if the UE is required to perform routing area updating for IMS voice termination as specified in
-//        3GPP TS 24.008 [13], annex P.5, the UE shall set the TIN to "GUTI";
-//      - if the UE had initiated the tracking area updating procedure due to a change in UE network capability or
-//        change in DRX parameters, the UE shall set the TIN to "GUTI"; or
-//      - the UE shall regard a previously assigned P-TMSI and RAI as valid and registered with the network. If the
-//        TIN currently indicates "P-TMSI" and the periodic routing area update timer T3312 is running, the UE shall
-//        set the TIN to "RAT-related TMSI". If the TIN currently indicates "P-TMSI" and the periodic routing area
-//        update timer T3312 has already expired, the UE shall set the TIN to "GUTI"."
+//#define R10_5_5_3_2_4__19 "Normal and periodic tracking area updating procedure accepted by the network                         \
+//    The network may also indicate in the EPS update result IE in the TRACKING AREA UPDATE ACCEPT message that                   \
+//    ISR is active. If the UE is attached for emergency bearer services, the network shall indicate in the EPS update result IE  \
+//    in the TRACKING AREA UPDATE ACCEPT message that ISR is not activated. If the TRACKING AREA UPDATE                           \
+//    ACCEPT message contains:                                                                                                    \
+//    i) no indication that ISR is activated, the UE shall set the TIN to "GUTI";                                                 \
+//    ii) an indication that ISR is activated, then:                                                                              \
+//      - if the UE is required to perform routing area updating for IMS voice termination as specified in                        \
+//        3GPP TS 24.008 [13], annex P.5, the UE shall set the TIN to "GUTI";                                                     \
+//      - if the UE had initiated the tracking area updating procedure due to a change in UE network capability or                \
+//        change in DRX parameters, the UE shall set the TIN to "GUTI"; or                                                        \
+//      - the UE shall regard a previously assigned P-TMSI and RAI as valid and registered with the network. If the               \
+//        TIN currently indicates \"P-TMSI\" and the periodic routing area update timer T3312 is running, the UE shall              \
+//        set the TIN to \"RAT-related TMSI\". If the TIN currently indicates \"P-TMSI\" and the periodic routing area                \
+//        update timer T3312 has already expired, the UE shall set the TIN to \"GUTI\"."
 
-//#define R10_5_5_3_2_4__20 "Normal and periodic tracking area updating procedure accepted by the network
-//    The network informs the UE about the support of specific features, such as IMS voice over PS session, location services
-//    (EPC-LCS, CS-LCS) or emergency bearer services, in the EPS network feature support information element. In a UE
-//    with IMS voice over PS capability, the IMS voice over PS session indicator and the emergency bearer services indicator
-//    shall be provided to the upper layers. The upper layers take the IMS voice over PS session indicator into account as
-//    specified in 3GPP TS 23.221 [8A], subclause 7.2a and subclause 7.2b, when selecting the access domain for voice
-//    sessions or calls. When initiating an emergency call, the upper layers also take the emergency bearer services indicator
-//    into account for the access domain selection. When the UE determines via the IMS voice over PS session indicator that
-//    the network does not support IMS voice over PS sessions in S1 mode, then the UE shall not locally release any
-//    persistent EPS bearer context. When the UE determines via the emergency bearer services indicator that the network
-//    does not support emergency bearer services in S1 mode, then the UE shall not locally release any emergency EPS
-//    bearer context if there is a radio bearer associated with that context. In a UE with LCS capability, location services
-//    indicators (EPC-LCS, CS-LCS) shall be provided to the upper layers. When MO-LR procedure is triggered by the UE's
-//    application, those indicators are taken into account as specified in 3GPP TS 24.171 [13C]."
+#define R10_5_5_3_2_4__20 "Normal and periodic tracking area updating procedure accepted by the network                         \
+    The network informs the UE about the support of specific features, such as IMS voice over PS session, location services \
+    (EPC-LCS, CS-LCS) or emergency bearer services, in the EPS network feature support information element. In a UE \
+    with IMS voice over PS capability, the IMS voice over PS session indicator and the emergency bearer services indicator  \
+    shall be provided to the upper layers. The upper layers take the IMS voice over PS session indicator into account as  \
+    specified in 3GPP TS 23.221 [8A], subclause 7.2a and subclause 7.2b, when selecting the access domain for voice \
+    sessions or calls. When initiating an emergency call, the upper layers also take the emergency bearer services indicator \
+    into account for the access domain selection. When the UE determines via the IMS voice over PS session indicator that \
+    the network does not support IMS voice over PS sessions in S1 mode, then the UE shall not locally release any \
+    persistent EPS bearer context. When the UE determines via the emergency bearer services indicator that the network \
+    does not support emergency bearer services in S1 mode, then the UE shall not locally release any emergency EPS \
+    bearer context if there is a radio bearer associated with that context. In a UE with LCS capability, location services \
+    indicators (EPC-LCS, CS-LCS) shall be provided to the upper layers. When MO-LR procedure is triggered by the UE's \
+    application, those indicators are taken into account as specified in 3GPP TS 24.171 [13C]."
 
 //#define R10_5_5_3_2_4__21 "Normal and periodic tracking area updating procedure accepted by the network
 //    If the UE has initiated the tracking area updating procedure due to manual CSG selection and receives a TRACKING
@@ -1088,33 +1101,41 @@ If the GUTI/IMSI mapping in the network was incorrect, the network should respon
 //    considered as valid until the old GUTI can be considered as invalid by the network (see subclause 5.4.1.4).
 //    During this period the network acts as described for case a above."
 
-//#define R10_5_5_3_2_7_d "Abnormal cases on the network side
-//    TRACKING AREA UPDATE REQUEST received after the TRACKING AREA UPDATE ACCEPT message
-//    has been sent and before the TRACKING AREA UPDATE COMPLETE message is received
-//    - If one or more of the information elements in the TRACKING AREA UPDATE REQUEST message differ
-//    from the ones received within the previous TRACKING AREA UPDATE REQUEST message, the
-//    previously initiated tracking area updating procedure shall be aborted if the TRACKING AREA UPDATE
-//    COMPLETE message has not been received and the new tracking area updating procedure shall be
-//    progressed; or
-//    - if the information elements do not differ, then the TRACKING AREA UPDATE ACCEPT message shall be
-//    resent and the timer T3450 shall be restarted if an TRACKING AREA UPDATE COMPLETE message is
-//    expected. In that case, the retransmission counter related to T3450 is not incremented."
+#define R10_5_5_3_2_7_d__1 "Abnormal cases on the network side                                                         \
+    TRACKING AREA UPDATE REQUEST received after the TRACKING AREA UPDATE ACCEPT message                             \
+    has been sent and before the TRACKING AREA UPDATE COMPLETE message is received                                  \
+    - If one or more of the information elements in the TRACKING AREA UPDATE REQUEST message differ                 \
+    from the ones received within the previous TRACKING AREA UPDATE REQUEST message, the                            \
+    previously initiated tracking area updating procedure shall be aborted if the TRACKING AREA UPDATE              \
+    COMPLETE message has not been received and the new tracking area updating procedure shall be                    \
+    progressed;"
 
-//#define R10_5_5_3_2_7_e "Abnormal cases on the network side
-//    More than one TRACKING AREA UPDATE REQUEST received and no TRACKING AREA UPDATE
-//    ACCEPT or TRACKING AREA UPDATE REJECT message has been sent
-//    - If one or more of the information elements in the TRACKING AREA UPDATE REQUEST message differs
-//    from the ones received within the previous TRACKING AREA UPDATE REQUEST message, the
-//    previously initiated tracking area updating procedure shall be aborted and the new tracking area updating
-//    procedure shall be progressed;
-//    - if the information elements do not differ, then the network shall continue with the previous tracking area
-//    updating procedure and shall not treat any further this TRACKING AREA UPDATE REQUEST message.
+#define R10_5_5_3_2_7_d__2 "Abnormal cases on the network side                                                         \
+    TRACKING AREA UPDATE REQUEST received after the TRACKING AREA UPDATE ACCEPT message                             \
+    has been sent and before the TRACKING AREA UPDATE COMPLETE message is received                                  \
+    - if the information elements do not differ, then the TRACKING AREA UPDATE ACCEPT message shall be              \
+    resent and the timer T3450 shall be restarted if an TRACKING AREA UPDATE COMPLETE message is                    \
+    expected. In that case, the retransmission counter related to T3450 is not incremented."
 
-//#define R10_5_5_3_2_7_f "Abnormal cases on the network side
-//    Lower layers indication of non-delivered NAS PDU due to handover
-//    If the TRACKING AREA UPDATE ACCEPT message or TRACKING AREA UPDATE REJECT message
-//    could not be delivered due to handover then the MME shall retransmit the TRACKING AREA UPDATE
-//    ACCEPT message or TRACKING AREA UPDATE REJECT message if the failure of handover procedure
-//    is reported by the lower layer and the S1 signalling connection exists.
+#define R10_5_5_3_2_7_e__1 "Abnormal cases on the network side                                                         \
+    More than one TRACKING AREA UPDATE REQUEST received and no TRACKING AREA UPDATE                                 \
+    ACCEPT or TRACKING AREA UPDATE REJECT message has been sent                                                     \
+    - If one or more of the information elements in the TRACKING AREA UPDATE REQUEST message differs                \
+    from the ones received within the previous TRACKING AREA UPDATE REQUEST message, the                            \
+    previously initiated tracking area updating procedure shall be aborted and the new tracking area updating       \
+    procedure shall be progressed;"
+
+#define R10_5_5_3_2_7_e__2 "Abnormal cases on the network side                                                         \
+    More than one TRACKING AREA UPDATE REQUEST received and no TRACKING AREA UPDATE                                 \
+    ACCEPT or TRACKING AREA UPDATE REJECT message has been sent                                                     \
+    - if the information elements do not differ, then the network shall continue with the previous tracking area    \
+    updating procedure and shall not treat any further this TRACKING AREA UPDATE REQUEST message."
+
+#define R10_5_5_3_2_7_f "Abnormal cases on the network side                                                         \
+    Lower layers indication of non-delivered NAS PDU due to handover                                                \
+    If the TRACKING AREA UPDATE ACCEPT message or TRACKING AREA UPDATE REJECT message                               \
+    could not be delivered due to handover then the MME shall retransmit the TRACKING AREA UPDATE                   \
+    ACCEPT message or TRACKING AREA UPDATE REJECT message if the failure of handover procedure                      \
+    is reported by the lower layer and the S1 signalling connection exists."
 
 #endif /* FILE_3GPP_REQUIREMENTS_24_301_SEEN */

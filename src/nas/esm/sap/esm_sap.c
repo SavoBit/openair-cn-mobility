@@ -187,7 +187,12 @@ esm_sap_send (
 
     break;
 
+    /** Use this method for session de-activation. */
   case ESM_PDN_DISCONNECT_REQ:
+    /*
+     * The MME received a PDN disconnect request message
+     */
+    rc = _esm_sap_recv (PDN_DISCONNECT_REQUEST, msg->is_standalone, msg->ctx, msg->recv, msg->send, &msg->err);
     break;
 
   case ESM_PDN_DISCONNECT_REJ:
@@ -400,349 +405,372 @@ _esm_sap_recv (
   if (esm_cause != ESM_CAUSE_SUCCESS) {
     OAILOG_ERROR (LOG_NAS_ESM , "ESM-SAP   - Failed to decode expected ESM message " "0x%x\n", msg_type);
   }
+
+  rc = _emm_sap_process_esm_message(&esm_msg, esm_cause, is_discarded, triggered_by_ue, pti, ebi, is_standalone, err, esm_procedure, ctx);
+  OAILOG_FUNC_RETURN (LOG_NAS_ESM, rc);
+}
+
+/**
+ * Temporary function to use for network initiated PDN session removal.
+ */
+int
+_emm_sap_process_esm_message(
+    ESM_msg                                *esm_msg_p,
+    int                                     esm_cause,
+    int                                     is_discarded,
+    int                                     triggered_by_ue,
+    int                                     pti,
+    unsigned int                            ebi,
+    int                                     is_standalone,
+    esm_sap_error_t                        *err,
+    esm_proc_procedure_t                    esm_procedure,
+    emm_data_context_t                     *ctx)
+{
+  bstring               rsp;
+  int                   rc =            RETURNerror;
   /*
    * Process the received ESM message
    */
-  else
-    switch (esm_msg.header.message_type) {
-    case ACTIVATE_DEFAULT_EPS_BEARER_CONTEXT_ACCEPT:
-      /*
-       * Process activate default EPS bearer context accept message
-       * received from the UE
-       */
-      esm_cause = esm_recv_activate_default_eps_bearer_context_accept (ctx, pti, ebi, &esm_msg.activate_default_eps_bearer_context_accept);
+  switch (esm_msg_p->header.message_type) {
+  case ACTIVATE_DEFAULT_EPS_BEARER_CONTEXT_ACCEPT:
+    /*
+     * Process activate default EPS bearer context accept message
+     * received from the UE
+     */
+    esm_cause = esm_recv_activate_default_eps_bearer_context_accept (ctx, pti, ebi, &esm_msg_p->activate_default_eps_bearer_context_accept);
 
-      if ((esm_cause == ESM_CAUSE_INVALID_PTI_VALUE) || (esm_cause == ESM_CAUSE_INVALID_EPS_BEARER_IDENTITY)) {
+    if ((esm_cause == ESM_CAUSE_INVALID_PTI_VALUE) || (esm_cause == ESM_CAUSE_INVALID_EPS_BEARER_IDENTITY)) {
+          /*
+           * 3GPP TS 24.301, section 7.3.1, case f
+           * * * * Ignore ESM message received with reserved PTI value
+           * * * * 3GPP TS 24.301, section 7.3.2, case f
+           * * * * Ignore ESM message received with reserved or assigned
+           * * * * value that does not match an existing EPS bearer context
+           */
+          is_discarded = true;
+        }
+
+        break;
+
+      case ACTIVATE_DEFAULT_EPS_BEARER_CONTEXT_REJECT:
         /*
-         * 3GPP TS 24.301, section 7.3.1, case f
-         * * * * Ignore ESM message received with reserved PTI value
-         * * * * 3GPP TS 24.301, section 7.3.2, case f
-         * * * * Ignore ESM message received with reserved or assigned
-         * * * * value that does not match an existing EPS bearer context
+         * Process activate default EPS bearer context reject message
+         * received from the UE
          */
-        is_discarded = true;
-      }
+        esm_cause = esm_recv_activate_default_eps_bearer_context_reject (ctx, pti, ebi, &esm_msg_p->activate_default_eps_bearer_context_reject);
 
-      break;
+        if ((esm_cause == ESM_CAUSE_INVALID_PTI_VALUE) || (esm_cause == ESM_CAUSE_INVALID_EPS_BEARER_IDENTITY)) {
+          /*
+           * 3GPP TS 24.301, section 7.3.1, case f
+           * * * * Ignore ESM message received with reserved PTI value
+           * * * * 3GPP TS 24.301, section 7.3.2, case f
+           * * * * Ignore ESM message received with reserved or assigned
+           * * * * value that does not match an existing EPS bearer context
+           */
+          is_discarded = true;
+        }
 
-    case ACTIVATE_DEFAULT_EPS_BEARER_CONTEXT_REJECT:
-      /*
-       * Process activate default EPS bearer context reject message
-       * received from the UE
-       */
-      esm_cause = esm_recv_activate_default_eps_bearer_context_reject (ctx, pti, ebi, &esm_msg.activate_default_eps_bearer_context_reject);
+        break;
 
-      if ((esm_cause == ESM_CAUSE_INVALID_PTI_VALUE) || (esm_cause == ESM_CAUSE_INVALID_EPS_BEARER_IDENTITY)) {
+      case DEACTIVATE_EPS_BEARER_CONTEXT_ACCEPT:
         /*
-         * 3GPP TS 24.301, section 7.3.1, case f
-         * * * * Ignore ESM message received with reserved PTI value
-         * * * * 3GPP TS 24.301, section 7.3.2, case f
-         * * * * Ignore ESM message received with reserved or assigned
-         * * * * value that does not match an existing EPS bearer context
+         * Process deactivate EPS bearer context accept message
+         * received from the UE
          */
-        is_discarded = true;
-      }
+        esm_cause = esm_recv_deactivate_eps_bearer_context_accept (ctx, pti, ebi, &esm_msg_p->deactivate_eps_bearer_context_accept);
 
-      break;
+        if ((esm_cause == ESM_CAUSE_INVALID_PTI_VALUE) || (esm_cause == ESM_CAUSE_INVALID_EPS_BEARER_IDENTITY)) {
+          /*
+           * 3GPP TS 24.301, section 7.3.1, case f
+           * * * * Ignore ESM message received with reserved PTI value
+           * * * * 3GPP TS 24.301, section 7.3.2, case f
+           * * * * Ignore ESM message received with reserved or assigned
+           * * * * value that does not match an existing EPS bearer context
+           */
+          is_discarded = true;
+        }
 
-    case DEACTIVATE_EPS_BEARER_CONTEXT_ACCEPT:
-      /*
-       * Process deactivate EPS bearer context accept message
-       * received from the UE
-       */
-      esm_cause = esm_recv_deactivate_eps_bearer_context_accept (ctx, pti, ebi, &esm_msg.deactivate_eps_bearer_context_accept);
+        break;
 
-      if ((esm_cause == ESM_CAUSE_INVALID_PTI_VALUE) || (esm_cause == ESM_CAUSE_INVALID_EPS_BEARER_IDENTITY)) {
+      case ACTIVATE_DEDICATED_EPS_BEARER_CONTEXT_ACCEPT:
         /*
-         * 3GPP TS 24.301, section 7.3.1, case f
-         * * * * Ignore ESM message received with reserved PTI value
-         * * * * 3GPP TS 24.301, section 7.3.2, case f
-         * * * * Ignore ESM message received with reserved or assigned
-         * * * * value that does not match an existing EPS bearer context
+         * Process activate dedicated EPS bearer context accept message
+         * received from the UE
          */
-        is_discarded = true;
-      }
+        esm_cause = esm_recv_activate_dedicated_eps_bearer_context_accept (ctx, pti, ebi, &esm_msg_p->activate_dedicated_eps_bearer_context_accept);
 
-      break;
+        if ((esm_cause == ESM_CAUSE_INVALID_PTI_VALUE) || (esm_cause == ESM_CAUSE_INVALID_EPS_BEARER_IDENTITY)) {
+          /*
+           * 3GPP TS 24.301, section 7.3.1, case f
+           * * * * Ignore ESM message received with reserved PTI value
+           * * * * 3GPP TS 24.301, section 7.3.2, case f
+           * * * * Ignore ESM message received with reserved or assigned
+           * * * * value that does not match an existing EPS bearer context
+           */
+          is_discarded = true;
+        }
 
-    case ACTIVATE_DEDICATED_EPS_BEARER_CONTEXT_ACCEPT:
-      /*
-       * Process activate dedicated EPS bearer context accept message
-       * received from the UE
-       */
-      esm_cause = esm_recv_activate_dedicated_eps_bearer_context_accept (ctx, pti, ebi, &esm_msg.activate_dedicated_eps_bearer_context_accept);
+        break;
 
-      if ((esm_cause == ESM_CAUSE_INVALID_PTI_VALUE) || (esm_cause == ESM_CAUSE_INVALID_EPS_BEARER_IDENTITY)) {
+      case ACTIVATE_DEDICATED_EPS_BEARER_CONTEXT_REJECT:
         /*
-         * 3GPP TS 24.301, section 7.3.1, case f
-         * * * * Ignore ESM message received with reserved PTI value
-         * * * * 3GPP TS 24.301, section 7.3.2, case f
-         * * * * Ignore ESM message received with reserved or assigned
-         * * * * value that does not match an existing EPS bearer context
+         * Process activate dedicated EPS bearer context reject message
+         * received from the UE
          */
-        is_discarded = true;
-      }
+        esm_cause = esm_recv_activate_dedicated_eps_bearer_context_reject (ctx, pti, ebi, &esm_msg_p->activate_dedicated_eps_bearer_context_reject);
 
-      break;
+        if ((esm_cause == ESM_CAUSE_INVALID_PTI_VALUE) || (esm_cause == ESM_CAUSE_INVALID_EPS_BEARER_IDENTITY)) {
+          /*
+           * 3GPP TS 24.301, section 7.3.1, case f
+           * * * * Ignore ESM message received with reserved PTI value
+           * * * * 3GPP TS 24.301, section 7.3.2, case f
+           * * * * Ignore ESM message received with reserved or assigned
+           * * * * value that does not match an existing EPS bearer context
+           */
+          is_discarded = true;
+        }
 
-    case ACTIVATE_DEDICATED_EPS_BEARER_CONTEXT_REJECT:
-      /*
-       * Process activate dedicated EPS bearer context reject message
-       * received from the UE
-       */
-      esm_cause = esm_recv_activate_dedicated_eps_bearer_context_reject (ctx, pti, ebi, &esm_msg.activate_dedicated_eps_bearer_context_reject);
+        break;
 
-      if ((esm_cause == ESM_CAUSE_INVALID_PTI_VALUE) || (esm_cause == ESM_CAUSE_INVALID_EPS_BEARER_IDENTITY)) {
+      case MODIFY_EPS_BEARER_CONTEXT_ACCEPT:
+        break;
+
+      case MODIFY_EPS_BEARER_CONTEXT_REJECT:
+        break;
+
+      case PDN_CONNECTIVITY_REQUEST:{
+          esm_proc_data_t                         data;
+
+          memset (&data, 0, sizeof (esm_proc_data_t));
+          OAILOG_DEBUG (LOG_NAS_ESM, "ESM-SAP   - PDN_CONNECTIVITY_REQUEST pti %u ebi %u\n", pti, ebi);
+          /*
+           * Process PDN connectivity request message received from the UE
+           */
+          esm_cause = esm_recv_pdn_connectivity_request (ctx, pti, ebi, &esm_msg_p->pdn_connectivity_request, &ebi, &data);
+
+          if (esm_cause != ESM_CAUSE_SUCCESS) {
+            /*
+             * Return reject message
+             */
+            rc = esm_send_pdn_connectivity_reject (pti, &esm_msg_p->pdn_connectivity_reject, esm_cause);
+            /*
+             * Setup the callback function used to send PDN connectivity
+             * * * * reject message onto the network
+             */
+            esm_procedure = esm_proc_pdn_connectivity_reject;
+            /*
+             * No ESM status message should be returned
+             */
+            esm_cause = ESM_CAUSE_SUCCESS;
+          } else {
+  #if ORIGINAL_CODE
+            /*
+             * Setup PDN type
+             */
+            int                                     pdn_type = -1;
+
+            if (data.pdn_type == ESM_PDN_TYPE_IPV4) {
+              pdn_type = PDN_VALUE_TYPE_IPV4;
+            } else if (data.pdn_type == ESM_PDN_TYPE_IPV6) {
+              pdn_type = PDN_VALUE_TYPE_IPV6;
+            } else if (data.pdn_type == ESM_PDN_TYPE_IPV4V6) {
+              pdn_type = PDN_VALUE_TYPE_IPV4V6;
+            }
+
+            /*
+             * Setup EPS bearer level Quality of Service
+             */
+            EpsQualityOfService                     qos;
+
+            qos.bitRatesPresent = 1;
+            qos.bitRatesExtPresent = 0;
+            qos.qci = data.qos.qci;
+            qos.bitRates.maxBitRateForUL = data.qos.mbrUL;
+            qos.bitRates.maxBitRateForDL = data.qos.mbrDL;
+            qos.bitRates.guarBitRateForUL = data.qos.gbrUL;
+            qos.bitRates.guarBitRateForDL = data.qos.gbrDL;
+            /*
+             * Return default EPS bearer context request message
+             */
+            rc = esm_send_activate_default_eps_bearer_context_request (pti, ebi, &esm_msg.activate_default_eps_bearer_context_request, &data.apn, pdn_type, &data.pdn_addr, &qos, esm_cause);
+  #  if 0
+            PacketFilters                           pkfs;
+
+            pkfs[0].identifier = 1;
+            pkfs[0].direction = TRAFFIC_FLOW_TEMPLATE_DOWNLINK_ONLY;
+            pkfs[0].eval_precedence = 2;
+            pkfs[0].packetfilter.flags = (TRAFFIC_FLOW_TEMPLATE_IPV4_REMOTE_ADDR_FLAG | TRAFFIC_FLOW_TEMPLATE_PROTOCOL_NEXT_HEADER_FLAG | TRAFFIC_FLOW_TEMPLATE_SINGLE_LOCAL_PORT_FLAG | TRAFFIC_FLOW_TEMPLATE_SINGLE_REMOTE_PORT_FLAG);
+            pkfs[0].packetfilter.ipv4remoteaddr[0].addr = 192;
+            pkfs[0].packetfilter.ipv4remoteaddr[1].addr = 168;
+            pkfs[0].packetfilter.ipv4remoteaddr[2].addr = 12;
+            pkfs[0].packetfilter.ipv4remoteaddr[3].addr = 1;
+            pkfs[0].packetfilter.ipv4remoteaddr[0].mask = 255;
+            pkfs[0].packetfilter.ipv4remoteaddr[1].mask = 255;
+            pkfs[0].packetfilter.ipv4remoteaddr[2].mask = 255;
+            pkfs[0].packetfilter.ipv4remoteaddr[3].mask = 0;
+            pkfs[0].packetfilter.protocolidentifier_nextheader = 17;
+            pkfs[0].packetfilter.singlelocalport = 10001;
+            pkfs[0].packetfilter.singleremoteport = 12001;
+            pkfs[1].identifier = 2;
+            pkfs[1].direction = TRAFFIC_FLOW_TEMPLATE_UPLINK_ONLY;
+            pkfs[1].eval_precedence = 3;
+            pkfs[1].packetfilter.flags = (TRAFFIC_FLOW_TEMPLATE_IPV4_REMOTE_ADDR_FLAG | TRAFFIC_FLOW_TEMPLATE_PROTOCOL_NEXT_HEADER_FLAG | TRAFFIC_FLOW_TEMPLATE_SINGLE_LOCAL_PORT_FLAG | TRAFFIC_FLOW_TEMPLATE_SINGLE_REMOTE_PORT_FLAG);
+            pkfs[1].packetfilter.ipv4remoteaddr[0].addr = 192;
+            pkfs[1].packetfilter.ipv4remoteaddr[1].addr = 168;
+            pkfs[1].packetfilter.ipv4remoteaddr[2].addr = 12;
+            pkfs[1].packetfilter.ipv4remoteaddr[3].addr = 1;
+            pkfs[1].packetfilter.ipv4remoteaddr[0].mask = 255;
+            pkfs[1].packetfilter.ipv4remoteaddr[1].mask = 255;
+            pkfs[1].packetfilter.ipv4remoteaddr[2].mask = 255;
+            pkfs[1].packetfilter.ipv4remoteaddr[3].mask = 0;
+            pkfs[1].packetfilter.protocolidentifier_nextheader = 17;
+            pkfs[1].packetfilter.singlelocalport = 10002;
+            pkfs[1].packetfilter.singleremoteport = 12002;
+            /*
+             * Return dedicated EPS bearer context request message
+             */
+            rc = esm_send_activate_dedicated_eps_bearer_context_request (pti, ebi, &esm_msg.activate_dedicated_eps_bearer_context_request, ebi, &qos, &pkfs, 2);
+  #  endif
+            esm_procedure = esm_proc_default_eps_bearer_context_request;
+  #else
+            esm_cause = ESM_CAUSE_SUCCESS;
+  #endif
+            /*
+             * Setup the callback function used to send default EPS bearer
+             * * * * context request message onto the network
+             */
+            //esm_procedure = esm_proc_default_eps_bearer_context_request;
+          }
+
+          break;
+        }
+
+      case PDN_DISCONNECT_REQUEST:
         /*
-         * 3GPP TS 24.301, section 7.3.1, case f
-         * * * * Ignore ESM message received with reserved PTI value
-         * * * * 3GPP TS 24.301, section 7.3.2, case f
-         * * * * Ignore ESM message received with reserved or assigned
-         * * * * value that does not match an existing EPS bearer context
+         * Process PDN disconnect request message received from the UE
          */
-        is_discarded = true;
-      }
-
-      break;
-
-    case MODIFY_EPS_BEARER_CONTEXT_ACCEPT:
-      break;
-
-    case MODIFY_EPS_BEARER_CONTEXT_REJECT:
-      break;
-
-    case PDN_CONNECTIVITY_REQUEST:{
-        esm_proc_data_t                         data;
-
-        memset (&data, 0, sizeof (esm_proc_data_t));
-        OAILOG_DEBUG (LOG_NAS_ESM, "ESM-SAP   - PDN_CONNECTIVITY_REQUEST pti %u ebi %u\n", pti, ebi);
-        /*
-         * Process PDN connectivity request message received from the UE
-         */
-        esm_cause = esm_recv_pdn_connectivity_request (ctx, pti, ebi, &esm_msg.pdn_connectivity_request, &ebi, &data);
+        esm_cause = esm_recv_pdn_disconnect_request (ctx, pti, ebi, &esm_msg_p->pdn_disconnect_request, &ebi);
 
         if (esm_cause != ESM_CAUSE_SUCCESS) {
           /*
            * Return reject message
            */
-          rc = esm_send_pdn_connectivity_reject (pti, &esm_msg.pdn_connectivity_reject, esm_cause);
+          rc = esm_send_pdn_disconnect_reject (pti, &esm_msg_p->pdn_disconnect_reject, esm_cause);
           /*
            * Setup the callback function used to send PDN connectivity
            * * * * reject message onto the network
            */
-          esm_procedure = esm_proc_pdn_connectivity_reject;
+          esm_procedure = esm_proc_pdn_disconnect_reject;
           /*
            * No ESM status message should be returned
            */
           esm_cause = ESM_CAUSE_SUCCESS;
         } else {
-#if ORIGINAL_CODE
-          /*
-           * Setup PDN type
-           */
-          int                                     pdn_type = -1;
-
-          if (data.pdn_type == ESM_PDN_TYPE_IPV4) {
-            pdn_type = PDN_VALUE_TYPE_IPV4;
-          } else if (data.pdn_type == ESM_PDN_TYPE_IPV6) {
-            pdn_type = PDN_VALUE_TYPE_IPV6;
-          } else if (data.pdn_type == ESM_PDN_TYPE_IPV4V6) {
-            pdn_type = PDN_VALUE_TYPE_IPV4V6;
-          }
-
-          /*
-           * Setup EPS bearer level Quality of Service
-           */
-          EpsQualityOfService                     qos;
-
-          qos.bitRatesPresent = 1;
-          qos.bitRatesExtPresent = 0;
-          qos.qci = data.qos.qci;
-          qos.bitRates.maxBitRateForUL = data.qos.mbrUL;
-          qos.bitRates.maxBitRateForDL = data.qos.mbrDL;
-          qos.bitRates.guarBitRateForUL = data.qos.gbrUL;
-          qos.bitRates.guarBitRateForDL = data.qos.gbrDL;
-          /*
-           * Return default EPS bearer context request message
-           */
-          rc = esm_send_activate_default_eps_bearer_context_request (pti, ebi, &esm_msg.activate_default_eps_bearer_context_request, &data.apn, pdn_type, &data.pdn_addr, &qos, esm_cause);
-#  if 0
-          PacketFilters                           pkfs;
-
-          pkfs[0].identifier = 1;
-          pkfs[0].direction = TRAFFIC_FLOW_TEMPLATE_DOWNLINK_ONLY;
-          pkfs[0].eval_precedence = 2;
-          pkfs[0].packetfilter.flags = (TRAFFIC_FLOW_TEMPLATE_IPV4_REMOTE_ADDR_FLAG | TRAFFIC_FLOW_TEMPLATE_PROTOCOL_NEXT_HEADER_FLAG | TRAFFIC_FLOW_TEMPLATE_SINGLE_LOCAL_PORT_FLAG | TRAFFIC_FLOW_TEMPLATE_SINGLE_REMOTE_PORT_FLAG);
-          pkfs[0].packetfilter.ipv4remoteaddr[0].addr = 192;
-          pkfs[0].packetfilter.ipv4remoteaddr[1].addr = 168;
-          pkfs[0].packetfilter.ipv4remoteaddr[2].addr = 12;
-          pkfs[0].packetfilter.ipv4remoteaddr[3].addr = 1;
-          pkfs[0].packetfilter.ipv4remoteaddr[0].mask = 255;
-          pkfs[0].packetfilter.ipv4remoteaddr[1].mask = 255;
-          pkfs[0].packetfilter.ipv4remoteaddr[2].mask = 255;
-          pkfs[0].packetfilter.ipv4remoteaddr[3].mask = 0;
-          pkfs[0].packetfilter.protocolidentifier_nextheader = 17;
-          pkfs[0].packetfilter.singlelocalport = 10001;
-          pkfs[0].packetfilter.singleremoteport = 12001;
-          pkfs[1].identifier = 2;
-          pkfs[1].direction = TRAFFIC_FLOW_TEMPLATE_UPLINK_ONLY;
-          pkfs[1].eval_precedence = 3;
-          pkfs[1].packetfilter.flags = (TRAFFIC_FLOW_TEMPLATE_IPV4_REMOTE_ADDR_FLAG | TRAFFIC_FLOW_TEMPLATE_PROTOCOL_NEXT_HEADER_FLAG | TRAFFIC_FLOW_TEMPLATE_SINGLE_LOCAL_PORT_FLAG | TRAFFIC_FLOW_TEMPLATE_SINGLE_REMOTE_PORT_FLAG);
-          pkfs[1].packetfilter.ipv4remoteaddr[0].addr = 192;
-          pkfs[1].packetfilter.ipv4remoteaddr[1].addr = 168;
-          pkfs[1].packetfilter.ipv4remoteaddr[2].addr = 12;
-          pkfs[1].packetfilter.ipv4remoteaddr[3].addr = 1;
-          pkfs[1].packetfilter.ipv4remoteaddr[0].mask = 255;
-          pkfs[1].packetfilter.ipv4remoteaddr[1].mask = 255;
-          pkfs[1].packetfilter.ipv4remoteaddr[2].mask = 255;
-          pkfs[1].packetfilter.ipv4remoteaddr[3].mask = 0;
-          pkfs[1].packetfilter.protocolidentifier_nextheader = 17;
-          pkfs[1].packetfilter.singlelocalport = 10002;
-          pkfs[1].packetfilter.singleremoteport = 12002;
-          /*
-           * Return dedicated EPS bearer context request message
-           */
-          rc = esm_send_activate_dedicated_eps_bearer_context_request (pti, ebi, &esm_msg.activate_dedicated_eps_bearer_context_request, ebi, &qos, &pkfs, 2);
-#  endif
-          esm_procedure = esm_proc_default_eps_bearer_context_request;
-#else
-          esm_cause = ESM_CAUSE_SUCCESS;
-#endif
-          /*
-           * Setup the callback function used to send default EPS bearer
-           * * * * context request message onto the network
-           */
-          //esm_procedure = esm_proc_default_eps_bearer_context_request;
+          // todo: not sending anything to the UE currently (todo: multi-APN!)
+//          /*
+//           * Return deactivate EPS bearer context request message
+//           */
+//          rc = esm_send_deactivate_eps_bearer_context_request (pti, ebi, &esm_msg_p->deactivate_eps_bearer_context_request, ESM_CAUSE_REGULAR_DEACTIVATION);
+//          /*
+//           * Setup the callback function used to send deactivate EPS
+//           * * * * bearer context request message onto the network
+//           */
+//          esm_procedure = esm_proc_eps_bearer_context_deactivate_request;
         }
 
         break;
+
+      case BEARER_RESOURCE_ALLOCATION_REQUEST:
+        break;
+
+      case BEARER_RESOURCE_MODIFICATION_REQUEST:
+        break;
+
+      case ESM_INFORMATION_RESPONSE:
+        break;
+
+      case ESM_STATUS:
+        /*
+         * Process received ESM status message
+         */
+        esm_cause = esm_recv_status (ctx, pti, ebi, &esm_msg_p->esm_status);
+        break;
+
+      default:
+        OAILOG_WARNING (LOG_NAS_ESM, "ESM-SAP   - Received unexpected ESM message " "0x%x\n", esm_msg_p->header.message_type);
+        esm_cause = ESM_CAUSE_MESSAGE_TYPE_NOT_IMPLEMENTED;
+        break;
       }
 
-    case PDN_DISCONNECT_REQUEST:
+    if ((esm_cause != ESM_CAUSE_SUCCESS) && (esm_procedure == NULL)) {
       /*
-       * Process PDN disconnect request message received from the UE
+       * ESM message processing failed
        */
-      esm_cause = esm_recv_pdn_disconnect_request (ctx, pti, ebi, &esm_msg.pdn_disconnect_request, &ebi);
+      if (!is_discarded) {
+        /*
+         * 3GPP TS 24.301, section 7.1
+         * * * * Handling of unknown, unforeseen, and erroneous protocol data
+         */
+        OAILOG_WARNING (LOG_NAS_ESM, "ESM-SAP   - Received ESM message is not valid " "(cause=%d)\n", esm_cause);
+        /*
+         * Return an ESM status message
+         */
+        rc = esm_send_status (pti, ebi, &esm_msg_p->esm_status, esm_cause);
+        /*
+         * Setup the callback function used to send ESM status message
+         * * * * onto the network
+         */
+        esm_procedure = esm_proc_status;
+        /*
+         * Discard received ESM message
+         */
+        is_discarded = true;
+      }
+    } else {
+      /*
+       * ESM message processing succeed
+       */
+      *err = ESM_SAP_SUCCESS;
+      rc = RETURNok;
+    }
 
-      if (esm_cause != ESM_CAUSE_SUCCESS) {
-        /*
-         * Return reject message
-         */
-        rc = esm_send_pdn_disconnect_reject (pti, &esm_msg.pdn_disconnect_reject, esm_cause);
-        /*
-         * Setup the callback function used to send PDN connectivity
-         * * * * reject message onto the network
-         */
-        esm_procedure = esm_proc_pdn_disconnect_reject;
-        /*
-         * No ESM status message should be returned
-         */
-        esm_cause = ESM_CAUSE_SUCCESS;
-      } else {
-        /*
-         * Return deactivate EPS bearer context request message
-         */
-        rc = esm_send_deactivate_eps_bearer_context_request (pti, ebi, &esm_msg.deactivate_eps_bearer_context_request, ESM_CAUSE_REGULAR_DEACTIVATION);
-        /*
-         * Setup the callback function used to send deactivate EPS
-         * * * * bearer context request message onto the network
-         */
-        esm_procedure = esm_proc_eps_bearer_context_deactivate_request;
+    if ((rc != RETURNerror) && (esm_procedure )) {
+      /*
+       * Encode the returned ESM response message
+       */
+      int                                     size = esm_msg_encode (esm_msg_p, (uint8_t *) ctx->esm_data_ctx.esm_sap_buffer,
+                                                                     ESM_SAP_BUFFER_SIZE);
+
+      if (size > 0) {
+        rsp = blk2bstr(ctx->esm_data_ctx.esm_sap_buffer, size);
       }
 
-      break;
-
-    case BEARER_RESOURCE_ALLOCATION_REQUEST:
-      break;
-
-    case BEARER_RESOURCE_MODIFICATION_REQUEST:
-      break;
-
-    case ESM_INFORMATION_RESPONSE:
-      break;
-
-    case ESM_STATUS:
       /*
-       * Process received ESM status message
+       * Complete the relevant ESM procedure
        */
-      esm_cause = esm_recv_status (ctx, pti, ebi, &esm_msg.esm_status);
-      break;
+      rc = (*esm_procedure) (is_standalone, ctx, ebi, rsp, triggered_by_ue);
 
-    default:
-      OAILOG_WARNING (LOG_NAS_ESM, "ESM-SAP   - Received unexpected ESM message " "0x%x\n", esm_msg.header.message_type);
-      esm_cause = ESM_CAUSE_MESSAGE_TYPE_NOT_IMPLEMENTED;
-      break;
-    }
-
-  if ((esm_cause != ESM_CAUSE_SUCCESS) && (esm_procedure == NULL)) {
-    /*
-     * ESM message processing failed
-     */
-    if (!is_discarded) {
-      /*
-       * 3GPP TS 24.301, section 7.1
-       * * * * Handling of unknown, unforeseen, and erroneous protocol data
-       */
-      OAILOG_WARNING (LOG_NAS_ESM, "ESM-SAP   - Received ESM message is not valid " "(cause=%d)\n", esm_cause);
-      /*
-       * Return an ESM status message
-       */
-      rc = esm_send_status (pti, ebi, &esm_msg.esm_status, esm_cause);
-      /*
-       * Setup the callback function used to send ESM status message
-       * * * * onto the network
-       */
-      esm_procedure = esm_proc_status;
-      /*
-       * Discard received ESM message
-       */
-      is_discarded = true;
-    }
-  } else {
-    /*
-     * ESM message processing succeed
-     */
-    *err = ESM_SAP_SUCCESS;
-    rc = RETURNok;
-  }
-
-  if ((rc != RETURNerror) && (esm_procedure )) {
-    /*
-     * Encode the returned ESM response message
-     */
-    int                                     size = esm_msg_encode (&esm_msg, (uint8_t *) ctx->esm_data_ctx.esm_sap_buffer,
-                                                                   ESM_SAP_BUFFER_SIZE);
-
-    if (size > 0) {
-      rsp = blk2bstr(ctx->esm_data_ctx.esm_sap_buffer, size);
-    }
-
-    /*
-     * Complete the relevant ESM procedure
-     */
-    rc = (*esm_procedure) (is_standalone, ctx, ebi, rsp, triggered_by_ue);
-
-    if (is_discarded) {
+      if (is_discarded) {
+        /*
+         * Return indication that received message has been discarded
+         */
+        *err = ESM_SAP_DISCARDED;
+      } else if (rc != RETURNok) {
+        /*
+         * Return indication that ESM procedure failed
+         */
+        *err = ESM_SAP_FAILED;
+      }
+    } else if (is_discarded) {
+      OAILOG_WARNING (LOG_NAS_ESM, "ESM-SAP   - Silently discard message type 0x%x\n", esm_msg_p->header.message_type);
       /*
        * Return indication that received message has been discarded
        */
       *err = ESM_SAP_DISCARDED;
-    } else if (rc != RETURNok) {
-      /*
-       * Return indication that ESM procedure failed
-       */
-      *err = ESM_SAP_FAILED;
+      rc = RETURNok;
     }
-  } else if (is_discarded) {
-    OAILOG_WARNING (LOG_NAS_ESM, "ESM-SAP   - Silently discard message type 0x%x\n", esm_msg.header.message_type);
-    /*
-     * Return indication that received message has been discarded
-     */
-    *err = ESM_SAP_DISCARDED;
-    rc = RETURNok;
-  }
 
-  OAILOG_FUNC_RETURN (LOG_NAS_ESM, rc);
+    return rc;
 }
 
 /****************************************************************************

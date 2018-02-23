@@ -69,7 +69,7 @@ s11_mme_ulp_process_stack_req_cb (
 
   switch (pUlpApi->apiType) {
   case NW_GTPV2C_ULP_API_TRIGGERED_RSP_IND:
-    OAILOG_DEBUG (LOG_S11, "Received triggered response indication\n");
+    OAILOG_DEBUG (LOG_S11, "Received triggered response indication. \n");
 
     switch (pUlpApi->apiInfo.triggeredRspIndInfo.msgType) {
     case NW_GTP_CREATE_SESSION_RSP:
@@ -88,6 +88,10 @@ s11_mme_ulp_process_stack_req_cb (
       ret = s11_mme_handle_release_access_bearer_response (&s11_mme_stack_handle, pUlpApi);
       break;
 
+    case NW_GTP_DOWNLINK_DATA_NOTIFICATION:
+      ret = s11_mme_handle_downlink_data_notification (&s11_mme_stack_handle, pUlpApi);
+      break;
+
     default:
       OAILOG_WARNING (LOG_S11, "Received unhandled message type %d\n", pUlpApi->apiInfo.triggeredRspIndInfo.msgType);
       break;
@@ -95,6 +99,10 @@ s11_mme_ulp_process_stack_req_cb (
 
     break;
 
+  /** Timeout Handler */
+  case NW_GTPV2C_ULP_API_RSP_FAILURE_IND:
+    ret = s11_mme_handle_ulp_error_indicatior(&s11_mme_stack_handle, pUlpApi);
+    break;
     // todo: add initial reqs --> CBR / UBR / DBR !
   default:
     break;

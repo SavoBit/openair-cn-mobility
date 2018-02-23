@@ -594,6 +594,32 @@ nwGtpv2cMsgGetIeCause(NW_IN NwGtpv2cMsgHandleT hMsg,
                       NW_OUT uint8_t*      offendingIeType,
                       NW_OUT uint8_t*      offendingIeInstance);
 
+NwRcT
+nwGtpv2cMsgAddIeFCause(NW_IN NwGtpv2cMsgHandleT hMsg,
+                      NW_IN  uint8_t       instance,
+                      NW_OUT uint8_t       causeValue,
+                      NW_OUT uint8_t       causeType);
+
+NwRcT
+nwGtpv2cMsgAddIeTargetId (NW_IN NwGtpv2cMsgHandleT hMsg,
+                      NW_IN uint8_t instance,
+                      NW_IN uint8_t target_plmn[3],
+                      NW_IN uint16_t macro_enb_id,
+                      NW_IN uint16_t target_tac);
+
+NwRcT
+nwGtpv2cMsgAddIeFContainer ( NW_IN NwGtpv2cMsgHandleT hMsg,
+                      NW_IN uint8_t   instance,
+                      NW_IN uint8_t*  container_value,
+                      NW_IN uint32_t  container_data_size,
+                      NW_IN uint8_t   container_type);
+NwRcT
+nwGtpv2cMsgAddIeCompleteRequestMessage( NW_IN NwGtpv2cMsgHandleT hMsg,
+                      NW_IN uint8_t   instance,
+                      NW_IN uint8_t*  request_value,
+                      NW_IN uint32_t  request_size,
+                      NW_IN uint8_t   request_type);
+
 /**
  * Get msg type for gtpv2c message.
  *

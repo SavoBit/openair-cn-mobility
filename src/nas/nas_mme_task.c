@@ -82,18 +82,28 @@ static void *nas_intertask_interface (void *args_p)
     case S6A_AUTH_INFO_ANS:{
         /*
          * We received the authentication vectors from HSS, trigger a ULR
-         * for now. Normaly should trigger an authentication procedure with UE.
+         * for now. Normally should trigger an authentication procedure with UE.
          */
         nas_proc_authentication_info_answer (&S6A_AUTH_INFO_ANS(received_message_p));
       }
       break;
 
+    case MME_APP_NAS_UPDATE_LOCATION_CNF:{
+        /*
+         * We received the subscription information from HSS.
+         * Check if there is a TAU flag activated.
+         */
+        nas_proc_update_location_cnf(&MME_APP_NAS_UPDATE_LOCATION_CNF(received_message_p));
+      }
+      break;
 
+      /** NAS PDN Connectivity RSP can also be sent when a handover procedure ends. */
     case NAS_PDN_CONNECTIVITY_RSP:{
         nas_proc_pdn_connectivity_res (&NAS_PDN_CONNECTIVITY_RSP (received_message_p));
       }
       break;
 
+      // todo: if CSR fails, this should end the handover process.
     case NAS_PDN_CONNECTIVITY_FAIL:{
         nas_proc_pdn_connectivity_fail (&NAS_PDN_CONNECTIVITY_FAIL (received_message_p));
       }
@@ -109,6 +119,19 @@ static void *nas_intertask_interface (void *args_p)
       }
       break;
 
+      /** Establishing a new EMM/NAS context with the receival of the S10 FORWARD_RELOCATION_REQUEST message. */
+    case NAS_HO_FORWARD_RELOCATION_REQ: {
+      nas_proc_ho_forward_relocation_request(&NAS_HO_FORWARD_RELOCATION_REQ (received_message_p));
+    }
+    break;
+
+    /** Signal Establishment of Handover. */
+    case NAS_HANDOVER_ESTABLISH_IND: {
+      nas_proc_s1ap_ho_establishment_ind (NAS_HANDOVER_ESTABLISH_IND (received_message_p).ue_id,
+          NAS_HANDOVER_ESTABLISH_IND (received_message_p).tai,
+          NAS_HANDOVER_ESTABLISH_IND (received_message_p).cgi);
+      }
+      break;
     // Modify Bearer Handling
 //    case NAS_MODIFY_BEARER_RSP:{
 //        nas_proc_handover_ind (&NAS_MODIFY_BEARER_RSP (received_message_p));
@@ -132,6 +155,11 @@ static void *nas_intertask_interface (void *args_p)
         nas_proc_implicit_detach_ue_ind (NAS_IMPLICIT_DETACH_UE_IND (received_message_p).ue_id);
       }
       break;
+
+    case NAS_UE_CONTEXT_RSP: {
+      nas_proc_ue_context_rsp(NAS_UE_CONTEXT_RSP(received_message_p));
+    }
+    break;
 
     case TERMINATE_MESSAGE:{
         nas_exit();

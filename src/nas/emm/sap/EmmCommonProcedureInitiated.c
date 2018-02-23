@@ -155,6 +155,32 @@ EmmCommonProcedureInitiated (
     rc = emm_fsm_set_status (evt->ue_id, evt->ctx, EMM_DEREGISTERED);
     break;
 
+  case _EMMREG_TAU_CNF:   /**< TAU_CNF will only be sent with TAU_COMPLETE, which will only be sent by UE if a new GUTI is allocated --> COMMON_PROCEDURE_INITIATED. */
+    /*
+     * TAU procedure successful and default EPS bearer
+     * context activated;
+     * enter state EMM-REGISTERED.
+     */
+    rc = emm_fsm_set_status (evt->ue_id, evt->ctx, EMM_REGISTERED);
+
+    break;
+
+  case _EMMREG_TAU_REJ:
+    /*
+     * TAU procedure failed;
+     * enter state EMM-DEREGISTERED.
+     */
+    rc = emm_fsm_set_status (evt->ue_id, evt->ctx, EMM_DEREGISTERED);
+
+    if (rc != RETURNerror) {
+      emm_common_data_ctx = emm_common_data_context_get (&emm_common_data_head, evt->ue_id);
+      if (emm_common_data_ctx) {
+        rc = emm_proc_common_reject (emm_common_data_ctx);
+      }
+    }
+
+    break;
+
   case _EMMREG_LOWERLAYER_SUCCESS:
     /*
      * Data successfully delivered to the network

@@ -48,7 +48,6 @@
 #include "timer.h"
 #include "mme_app_extern.h"
 #include "nas_defs.h"
-#include "s11_mme.h"
 
 /* FreeDiameter headers for support of S6A interface */
 #include <freeDiameter/freeDiameter-host.h>
@@ -142,6 +141,7 @@ main (
   CHECK_INIT_RETURN (sctp_init (&mme_config));
   CHECK_INIT_RETURN (udp_init ());
   CHECK_INIT_RETURN (s11_mme_init (&mme_config));
+  CHECK_INIT_RETURN (s10_mme_init (&mme_config));
   CHECK_INIT_RETURN (s1ap_mme_init());
   CHECK_INIT_RETURN (mme_app_init (&mme_config));
   CHECK_INIT_RETURN (s6a_init (&mme_config));

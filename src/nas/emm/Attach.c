@@ -160,6 +160,11 @@ static int                              _emm_attach_update (
   const bool gprs_present,
   const_bstring esm_msg_pP);
 
+static int
+_emm_attach_update_tai_ecgi_handover (
+  emm_data_context_t  *ctx,
+  const tai_t         *const handovered_tai);
+
 /*
    Internal data used for attach procedure
 */
@@ -291,8 +296,8 @@ emm_proc_attach_request (
     rc = _emm_attach_reject (&ue_ctx);
     OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
   }
-  /*
-   * Get the UE's EMM context if it exists
+  /**
+   * Get the UE's EMM context if it exists.
    */
    new_emm_ctx = emm_data_context_get (&_emm_data, ue_id);
    if (new_emm_ctx == NULL)
@@ -303,7 +308,7 @@ emm_proc_attach_request (
       if (guti_emm_ctx) {
         
         /* 
-         * This implies either UE or eNB has not sent S-TMSI in intial UE message even though UE has old GUTI. 
+         * This implies either UE or eNB has not sent S-TMSI in initial UE message even though UE has old GUTI.
          * Trigger clean up
          */
           emm_sap_t                               emm_sap = {0};
@@ -315,6 +320,7 @@ emm_proc_attach_request (
       create_new_emm_ctxt = true;
     }
     if (imsi) {
+      /** If the IMSI is know, check possible collisions, like in SAE-GW. */
       imsi_emm_ctx = emm_data_context_get_by_imsi (&_emm_data, imsi64);
       if (imsi_emm_ctx) {
         old_ue_id = imsi_emm_ctx->ue_id; 
@@ -360,16 +366,14 @@ emm_proc_attach_request (
         }
         if (EMM_REGISTERED == fsm_state) {
           REQUIREMENT_3GPP_24_301(R10_5_5_1_2_7_f);
-          if (imsi_emm_ctx->is_has_been_attached) {
-            OAILOG_TRACE (LOG_NAS_EMM, "EMM-PROC  - the new ATTACH REQUEST is progressed\n");
-            // Trigger clean up
-            emm_sap_t                               emm_sap = {0};
-            emm_sap.primitive = EMMCN_IMPLICIT_DETACH_UE;
-            emm_sap.u.emm_cn.u.emm_cn_implicit_detach.ue_id = imsi_emm_ctx->ue_id;
-            rc = emm_sap_send (&emm_sap);
-            // Allocate new context and process the new request as fresh attach request
-            create_new_emm_ctxt = true;
-          }
+          OAILOG_TRACE (LOG_NAS_EMM, "EMM-PROC  - the new ATTACH REQUEST is progressed\n");
+          // Trigger clean up
+          emm_sap_t                               emm_sap = {0};
+          emm_sap.primitive = EMMCN_IMPLICIT_DETACH_UE;
+          emm_sap.u.emm_cn.u.emm_cn_implicit_detach.ue_id = imsi_emm_ctx->ue_id;
+          rc = emm_sap_send (&emm_sap);
+          // Allocate new context and process the new request as fresh attach request
+          create_new_emm_ctxt = true;
         } else if (emm_ctx_is_specific_procedure(imsi_emm_ctx, EMM_CTXT_SPEC_PROC_ATTACH_ACCEPT_SENT)) {// && (!emm_ctx->is_attach_complete_received): implicit
           imsi_emm_ctx->num_attach_request++;
           if (_emm_attach_have_changed (imsi_emm_ctx, type, ksi, guti, imsi, imei, eea, eia, ucs2, uea, uia, gea, umts_present, gprs_present)) {
@@ -449,6 +453,7 @@ emm_proc_attach_request (
         } 
       }// if imsi_emm_ctx != NULL
       // Allocate new context and process the new request as fresh attach request
+      /** Even if the IMSI is not known, allocate the context and put it into COMMON procedure. */
       create_new_emm_ctxt = true;
     }// If IMSI !=NULL 
   } else {
@@ -521,9 +526,12 @@ emm_proc_attach_request (
     new_emm_ctx->T3460.sec = T3460_DEFAULT_VALUE;
     new_emm_ctx->T3470.id = NAS_TIMER_INACTIVE_ID;
     new_emm_ctx->T3470.sec = T3470_DEFAULT_VALUE;
-    new_emm_ctx->timer_s6a_auth_info_rsp.id = NAS_TIMER_INACTIVE_ID;
-    new_emm_ctx->timer_s6a_auth_info_rsp.sec = TIMER_S6A_AUTH_INFO_RSP_DEFAULT_VALUE;
-    new_emm_ctx->timer_s6a_auth_info_rsp_arg = NULL;
+
+    /** Own timers to stop authentication procedures. */
+    new_emm_ctx->timer_s6a_auth_info_rsp.id   = NAS_TIMER_INACTIVE_ID;
+    new_emm_ctx->timer_s6a_auth_info_rsp.sec  = TIMER_S6A_AUTH_INFO_RSP_DEFAULT_VALUE;
+    new_emm_ctx->timer_s6a_auth_info_rsp_arg  = NULL;
+
     emm_fsm_set_status (ue_id, new_emm_ctx, EMM_DEREGISTERED);
 
     emm_ctx_clear_guti(new_emm_ctx);
@@ -575,6 +583,168 @@ emm_proc_attach_request (
       rc = _emm_attach_identify (new_emm_ctx);
     }
   }
+  OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
+}
+
+
+/****************************************************************************
+ **                                                                        **
+ ** Name:    emm_proc_s1ap_handover_notify()                                 **
+ **                                                                        **
+ ** Description: Performs the UE requested attach procedure                **
+ **                                                                        **
+ **              3GPP TS 24.301, section 5.5.1.2.3                         **
+ **      The network may initiate EMM common procedures, e.g. the  **
+ **      identification, authentication and security mode control  **
+ **      procedures during the attach procedure, depending on the  **
+ **      information received in the ATTACH REQUEST message (e.g.  **
+ **      IMSI, GUTI and KSI).                                      **
+ **                                                                        **
+ ** Inputs:  ue_id:      UE lower layer identifier                  **
+ **      type:      Type of the requested attach               **
+ **      native_ksi:    true if the security context is of type    **
+ **             native (for KSIASME)                       **
+ **      ksi:       The NAS ket sey identifier                 **
+ **      native_guti:   true if the provided GUTI is native GUTI   **
+ **      guti:      The GUTI if provided by the UE             **
+ **      imsi:      The IMSI if provided by the UE             **
+ **      imei:      The IMEI if provided by the UE             **
+ **      last_visited_registered_tai:       Identifies the last visited tracking area  **
+ **             the UE is registered to                    **
+ **      eea:       Supported EPS encryption algorithms        **
+ **      eia:       Supported EPS integrity algorithms         **
+ **      esm_msg_pP:   PDN connectivity request ESM message       **
+ **      Others:    _emm_data                                  **
+ **                                                                        **
+ ** Outputs:     None                                                      **
+ **      Return:    RETURNok, RETURNerror                      **
+ **      Others:    _emm_data                                  **
+ **                                                                        **
+ ***************************************************************************/
+int
+emm_proc_s1ap_handover_notify(
+  mme_ue_s1ap_id_t ue_id,
+  const tai_t   * const originating_tai,
+  const ecgi_t   * const originating_ecgi) /**< Not used. */
+{
+  OAILOG_FUNC_IN (LOG_NAS_EMM);
+  int                                     rc = RETURNerror;
+//  emm_fsm_state_t                         fsm_state = EMM_DEREGISTERED;
+//  bool                                    create_new_emm_ctxt = false;
+  emm_data_context_t                     *emm_ctx_p = NULL;
+  imsi64_t                                imsi64    = INVALID_IMSI64;
+  mme_ue_s1ap_id_t                        old_ue_id = INVALID_MME_UE_S1AP_ID;
+
+  /**
+   * An UE_MME Context should already be there. Check it via the MME_UE_S1AP_ID.
+   * todo: any timers to stop? any flags to reset?
+   * todo: is the EMM_status alrady EMM_REGISTERED?
+   */
+  OAILOG_FUNC_IN (LOG_NAS_EMM);
+
+  emm_ctx_p = emm_data_context_get (&_emm_data, ue_id);
+  if(!emm_ctx_p) {
+    // todo: emm_context missing ! @ handover_notify
+    // todo: MME_APP--> NAS_implicit_detach --> Should remove all resources even if there is no EMM_CTX!
+  }
+  /*
+   * Update the UE context
+   */
+  // todo: GUTI is not known by inter-MME S1AP handover, but known @ intra-MME handover. // Search UE context using GUTI -
+  // todo: any common/specfic procedures @ handover?! --> UE is directly registered in EMM_REGISTERED mode.
+  // Allocate new context and process the new request as fresh attach request
+  /* No condition for removal is assumed for emm_context after S1AP handover. */
+  /** No common procedure --> todo: ULA is part of common procedure? */
+//  todo: check these chekers.. if (emm_ctx_is_common_procedure_running(imsi_emm_ctx, EMM_CTXT_COMMON_PROC_IDENT)) {
+//          if (emm_ctx_is_specific_procedure(imsi_emm_ctx, EMM_CTXT_SPEC_PROC_ATTACH)) {
+//            if (emm_ctx_is_specific_procedure(imsi_emm_ctx, EMM_CTXT_SPEC_PROC_ATTACH_ACCEPT_SENT | EMM_CTXT_SPEC_PROC_ATTACH_REJECT_SENT)) {
+//              REQUIREMENT_3GPP_24_301(R10_5_4_4_6_c); // continue
+              // TODO Need to be reviwed and corrected
+//              emm_sap_t                               emm_sap = {0};
+//              emm_sap.primitive = EMMREG_PROC_ABORT;
+//              emm_sap.u.emm_reg.ue_id = imsi_emm_ctx->ue_id;
+//              // TODOdata->notify_failure = true;
+//              rc = emm_sap_send (&emm_sap);
+//              // TODO Need to be reviwed and corrected
+//              // trigger clean up
+//              emm_sap.primitive = EMMCN_IMPLICIT_DETACH_UE;
+//              emm_sap.u.emm_cn.u.emm_cn_implicit_detach.ue_id = old_ue_id;
+//              rc = emm_sap_send (&emm_sap);
+//              // Allocate new context and process the new request as fresh attach request
+//              create_new_emm_ctxt = true;
+
+  // TODO Need to be reviwed and corrected
+//  if (EMM_REGISTERED == fsm_state) {
+//    REQUIREMENT_3GPP_24_301(R10_5_5_1_2_7_f);
+//    if (imsi_emm_ctx->is_has_been_attached) {
+//        } else if (emm_ctx_is_specific_procedure(imsi_emm_ctx, EMM_CTXT_SPEC_PROC_ATTACH_ACCEPT_SENT)) {// && (!emm_ctx->is_attach_complete_received): implicit
+//          imsi_emm_ctx->num_attach_request++;
+//          if (_emm_attach_have_changed (imsi_emm_ctx, type, ksi, guti, imsi, imei, eea, eia, ucs2, uea, uia, gea, umts_present, gprs_present)) {
+//            OAILOG_WARNING (LOG_NAS_EMM, "EMM-PROC  - Attach parameters have changed\n");
+//            REQUIREMENT_3GPP_24_301(R10_5_5_1_2_7_d__1);
+//            /*
+//             * If one or more of the information elements in the ATTACH REQUEST message differ from the ones
+//             * received within the previous ATTACH REQUEST message, the previously initiated attach procedure shall
+//             * be aborted if the ATTACH COMPLETE message has not been received and the new attach procedure shall
+//             * be progressed;
+//             */
+//              emm_sap_t                               emm_sap = {0};
+
+              // todo: why sending two signals, which do the same thing?
+//              emm_sap.primitive = EMMREG_PROC_ABORT;
+//              emm_sap.u.emm_reg.ue_id = old_ue_id;
+//              emm_sap.u.emm_reg.ctx = imsi_emm_ctx;
+//              rc = emm_sap_send (&emm_sap);
+//              // trigger clean up
+//              emm_sap.primitive = EMMCN_IMPLICIT_DETACH_UE;
+//              emm_sap.u.emm_cn.u.emm_cn_implicit_detach.ue_id = old_ue_id;
+//              rc = emm_sap_send (&emm_sap);
+
+//              new_emm_ctx->num_attach_request++; todo: needs to be set to 0 after inter-MME handover!
+    OAILOG_NOTICE (LOG_NAS_EMM, "EMM-PROC  - Create EMM context ue_id = " MME_UE_S1AP_ID_FMT "\n", ue_id);
+//    new_emm_ctx->is_dynamic = true;
+// todo: what is this?    new_emm_ctx->emm_cause = EMM_CAUSE_SUCCESS;
+//    todo: emm_state after handovernew_emm_ctx->_emm_fsm_status = EMM_INVALID;
+    // todo: how to initialize the timers in the target-MME?!?
+//    new_emm_ctx->T3450.id = NAS_TIMER_INACTIVE_ID;
+//    new_emm_ctx->T3450.sec = T3450_DEFAULT_VALUE;
+//    new_emm_ctx->T3460.id = NAS_TIMER_INACTIVE_ID;
+//    new_emm_ctx->T3460.sec = T3460_DEFAULT_VALUE;
+//    new_emm_ctx->T3470.id = NAS_TIMER_INACTIVE_ID;
+//    new_emm_ctx->T3470.sec = T3470_DEFAULT_VALUE;
+//    new_emm_ctx->timer_s6a_auth_info_rsp.id = NAS_TIMER_INACTIVE_ID;
+//    new_emm_ctx->timer_s6a_auth_info_rsp.sec = TIMER_S6A_AUTH_INFO_RSP_DEFAULT_VALUE;
+//    new_emm_ctx->timer_s6a_auth_info_rsp_arg = NULL;
+
+
+    // todo: emm_ctx registered after handover?
+//    if (RETURNok != emm_data_context_add (&_emm_data, new_emm_ctx)) {
+//      OAILOG_CRITICAL(LOG_NAS_EMM, "EMM-PROC  - Attach EMM Context could not be inserted in hastables\n");
+//      OAILOG_FUNC_RETURN (LOG_NAS_EMM, RETURNerror);
+//    }
+
+    // todo: last visited TAI after handover?
+//    if (last_visited_registered_tai) {
+//      emm_ctx_set_valid_lvr_tai(new_emm_ctx, last_visited_registered_tai);
+//    } else {
+//      emm_ctx_clear_lvr_tai(new_emm_ctx);
+//    }
+
+    /*
+     * Update the EMM context with the current attach procedure parameters
+     */
+    rc = _emm_attach_update_tai_ecgi_handover(emm_ctx_p, originating_tai);
+
+    if (rc != RETURNok) {
+      OAILOG_WARNING (LOG_NAS_EMM, "EMM-PROC  - Failed to update EMM context\n");
+      /*
+       * Do not accept the UE to attach to the network
+       */
+      // todo: remove the UE implicitly..
+//      todo: implicit rc = _emm_attach_reject (new_emm_ctx); /**<
+    }
+    // todo: no furhter attach procedures need to be triggered..
+
   OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
 }
 
@@ -700,7 +870,6 @@ emm_proc_attach_complete (
      * Set the network attachment indicator
      */
     emm_ctx->is_attached = true;
-    emm_ctx->is_has_been_attached = true;
     /*
      * Notify EMM that attach procedure has successfully completed
      */
@@ -1074,7 +1243,7 @@ _emm_attach_identify (
     OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
 
   } else if (emm_ctx->is_guti_based_attach) {
-
+    // todo: check for the security context!
     OAILOG_NOTICE (LOG_NAS_EMM, "ue_id=" MME_UE_S1AP_ID_FMT " EMM-PROC  - GUTI based Attach Request \n", emm_ctx->ue_id);
     /*
      * 3GPP TS 24.401, Figure 5.3.2.1-1, point 4
@@ -1423,7 +1592,6 @@ _emm_attach_accept (
     REQUIREMENT_3GPP_24_301(R10_5_5_1_2_4__9);
     // the set of emm_sap.u.emm_as.u.establish.new_guti is for including the GUTI in the attach accept message
     //ONLY ONE MME NOW NO S10
-    // todo: if there are multiple MME via S10, what happens?
     if (!IS_EMM_CTXT_PRESENT_GUTI(emm_ctx)) {
       // Sure it is an unknown GUTI in this MME
       guti_t old_guti = emm_ctx->_old_guti;
@@ -1898,6 +2066,8 @@ _emm_attach_update (
    * Security key set identifier
    */
   ctx->ue_ksi = ksi;
+  // todo: eksi @ security capabilities..
+
   /*
    * Supported EPS encryption algorithms
    */
@@ -1913,7 +2083,9 @@ _emm_attach_update (
   ctx->umts_present = umts_present;
   ctx->gprs_present = gprs_present;
 
-  ctx->originating_tai = *originating_tai;
+  if(originating_tai != NULL){
+    ctx->originating_tai = *originating_tai;
+  }
   ctx->is_guti_based_attach = false;
 
   /*
@@ -1957,4 +2129,22 @@ _emm_attach_update (
   OAILOG_FUNC_RETURN (LOG_NAS_EMM, RETURNok);
 }
 
+static int
+_emm_attach_update_tai_ecgi_handover (
+  emm_data_context_t  *ctx,
+  const tai_t         *const handovered_tai)
+{
+  OAILOG_FUNC_IN (LOG_NAS_EMM);
+
+  if(handovered_tai != NULL){
+    ctx->originating_tai = *handovered_tai;
+  }
+  // todo: difference of handovere_tai from target vs. tai from s10_fw..
+  // todo: ecgi
+  /*
+   * todo: how to get attach type at handover?! (EPS, IMSI, EMERGENCY)..
+   * Emergency bearer services indicator
+   */
+  OAILOG_FUNC_RETURN (LOG_NAS_EMM, RETURNok);
+}
 

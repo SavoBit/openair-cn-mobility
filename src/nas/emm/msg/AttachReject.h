@@ -29,6 +29,7 @@
 #include "MessageType.h"
 #include "EmmCause.h"
 #include "EsmMessageContainer.h"
+#include "GprsTimer.h"
 
 /* Minimum length macro. Formed by minimum length of each mandatory field */
 #define ATTACH_REJECT_MINIMUM_LENGTH ( \
@@ -43,9 +44,11 @@
  * Bit mask should be set to 1.
  */
 # define ATTACH_REJECT_ESM_MESSAGE_CONTAINER_PRESENT (1<<0)
+# define ATTACH_REJECT_T3346_VALUE_PRESENT                  (1<<1)
 
 typedef enum attach_reject_iei_tag {
   ATTACH_REJECT_ESM_MESSAGE_CONTAINER_IEI  = 0x78, /* 0x78 = 120 */
+  ATTACH_REJECT_T3346_VALUE_IEI                   = 0x5F, /* 0x5F = 95 */
 } attach_reject_iei;
 
 /*
@@ -64,6 +67,7 @@ typedef struct attach_reject_msg_tag {
   /* Optional fields */
   uint32_t                    presencemask;
   EsmMessageContainer         esmmessagecontainer;
+  GprsTimer                   t3346value;
 } attach_reject_msg;
 
 int decode_attach_reject(attach_reject_msg *attachreject, uint8_t *buffer, uint32_t len);

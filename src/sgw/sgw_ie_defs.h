@@ -240,8 +240,12 @@ typedef enum InterfaceType_e {
   S5_S8_PGW_GTP_U   = 5,
   S5_S8_SGW_GTP_C   = 6,
   S5_S8_PGW_GTP_C   = 7,
+
   S11_MME_GTP_C     = 10,
   S11_SGW_GTP_C     = 11,
+
+  S10_MME_GTP_C     = 12,
+
 } InterfaceType_t;
 
 typedef struct {
@@ -529,12 +533,16 @@ typedef enum SGWCause_e {
   UNABLE_TO_PAGE_UE               = 90,
   NO_MEMORY_AVAILABLE             = 91,
   REQUEST_REJECTED                = 94,
+  IMSI_NOT_KNOWN                  = 96,
   DATA_FORWARDING_NOT_SUPPORTED   = 106,
   INVALID_REPLY_FROM_REMOTE_PEER  = 107,
   FALLBACK_TO_GTPV1               = 108,
   INVALID_PEER                    = 109,
   TEMP_REJECT_HO_IN_PROGRESS      = 110, ///< Temporarily rejected due to handover procedure in progress
   REJECTED_FOR_PMIPv6_REASON      = 112, ///< Request rejected for a PMIPv6 reason (see 3GPP TS 29.275 [26]).
+
+  /** Paging error codes. */
+  UE_ALREADY_REATTACHED           = 115,
   M_PDN_APN_NOT_ALLOWED           = 116, ///< Multiple PDN connections for a given APN not allowed.
   SGW_CAUSE_MAX
 } SGWCause_t;
@@ -561,6 +569,7 @@ typedef struct bearer_context_to_be_created_s {
   uint8_t      eps_bearer_id;       ///< EBI,  Mandatory CSR
   tft_t        tft;                 ///< Bearer TFT, Optional CSR, This IE may be included on the S4/S11 and S5/S8 interfaces.
   FTeid_t      s1u_enb_fteid;       ///< S1-U eNodeB F-TEID, Conditional CSR, This IE shall be included on the S11 interface for X2-based handover with SGW relocation.
+  FTeid_t      s1u_sgw_fteid;       ///< S1-U eNodeB F-TEID, Conditional CSR, This IE shall be included on the S11 interface for X2-based handover with SGW relocation.
   FTeid_t      s4u_sgsn_fteid;      ///< S4-U SGSN F-TEID, Conditional CSR, This IE shall be included on the S4 interface if the S4-U interface is used.
   FTeid_t      s5_s8_u_sgw_fteid;   ///< S5/S8-U SGW F-TEID, Conditional CSR, This IE shall be included on the S5/S8 interface for an "eUTRAN Initial Attach",
                                     ///  a "PDP Context Activation" or a "UE Requested PDN Connectivity".
@@ -618,7 +627,7 @@ typedef struct bearer_context_created_s {
   /* This parameter is received only if the QoS parameters have been modified */
   BearerQOS_t *bearer_level_qos;
 
-  tft_t        tft;                 ///< Bearer TFT
+//  tft_t        tft;                 ///< Bearer TFT
 } bearer_context_created_t;
 
 typedef struct bearer_contexts_created_s {
@@ -684,4 +693,3 @@ typedef struct ebi_list_s {
 
 
 #endif  /* FILE_SGW_IE_DEFS_SEEN */
-

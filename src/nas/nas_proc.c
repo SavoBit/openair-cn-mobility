@@ -418,7 +418,7 @@ nas_proc_authentication_info_answer (
     if (ctxt->timer_s6a_auth_info_rsp_arg) {
       free_wrapper (&ctxt->timer_s6a_auth_info_rsp_arg);
       ctxt->timer_s6a_auth_info_rsp_arg = NULL;
-    }  
+    }
   }
 
   if ((aia->result.present == S6A_RESULT_BASE)
@@ -442,6 +442,67 @@ nas_proc_authentication_info_answer (
        rc = nas_proc_auth_param_fail (ctxt->ue_id, s6a_error_2_nas_cause (aia->result.choice.base, 0));
     } else {
        rc = nas_proc_auth_param_fail (ctxt->ue_id, s6a_error_2_nas_cause (aia->result.choice.experimental, 1));
+    }
+  }
+
+  OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
+}
+
+//------------------------------------------------------------------------------
+int
+nas_proc_update_location_cnf(
+    itti_mme_app_nas_update_location_cnf_t * ul_cnf)
+{
+  imsi64_t                                imsi64  = INVALID_IMSI64;
+  int                                     rc      = RETURNerror;
+  emm_data_context_t                     *ctxt    = NULL;
+  OAILOG_FUNC_IN (LOG_NAS_EMM);
+
+  DevAssert (ul_cnf);
+  IMSI_STRING_TO_IMSI64 ((char *)ul_cnf->imsi, &imsi64);
+
+  OAILOG_DEBUG (LOG_NAS_EMM, "Handling imsi " IMSI_64_FMT "\n", imsi64);
+
+  ctxt = emm_data_context_get_by_imsi (&_emm_data, imsi64);
+
+  if (!(ctxt)) {
+    OAILOG_ERROR (LOG_NAS_EMM, "That's embarrassing as we don't know this IMSI\n");
+    MSC_LOG_EVENT (MSC_MMEAPP_MME, "0 S6A_UPDATE_LOCATION_ANS Unknown imsi " IMSI_64_FMT, imsi64);
+    OAILOG_FUNC_RETURN (LOG_NAS_EMM, RETURNerror);
+  }
+  /*
+   * No timer to stop! When to start the timer for TAU_ACCEPT!?
+   */
+//  if (ctxt->timer_s6a_auth_info_rsp.id != NAS_TIMER_INACTIVE_ID) {
+//    OAILOG_DEBUG (LOG_NAS_EMM, "EMM-PROC  - Stop timer timer_s6a_auth_info_rsp (%d) for ue_id %d \n", ctxt->timer_s6a_auth_info_rsp.id, ctxt->ue_id);
+//    ctxt->timer_s6a_auth_info_rsp.id = nas_timer_stop (ctxt->timer_s6a_auth_info_rsp.id);
+//    if (ctxt->timer_s6a_auth_info_rsp_arg) {
+//      free_wrapper (&ctxt->timer_s6a_auth_info_rsp_arg);
+//      ctxt->timer_s6a_auth_info_rsp_arg = NULL;
+//    }
+//  }
+
+  if ((ul_cnf->result.present == S6A_RESULT_BASE)
+       && (ul_cnf->result.choice.base == DIAMETER_SUCCESS)) {
+     /*
+      * Check that list is not empty and contain at most MAX_EPS_AUTH_VECTORS elements
+      */
+//    DevCheck(ul_cnf->subscription_data.apn_config_profile.nb_apns <= MAX_EPS_APN, ula->subscription_data.apn_config_profile.nb_apns, MAX_EPS_APN, 0);
+//    DevCheck(ul_cnf->subscription_data.apn_config_profile.nb_apns > 0, ula->subscription_data.apn_config_profile.nb_apns, 1, 0);
+
+//    OAILOG_DEBUG (LOG_NAS_EMM, "INFORMING NAS ABOUT UPDATE_LOCATION SUCCESS got %u apn configurations(s)\n", ula->subscription_data.apn_config_profile.nb_apns);
+    rc = nas_proc_update_location_res(ctxt->ue_id);
+  } else {
+    OAILOG_ERROR (LOG_NAS_EMM, "INFORMING NAS ABOUT AUTH RESP ERROR CODE\n");
+    MSC_LOG_EVENT (MSC_MMEAPP_MME, "0 S6A_AUTH_INFO_ANS S6A Failure imsi " IMSI_64_FMT, imsi64);
+
+    /*
+     * Inform NAS layer with the right failure
+     */
+    if (ul_cnf->result.present == S6A_RESULT_BASE) {
+       rc = nas_proc_update_location_fail(ctxt->ue_id, s6a_error_2_nas_cause (ul_cnf->result.choice.base, 0));
+    } else {
+       rc = nas_proc_update_location_fail(ctxt->ue_id, s6a_error_2_nas_cause (ul_cnf->result.choice.experimental, 1));
     }
   }
 
@@ -476,6 +537,27 @@ nas_proc_auth_param_res (
 
 //------------------------------------------------------------------------------
 int
+nas_proc_context_res_fail (
+    mme_ue_s1ap_id_t    ue_id,
+    nas_cause_t         cause)
+{
+  int                                     rc = RETURNerror;
+  emm_sap_t                               emm_sap = {0};
+  emm_cn_context_fail_t                   emm_cn_context_fail= {0};
+
+  OAILOG_FUNC_IN (LOG_NAS_EMM);
+  MSC_LOG_TX_MESSAGE (MSC_NAS_MME, MSC_NAS_EMM_MME, NULL, 0, "0 EMMCN_CONTEXT_FAIL");
+  emm_cn_context_fail.cause = cause;
+  emm_cn_context_fail.ue_id = ue_id;
+
+  emm_sap.primitive = EMMCN_CONTEXT_FAIL;
+  emm_sap.u.emm_cn.u.auth_fail = &emm_cn_context_fail;
+  rc = emm_sap_send (&emm_sap);
+  OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
+}
+
+//------------------------------------------------------------------------------
+int
 nas_proc_auth_param_fail (
     mme_ue_s1ap_id_t    ue_id,
     nas_cause_t         cause)
@@ -491,6 +573,51 @@ nas_proc_auth_param_fail (
 
   emm_sap.primitive = EMMCN_AUTHENTICATION_PARAM_FAIL;
   emm_sap.u.emm_cn.u.auth_fail = &emm_cn_auth_fail;
+  rc = emm_sap_send (&emm_sap);
+  OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
+}
+
+//------------------------------------------------------------------------------
+int
+nas_proc_update_location_res(
+    mme_ue_s1ap_id_t ue_id)
+{
+  int                                     rc = RETURNerror;
+  emm_sap_t                               emm_sap = {0};
+  emm_cn_update_loc_res_t                 emm_cn_update_loc_res = {0};
+
+  OAILOG_FUNC_IN (LOG_NAS_EMM);
+
+  emm_cn_update_loc_res.ue_id      = ue_id;
+//  emm_cn_update_loc_res.nb_apns    = nb_apns;
+//  for (int i = 0; i < nb_apns; i++) {
+//    emm_cn_update_loc_res.apn_configurations[i] = &apn_configurations[i];
+//  }
+
+  MSC_LOG_TX_MESSAGE (MSC_NAS_MME, MSC_NAS_EMM_MME, NULL, 0, "0 EMMCN_UPDATE_LOCATION_RES");
+  emm_sap.primitive = EMMCN_UPDATE_LOCATION_RES;
+  emm_sap.u.emm_cn.u.update_loc_res = &emm_cn_update_loc_res;
+  rc = emm_sap_send (&emm_sap);
+     OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
+}
+
+//------------------------------------------------------------------------------
+int
+nas_proc_update_location_fail (
+    mme_ue_s1ap_id_t    ue_id,
+    nas_cause_t         cause)
+{
+  int                                     rc = RETURNerror;
+  emm_sap_t                               emm_sap = {0};
+  emm_cn_update_loc_fail_t                emm_cn_update_loc_fail = {0};
+
+  OAILOG_FUNC_IN (LOG_NAS_EMM);
+  MSC_LOG_TX_MESSAGE (MSC_NAS_MME, MSC_NAS_EMM_MME, NULL, 0, "0 EMMCN_UPDATE_LOCATION_FAIL");
+  emm_cn_update_loc_fail.cause = cause;
+  emm_cn_update_loc_fail.ue_id = ue_id;
+
+  emm_sap.primitive = EMMCN_UPDATE_LOCATION_FAIL;
+  emm_sap.u.emm_cn.u.update_loc_fail = &emm_cn_update_loc_fail;
   rc = emm_sap_send (&emm_sap);
   OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
 }
@@ -568,10 +695,57 @@ nas_proc_ho_bearer_modification_fail (
   emm_sap_t                               emm_sap = {0};
 
   OAILOG_FUNC_IN (LOG_NAS_EMM);
-  MSC_LOG_TX_MESSAGE (MSC_NAS_MME, MSC_NAS_EMM_MME, NULL, 0, "0 EMMCN_HO_BEARER_MODIFICATION_FAIL");
+  MSC_LOG_TX_MESSAGE (MSC_NAS_MME, MSC_NAS_EMM_MME, NULL, 0, "0 EMMCN_HO_BEARER_MODIFICATION_FAIL. \n");
   emm_sap.primitive = EMMCN_HO_BEARER_MODIFICATION_FAIL;
   emm_sap.u.emm_cn.u.emm_cn_ho_bearer_mod_fail = emm_cn_ho_bearer_mod_fail;
   rc = emm_sap_send (&emm_sap);
+  OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
+}
+
+//------------------------------------------------------------------------------
+int
+nas_proc_ho_forward_relocation_request( /**< Creating a new UE context. */
+    emm_cn_ho_forward_relocation_req_t * emm_cn_ho_forward_relocation_req)
+{
+  int                                     rc = RETURNerror;
+  emm_sap_t                               emm_sap = {0};
+
+  OAILOG_FUNC_IN (LOG_NAS_EMM);
+  MSC_LOG_TX_MESSAGE (MSC_NAS_MME, MSC_NAS_EMM_MME, NULL, 0, "0 EMMCN_HO_FORWARD_RELOCATION_REQUEST. \n");
+  emm_sap.primitive = EMMCN_HO_FORWARD_RELOCATION_REQ;
+  emm_sap.u.emm_cn.u.emm_cn_ho_forward_relocation_req = emm_cn_ho_forward_relocation_req;
+  rc = emm_sap_send (&emm_sap);
+  OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
+}
+
+//------------------------------------------------------------------------------
+int
+nas_proc_s1ap_ho_establishment_ind ( const mme_ue_s1ap_id_t ue_id,
+  const tai_t originating_tai,
+  const ecgi_t cgi){
+  OAILOG_FUNC_IN (LOG_NAS_EMM);
+  int                                     rc = RETURNerror;
+
+  emm_sap_t                               emm_sap = {0};
+
+  MSC_LOG_TX_MESSAGE (MSC_NAS_MME, MSC_NAS_EMM_MME, NULL, 0, "0 EMMAS_S1AP_HO_ESTABLISH_IND ue id " MME_UE_S1AP_ID_FMT " tai:  plmn %c%c%c.%c%c%c tac %u",
+      ue_id,
+      (char)(originating_tai.plmn.mcc_digit1 + 0x30), (char)(originating_tai.plmn.mcc_digit2 + 0x30), (char)(originating_tai.plmn.mcc_digit3 + 0x30),
+      (char)(originating_tai.plmn.mnc_digit1 + 0x30), (char)(originating_tai.plmn.mnc_digit2 + 0x30),
+      (9 < originating_tai.plmn.mnc_digit3) ? ' ': (char)(originating_tai.plmn.mnc_digit3 + 0x30),
+          originating_tai.tac);
+  /*
+   * Notify the EMM procedure call manager that NAS signalling
+   * connection establishment indication message has been received
+   * from the Access-Stratum sublayer
+   */
+  emm_sap.primitive = EMMAS_S1AP_HO_ESTABLISHMENT_IND;
+  emm_sap.u.emm_as.u.s1ap_ho_establishment_ind.ue_id              = ue_id;
+  emm_sap.u.emm_as.u.s1ap_ho_establishment_ind.plmn_id            = &originating_tai.plmn;
+  emm_sap.u.emm_as.u.s1ap_ho_establishment_ind.tac                = originating_tai.tac;
+  emm_sap.u.emm_as.u.s1ap_ho_establishment_ind.ecgi               = cgi;
+  rc = emm_sap_send (&emm_sap);
+
   OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
 }
 
@@ -601,6 +775,28 @@ nas_proc_implicit_detach_ue_ind (
   emm_sap.primitive = EMMCN_IMPLICIT_DETACH_UE;
   emm_sap.u.emm_cn.u.emm_cn_implicit_detach.ue_id = ue_id;
   rc = emm_sap_send (&emm_sap);
+  OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
+}
+
+int
+nas_proc_ue_context_rsp (
+    itti_nas_ue_context_rsp_t *nas_ue_context_rsp)
+{
+  int                                     rc = RETURNerror;
+  emm_sap_t                               emm_sap = {0};
+
+  OAILOG_FUNC_IN (LOG_NAS_EMM);
+  /** Check whetever response or failure. */
+  if (nas_ue_context_rsp->cause == REQUEST_ACCEPTED) {
+    emm_sap.primitive = EMMCN_CONTEXT_RES;
+    emm_sap.u.emm_cn.u.context_res = nas_ue_context_rsp;
+    rc = emm_sap_send (&emm_sap);
+  } else {
+    emm_sap.primitive = EMMCN_CONTEXT_FAIL;
+    emm_sap.u.emm_cn.u.context_fail->ue_id   = nas_ue_context_rsp->ue_id;
+    emm_sap.u.emm_cn.u.context_fail->cause  = nas_ue_context_rsp->cause;
+    rc = emm_sap_send (&emm_sap);
+  }
   OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
 }
 
@@ -705,4 +901,6 @@ s6a_error_2_nas_cause (
 
   return NAS_CAUSE_NETWORK_FAILURE;
 }
+
+
 

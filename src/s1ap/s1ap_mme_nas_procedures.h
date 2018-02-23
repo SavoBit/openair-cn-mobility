@@ -72,7 +72,29 @@ int s1ap_mme_handle_nas_non_delivery(const sctp_assoc_id_t assocId,
 void s1ap_handle_conn_est_cnf(const itti_mme_app_connection_establishment_cnf_t * const conn_est_cnf_p);
 
 //void s1ap_handle_handover_cnf(const itti_mme_app_handover_cnf_t * const handover_cnf_p);
-void s1ap_handle_handover_cnf(const itti_mme_app_handover_cnf_t * const handover_cnf_pP);
+
+/** S1AP Handover CNF. */
+void s1ap_handle_handover_cnf(const itti_s1ap_handover_cnf_t * const handover_cnf_pP);
+
+int s1ap_handle_handover_preparation_failure (
+    const itti_s1ap_handover_preparation_failure_t *handover_prep_failure_pP);
+
+static int                              s1ap_handover_preparation_failure (
+    const sctp_assoc_id_t assoc_id,
+    const mme_ue_s1ap_id_t mme_ue_s1ap_id,
+    const enb_ue_s1ap_id_t enb_ue_s1ap_id,
+    const S1ap_Cause_PR cause_type);
+
+/** S1AP Handover Command. */
+void s1ap_handle_handover_command ( const itti_s1ap_handover_command_t * const handover_command_pP);
+
+/** S1AP MME Status Transfer. */
+void s1ap_handle_mme_status_transfer( const itti_s1ap_status_transfer_t * const s1ap_status_transfer_pP);
+
+void s1ap_handle_handover_rej ( const itti_s1ap_handover_rej_t * const handover_rej_pP);
+
+/** S1AP Paging. */
+void s1ap_handle_paging( const itti_s1ap_paging_t * const s1ap_paging_pP);
 
 //void s1ap_handle_bearer_modification_res (const itti_mme_app_bearer_modification_rsp_t * const bearer_modification_res_pP);
 //void s1ap_handle_bearer_modification_fail (const itti_mme_app_bearer_modification_fail_t * const bearer_modification_fail_pP);

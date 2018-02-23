@@ -45,6 +45,10 @@
 # define ntoh_int32_buf(bUF)        \
     ((*(bUF)) << 24) | ((*((bUF) + 1)) << 16) | ((*((bUF) + 2)) << 8)   \
   | (*((bUF) + 3))
+
+# define ntoh_int64_buf(bUF)        \
+    ((*(bUF)) << 24) | ((*((bUF) + 1)) << 16) | ((*((bUF) + 2)) << 8)   \
+  | (*((bUF) + 3))
 #else
 # define hton_int32(x) (x)
 # define hton_int16(x) (x)
@@ -107,6 +111,19 @@ do {                            \
     (buf)[3] = (x);             \
 } while(0)
 
+/* Convert an integer on 64 bits to the given bUFFER */
+#define INT64_TO_BUFFER(x, buf) \
+do {                            \
+    (buf)[0] = (x) >> 56;       \
+    (buf)[1] = (x) >> 48;       \
+    (buf)[2] = (x) >> 40;        \
+    (buf)[3] = (x) >> 32;       \
+    (buf)[4] = (x) >> 24;       \
+    (buf)[5] = (x) >> 16;        \
+    (buf)[6] = (x) >> 8;        \
+    (buf)[7] = (x);             \
+} while(0)
+
 /* Convert an array of char containing vALUE to x */
 #define BUFFER_TO_INT32(buf, x) \
 do {                            \
@@ -114,6 +131,19 @@ do {                            \
         ((buf)[1] << 16) |      \
         ((buf)[2] << 8)  |      \
         ((buf)[3]);             \
+} while(0)
+
+/* Convert an array of char containing vALUE to x */
+#define BUFFER_TO_INT64(buf, x) \
+do {                            \
+    x = ((buf)[0] << 56) |      \
+        ((buf)[1] << 48) |      \
+        ((buf)[2] << 40)  |      \
+        ((buf)[3] << 32)  |      \
+        ((buf)[4] << 24)  |      \
+        ((buf)[5] << 16)  |      \
+        ((buf)[6] << 8)  |      \
+        ((buf)[7]);             \
 } while(0)
 
 /* Convert an integer on 32 bits to an octet string from aSN1c tool */
@@ -260,12 +290,12 @@ do {                                                                \
     }                                                               \
 } while(0)
 
-#define PLMN_T_TO_MCC_MNC(pLMN, mCC, mNC, mNCdIGITlENGTH)               \
-do {                                                                    \
-    mCC = pLMN.mcc_digit3 * 100 + pLMN.mcc_digit2 * 10 + pLMN.mcc_digit1;  \
-    mNCdIGITlENGTH = (pLMN.mnc_digit3 == 0xF ? 2 : 3);                   \
-    mNC = (mNCdIGITlENGTH == 2 ? 0 : pLMN.mnc_digit3 * 100)              \
-          + pLMN.mnc_digit2 * 10 + pLMN.mnc_digit1;                       \
+#define PLMN_T_TO_MCC_MNC(pLMN, mCC, mNC, mNCdIGITlENGTH)                 \
+do {                                                                      \
+    mCC = pLMN.mcc_digit1 * 100 + pLMN.mcc_digit2 * 10 + pLMN.mcc_digit3; \
+    mNCdIGITlENGTH = (pLMN.mnc_digit3 == 0xF ? 2 : 3);                    \
+    mNC = (mNCdIGITlENGTH == 2 ? pLMN.mnc_digit1 * 10 + pLMN.mnc_digit2 : \
+        pLMN.mnc_digit1 * 100 + pLMN.mnc_digit2 * 10 + pLMN.mnc_digit3);  \
 } while(0)
 
 /*

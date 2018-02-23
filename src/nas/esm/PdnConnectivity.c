@@ -475,6 +475,7 @@ _pdn_connectivity_create (
        * Setup the Access Point Name
        */
       if (apn) {
+        /** Copying strings with bstrcpy. todo: not leaving any leaks, mallocs? */
         pdn->apn = bstrcpy(apn);
       }
 

@@ -115,8 +115,8 @@ Description Defines the messages supported by the Access Stratum sublayer
 #define AS_RAB_RELEASE_IND      (AS_RAB_RELEASE | AS_INDICATION)
 
 // Handover messaging
-#define AS_NAS_HANDOVER        0x0A
-#define AS_NAS_HANDOVER_CNF        (AS_NAS_HANDOVER | AS_CONFIRM)
+#define AS_NAS_HANDOVER_TAU        0x0A
+#define AS_NAS_HANDOVER_TAU_CNF    (AS_NAS_HANDOVER_TAU | AS_CONFIRM)
 
 /* NAS Cause */
 typedef enum nas_cause_s {
@@ -366,7 +366,7 @@ typedef struct nas_establish_cnf_s {
  * AS->NAS - NAS handover confirmation
  * AS transfers the initial answer message to the NAS.
  */
-typedef struct nas_bearer_modification_cnf_s {
+typedef struct nas_ho_tau_bearer_modification_cnf_s {
   mme_ue_s1ap_id_t ue_id;            /* UE lower layer identifier   */
   nas_error_code_t err_code;         /* Transaction status          */
 //  bstring          nas_msg;          /* NAS message to transfer     */
@@ -375,8 +375,17 @@ typedef struct nas_bearer_modification_cnf_s {
 //  uint32_t         ul_nas_count;
   uint16_t         selected_encryption_algorithm;
   uint16_t         selected_integrity_algorithm;
-} nas_ho_bearer_modification_cnf_t;
+} nas_ho_tau_bearer_modification_cnf_t;
 
+/*
+ * AS->NAS - Signaling NAS the parameters received from HANDOVE_NOTIFY!
+ * AS transfers the initial NAS message to the NAS.
+ */
+typedef struct nas_s1ap_handover_establish_ind_s {
+  mme_ue_s1ap_id_t   ue_id;             /* UE lower layer identifier               */
+  tai_t              tai;               /* Indicating the Tracking Area from which the UE has sent the NAS message.                         */
+  ecgi_t             cgi;               /* Indicating the cell from which the UE has sent the NAS message.                         */
+} nas_s1ap_handover_establish_ind_t;
 /*
  * --------------------------------------------------------------------------
  *          NAS signalling connection release
@@ -563,7 +572,7 @@ typedef struct as_message_s {
     nas_establish_cnf_t    nas_establish_cnf;
 
     // handover
-    nas_ho_bearer_modification_cnf_t    nas_ho_bearer_modification_cnf;
+    nas_ho_tau_bearer_modification_cnf_t    nas_ho_tau_bearer_modification_cnf;
 
     nas_release_req_t      nas_release_req;
     nas_release_ind_t      nas_release_ind;

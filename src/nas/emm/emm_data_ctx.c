@@ -35,6 +35,7 @@
 #include "conversions.h"
 #include "emmData.h"
 #include "EmmCommon.h"
+#include "../../mme/mme_ie_defs.h"
 
 static mme_ue_s1ap_id_t mme_ue_s1ap_id_generator = 1;
 
@@ -519,6 +520,115 @@ inline void emm_ctx_set_valid_eps_bearer_context_status(emm_data_context_t * con
 }
 
 
+/** Update the EMM context from the received MM Context during Handover/TAU procedure. */
+//   todo: _clear_emm_ctxt(emm_ctx_p);
+inline void emm_ctx_update_from_mm_eps_context(emm_data_context_t * const emm_ctx, void* const _mm_eps_ctxt){
+  int                                     rc = RETURNerror;
+  int                                     mme_eea = NAS_SECURITY_ALGORITHMS_EEA0;
+  int                                     mme_eia = NAS_SECURITY_ALGORITHMS_EIA0;
+
+  OAILOG_FUNC_IN (LOG_NAS_EMM);
+
+  DevAssert(emm_ctx);
+  DevAssert(_mm_eps_ctxt);
+
+  /** Update the EMM context and the Security context from a received MM context. */
+  mm_context_eps_t *mm_eps_ctxt = (mm_context_eps_t*)_mm_eps_ctxt;
+
+  /** Attachment indicator. */
+  DevAssert(!emm_ctx->is_attached);
+
+  /** NAS counts. */
+  memcpy (emm_ctx->_vector[0].kasme, mm_eps_ctxt->k_asme, AUTH_KASME_SIZE);
+  /** Leave AUTN, RAND, XRES empty (empty later fill with todo: authentication Quandruplets & Quintuplets). */
+  OAILOG_INFO (LOG_NAS_EMM, "EMM-PROC  - Received Vector %u from S10 Context Response from Source MME:\n", 0);
+  OAILOG_INFO (LOG_NAS_EMM, "EMM-PROC  - Received KASME .: " KASME_FORMAT " " KASME_FORMAT "\n",
+      KASME_DISPLAY_1 (emm_ctx->_vector[0].kasme), KASME_DISPLAY_2 (emm_ctx->_vector[0].kasme));
+  emm_ctx_set_attribute_present(emm_ctx, EMM_CTXT_MEMBER_AUTH_VECTOR0); /**< Still setting AUTH_VECTOR present. */
+  emm_ctx_set_attribute_present(emm_ctx, EMM_CTXT_MEMBER_AUTH_VECTORS);
+
+  ksi_t eksi = 0;
+  if (emm_ctx->_security.eksi !=  KSI_NO_KEY_AVAILABLE) {
+    AssertFatal(0 !=  0, "emm_ctx->_security.eksi %d", emm_ctx->_security.eksi);
+    eksi = (emm_ctx->_security.eksi + 1) % (EKSI_MAX_VALUE + 1);
+  }
+  emm_ctx_set_security_vector_index(emm_ctx, 0);
+
+  /**
+   * Don't start the authentication procedure.
+   * Validate the rest of the parameters which were received with Authentication Response from UE in normal attach.
+   */
+  emm_ctx->auth_sync_fail_count = 0;
+
+  emm_ctx_set_security_eksi(emm_ctx, mm_eps_ctxt->ksi);
+  OAILOG_DEBUG (LOG_NAS_EMM, "EMM-PROC  - Setting the UE authentication parameters from S10 Context Response as successfull for UE "
+      "with IMSI " IMSI_64_FMT ". \n", emm_ctx->_imsi64);
+
+  /**
+   * Continue with the parameters set and validated in the SECURITY_MODE_CONTROL messages.
+   */
+  /** NAS counts. */
+  emm_ctx->_security.ul_count = mm_eps_ctxt->nas_ul_count;
+  emm_ctx->_security.dl_count = mm_eps_ctxt->nas_dl_count;
+
+  /**
+   * Set the NAS ciphering and integrity keys.
+   * Check if the UE & MS network capabilities are already set.
+   */
+
+  /** UE & MS Network Capabilities. */
+  if (IS_EMM_CTXT_PRESENT_UE_NETWORK_CAPABILITY(emm_ctx)) {
+    OAILOG_DEBUG (LOG_NAS_EMM, "EMM-PROC  - UE network capabilities already present for IMSI " IMSI_64_FMT ". Not setting from S10 Context Response. \n", emm_ctx->_imsi64);
+  }else{
+    emm_ctx_set_ue_nw_cap_ie(emm_ctx, &mm_eps_ctxt->ue_nc);
+  }
+  if (IS_EMM_CTXT_PRESENT_MS_NETWORK_CAPABILITY(emm_ctx)) {
+    OAILOG_DEBUG (LOG_NAS_EMM, "EMM-PROC  - MS network capabilities already present for IMSI " IMSI_64_FMT ". Not setting from S10 Context Response. \n", emm_ctx->_imsi64);
+  }else{
+    emm_ctx_set_attribute_present(emm_ctx, EMM_CTXT_MEMBER_MS_NETWORK_CAPABILITY_IE);
+    memcpy((void*)&emm_ctx->_ms_network_capability_ie, (MsNetworkCapability*)&mm_eps_ctxt->ms_nc, sizeof(MsNetworkCapability));
+    emm_ctx->gea = (mm_eps_ctxt->ms_nc.gea1 << 6)| mm_eps_ctxt->ms_nc.egea;
+    emm_ctx->gprs_present = true; /**< Todo: how to find this out? */
+  }
+  // todo: these parameters are not present?
+//  emm_ctx->_security.capability.eps_encryption = mm_eps_ctxt->ue_nc.eea;
+//  emm_ctx->_security.capability.eps_integrity  = mm_eps_ctxt->ue_nc.eia;
+//  if(mm_eps_ctxt->ue_nc.umts_present){
+//    emm_ctx->_security.capability.umts_present    = mm_eps_ctxt->ue_nc.umts_present;
+//    emm_ctx->_security.capability.umts_encryption = mm_eps_ctxt->ue_nc.uea;
+//    emm_ctx->_security.capability.umts_integrity  = mm_eps_ctxt->ue_nc.uia;
+//  }
+
+  /** Set the selected encryption and integrity algorithms from the S10 Context Request. */
+  emm_ctx->_security.selected_algorithms.encryption = mm_eps_ctxt->nas_cipher_alg;
+  emm_ctx->_security.selected_algorithms.integrity = mm_eps_ctxt->nas_int_alg;
+
+  emm_ctx_set_security_type(emm_ctx, SECURITY_CTX_TYPE_FULL_NATIVE);
+  /** Derive the KNAS integrity and ciphering keys. */
+  AssertFatal(EMM_SECURITY_VECTOR_INDEX_INVALID != emm_ctx->_security.vector_index, "Vector index not initialized");
+  AssertFatal(MAX_EPS_AUTH_VECTORS >  emm_ctx->_security.vector_index, "Vector index outbound value %d/%d", emm_ctx->_security.vector_index, MAX_EPS_AUTH_VECTORS);
+  derive_key_nas (NAS_INT_ALG, emm_ctx->_security.selected_algorithms.integrity,  emm_ctx->_vector[emm_ctx->_security.vector_index].kasme, emm_ctx->_security.knas_int);
+  derive_key_nas (NAS_ENC_ALG, emm_ctx->_security.selected_algorithms.encryption, emm_ctx->_vector[emm_ctx->_security.vector_index].kasme, emm_ctx->_security.knas_enc);
+  /**
+   * Set new security context indicator.
+   */
+  emm_ctx_set_attribute_valid(emm_ctx, EMM_CTXT_MEMBER_SECURITY);
+
+  /**
+   * All fields set and validated like SECURITY_MODE_COMPLETE was received and processed from the UE.
+   * Set the rest parameters received in the MM_UE_EPS_CONTEXT.
+   */
+
+  /**
+   * Set the current NCC and NH key.
+   * Eventually derive a new one with the TAU_ACCEPT.
+   */
+  emm_ctx->_security.ncc      = mm_eps_ctxt->ncc;
+  memcpy(emm_ctx->_security.nh_conj, mm_eps_ctxt->nh, 32);
+
+  /** All remaining capabilities should be set with the TAC/Attach Request. */
+  OAILOG_FUNC_OUT (LOG_NAS_EMM);
+}
 
 //------------------------------------------------------------------------------
 struct emm_data_context_s              *
@@ -590,6 +700,45 @@ emm_data_context_get_by_guti (
   return NULL;
 }
 
+//------------------------------------------------------------------------------
+int emm_data_context_update_security_parameters(const mme_ue_s1ap_id_t ue_id,
+    uint16_t *encryption_algorithm_capabilities,
+    uint16_t *integrity_algorithm_capabilities){
+  uint8_t                 kenb[32];
+  uint32_t                ul_nas_count;
+
+  OAILOG_FUNC_IN (LOG_NAS_EMM);
+
+  emm_data_context_t                     *emm_ctx = emm_data_context_get (&_emm_data, ue_id);
+
+  if (!emm_ctx) {
+    OAILOG_ERROR(LOG_NAS_EMM, "EMM-CTX - no EMM context existing for UE id " MME_UE_S1AP_ID_FMT ". Cannot update the AS security. \n", ue_id);
+    OAILOG_FUNC_RETURN (LOG_NAS_EMM, RETURNerror);
+  }
+  if (!IS_EMM_CTXT_VALID_SECURITY(emm_ctx)) {
+    OAILOG_ERROR(LOG_NAS_EMM, "EMM-CTX - no valid security context exist EMM context for UE id " MME_UE_S1AP_ID_FMT " and IMSI " IMSI_64_FMT ". Cannot update the AS security. \n",
+        ue_id, emm_ctx->_imsi64);
+    OAILOG_FUNC_RETURN (LOG_NAS_EMM, RETURNerror);
+  }
+
+  AssertFatal((0 <= emm_ctx->_security.vector_index) && (MAX_EPS_AUTH_VECTORS > emm_ctx->_security.vector_index),
+      "Invalid vector index %d", emm_ctx->_security.vector_index);
+
+  *encryption_algorithm_capabilities = ((uint16_t)emm_ctx->eea & ~(1 << 7)) << 1;
+  *integrity_algorithm_capabilities = ((uint16_t)emm_ctx->eia & ~(1 << 7)) << 1;
+
+  /** Derive the next hop. */
+  derive_nh(emm_ctx->_vector[emm_ctx->_security.vector_index].kasme, emm_ctx->_vector[emm_ctx->_security.vector_index].nh_conj);
+
+  /** Increase the next hop counter. */
+  emm_ctx->_security.ncc++;
+  /* The NCC is a 3-bit key index (values from 0 to 7) for the NH and is sent to the UE in the handover command signaling. */
+  emm_ctx->_security.ncc = emm_ctx->_security.ncc % 8;
+
+  OAILOG_INFO(LOG_NAS_EMM, "EMM-CTX - Updated AS security parameters for EMM context with UE id " MME_UE_S1AP_ID_FMT " and IMSI " IMSI_64_FMT ". \n",
+          ue_id, emm_ctx->_imsi64);
+  OAILOG_FUNC_RETURN (LOG_NAS_EMM, RETURNok);
+}
 
 //------------------------------------------------------------------------------
 struct emm_data_context_s              *
@@ -656,7 +805,6 @@ emm_data_context_remove_mobile_ids (
   emm_ctx_clear_imsi(elm);
   return;
 }
-
 
 //------------------------------------------------------------------------------
 int
@@ -787,6 +935,52 @@ emm_data_context_upsert_imsi (
 }
 
 //------------------------------------------------------------------------------
+MMECause_t
+emm_data_context_validate_complete_nas_request(struct emm_data_context_s *emm_ctx_p, Complete_Request_Message_t *request_p)
+{
+  DevAssert(request_p);
+  DevAssert(emm_ctx_p);
+
+  /** Check that an Complete Request Message is existing. */
+  if(blength(request_p->request_value) == 0){
+    OAILOG_ERROR(LOG_MME_APP, "No complete request message is existing in the CONTEXT_REQUEST message for GUTI " IMSI_64_FMT ". \n", emm_ctx_p->_imsi64);
+    bdestroy(request_p->request_value);
+    return MANDATORY_IE_MISSING;
+  }
+  /**
+   * todo: not checking serving network yet: If available, this IE shall be included in order to allow old Serving Network
+   * MME/SGSN to make a judgment whether un-used authentication vectors to be distributed or not.
+   */
+  /** Verify the integrity of the message with the existing UE security context. */
+  int                                     decoder_rc = 0;
+  nas_message_t                           nas_msg = {.security_protected.header = {0},
+      .security_protected.plain.emm.header = {0},
+      .security_protected.plain.esm.header = {0}};
+  nas_message_decode_status_t             decode_status = {0};
+  decoder_rc = nas_message_decode (request_p->request_value->data,
+      &nas_msg, blength(request_p->request_value), &emm_ctx_p->_security, &decode_status);
+  /** If message can be decoded and MAC is verified its fine. Anything else would trigger an error. */
+  if(decoder_rc != RETURNok){
+    /** UE may be in idle mode or it may be detached. */
+    OAILOG_ERROR(LOG_MME_APP, "Could not decode the TAU correctly for S10 Context request for GUTI " IMSI_64_FMT ". \n", emm_ctx_p->_imsi64);
+    bdestroy(request_p->request_value);
+    return REQUEST_REJECTED;
+  }
+  /** Decoding worked. Check if the MAC matched. */
+  if(!decode_status.mac_matched){
+    /** MAC could not be matched. */
+    OAILOG_ERROR(LOG_MME_APP, "Could not verify the MAC of the TAU correctly for S10 Context request for GUTI " IMSI_64_FMT ". \n", emm_ctx_p->_imsi64);
+    bdestroy(request_p->request_value);
+    return REQUEST_REJECTED;
+  }
+  OAILOG_ERROR(LOG_MME_APP, "Successfully decoded and verified the integrity of the Complete Request Message of type %d for GUTI " IMSI_64_FMT ". \n",
+      request_p->request_type,
+      emm_ctx_p->_imsi64);
+  bdestroy(request_p->request_value);
+  return REQUEST_ACCEPTED;
+}
+
+//------------------------------------------------------------------------------
 
 void emm_data_context_stop_all_timers (struct emm_data_context_s *emm_ctx)
 {
@@ -829,7 +1023,6 @@ void emm_data_context_stop_all_timers (struct emm_data_context_s *emm_ctx)
         emm_ctx->timer_s6a_auth_info_rsp_arg = NULL;
       }
     }
-
   }
 }
 

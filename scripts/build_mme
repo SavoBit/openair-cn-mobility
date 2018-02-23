@@ -189,7 +189,13 @@ function main()
     $SUDO cp -upv $OPENAIRCN_DIR/build/mme/build/mme /usr/sbin/mmed && echo_success "mmed installed"
   else
     $SUDO killall -q mme
-    $SUDO cp -upv $OPENAIRCN_DIR/build/mme/build/mme /usr/local/bin && echo_success "mme installed" 
+    $SUDO killall -q mme_source
+    $SUDO killall -q mme_target
+    $SUDO rm /usr/local/bin/mme
+    $SUDO rm /usr/local/bin/mme_sourcce
+    $SUDO rm /usr/local/bin/mme_target
+    $SUDO cp -upv $OPENAIRCN_DIR/build/mme/build/mme /usr/local/bin/mme_source && echo_success "mme_source installed" 
+    $SUDO cp -upv $OPENAIRCN_DIR/build/mme/build/mme /usr/local/bin/mme_target && echo_success "mme_target installed" 
   fi 
   
   compilations mme auth_request auth_request 

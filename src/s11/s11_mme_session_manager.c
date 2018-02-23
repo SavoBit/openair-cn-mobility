@@ -56,6 +56,7 @@ s11_mme_create_session_request (
   /*
    * Prepare a new Create Session Request msg
    */
+  // todo: sequence number is always 0?!
   rc = nwGtpv2cMsgNew (*stack_p, NW_TRUE, NW_GTP_CREATE_SESSION_REQ, req_p->teid, 0, &(ulp_req.hMsg));
   ulp_req.apiInfo.initialReqInfo.peerIp     = req_p->peer_ip;
   ulp_req.apiInfo.initialReqInfo.teidLocal  = req_p->sender_fteid_for_cp.teid;
@@ -73,7 +74,12 @@ s11_mme_create_session_request (
   s11_rat_type_ie_set (&(ulp_req.hMsg), &req_p->rat_type);
   s11_pdn_type_ie_set (&(ulp_req.hMsg), &req_p->pdn_type);
   s11_paa_ie_set (&(ulp_req.hMsg), &req_p->paa);
-  s11_apn_restriction_ie_set(&(ulp_req.hMsg), 0x01);
+  s11_apn_restriction_ie_set(&(ulp_req.hMsg), req_p->apn_restriction);
+  /**
+   * Indication Flags.
+   */
+  s11_indication_flags_ie_set (&(ulp_req.hMsg), &req_p->indication_flags);
+
   /*
    * Sender F-TEID for Control Plane (MME S11)
    */
@@ -349,5 +355,54 @@ s11_mme_handle_delete_session_response (
 
   DevAssert (HASH_TABLE_OK == hash_rc);
 
+  return itti_send_msg_to_task (TASK_MME_APP, INSTANCE_DEFAULT, message_p);
+}
+
+//------------------------------------------------------------------------------
+int
+s11_mme_handle_ulp_error_indicatior(
+  NwGtpv2cStackHandleT * stack_p,
+  NwGtpv2cUlpApiT * pUlpApi)
+{
+  /** Get the failed transaction. */
+  /** Check the message type. */
+
+  NwGtpv2cMsgTypeT msgType = pUlpApi->apiInfo.rspFailureInfo.msgType;
+  MessageDef * message_p = NULL;
+  switch(msgType){
+  case NW_GTP_CREATE_SESSION_REQ: /**< Message which was sent!. */
+  {
+    itti_s11_create_session_response_t            *rsp_p;
+    /** Respond with an S10 Context Reponse Failure. */
+    message_p = itti_alloc_new_message (TASK_S11, S11_CREATE_SESSION_RESPONSE);
+    rsp_p = &message_p->ittiMsg.s11_create_session_response;
+    memset(rsp_p, 0, sizeof(*rsp_p));
+    /** Set the destination TEID (our TEID). */
+    rsp_p->teid = pUlpApi->apiInfo.rspFailureInfo.teidLocal;
+    /** Set the transaction for the triggered acknowledgement. */
+    rsp_p->trxn = (void *)pUlpApi->apiInfo.rspFailureInfo.hUlpTrxn;
+    /** Set the cause. */
+    rsp_p->cause = SYSTEM_FAILURE; /**< Would mean that this message either did not come at all or could not be dealt with properly. */
+  }
+    break;
+  case NW_GTP_MODIFY_BEARER_REQ:
+  {
+    itti_s11_modify_bearer_response_t            *rsp_p;
+    message_p = itti_alloc_new_message (TASK_S10, S11_MODIFY_BEARER_RESPONSE);
+    rsp_p = &message_p->ittiMsg.s11_modify_bearer_response;
+    memset(rsp_p, 0, sizeof(*rsp_p));
+    /** Set the destination TEID (our TEID). */
+    rsp_p->teid = pUlpApi->apiInfo.rspFailureInfo.teidLocal;
+    /** Set the transaction for the triggered acknowledgement. */
+    rsp_p->trxn = (void *)pUlpApi->apiInfo.rspFailureInfo.hUlpTrxn;
+    /** Set the cause. */
+    rsp_p->cause = SYSTEM_FAILURE; /**< Would mean that this message either did not come at all or could not be dealt with properly. */
+  }
+    break;
+  default:
+    return RETURNerror;
+  }
+  OAILOG_WARNING (LOG_S10, "Received an error indicator for the local S10-TEID " TEID_FMT " and message type %d. \n",
+      pUlpApi->apiInfo.rspFailureInfo.teidLocal, pUlpApi->apiInfo.rspFailureInfo.msgType);
   return itti_send_msg_to_task (TASK_MME_APP, INSTANCE_DEFAULT, message_p);
 }

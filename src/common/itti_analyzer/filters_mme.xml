@@ -40,6 +40,8 @@
 		<!-- Handover messaging -->
 		<MME_APP_PATH_SWITCH_REQ enabled="1"
 			foreground_color="#90ff40" background_color="#805000" />
+		<MME_APP_HANDOVER_REQUIRED enabled="1"
+			foreground_color="#90ff40" background_color="#805000" />
 
 
 		<NAS_AUTHENTICATION_PARAM_FAIL enabled="1"
@@ -217,6 +219,7 @@
 		<TASK_NAS_MME enabled="1" />
 		<TASK_S11 enabled="1" />
 		<TASK_S1AP enabled="1" />
+		<TASK_S10 enabled="1" />
 		<TASK_S6A enabled="1" />
 		<TASK_SCTP enabled="1" />
 		<TASK_SPGW_APP enabled="1" />
@@ -229,6 +232,7 @@
 		<TASK_MME_APP enabled="1" />
 		<TASK_NAS_MME enabled="1" />
 		<TASK_S11 enabled="1" />
+		<TASK_S10 enabled="1" />
 		<TASK_S1AP enabled="1" />
 		<TASK_S6A enabled="1" />
 		<TASK_SCTP enabled="1" />

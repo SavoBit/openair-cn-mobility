@@ -90,7 +90,9 @@ extern                                  "C" {
       ulpApi.hMsg = 0;
       ulpApi.apiType = NW_GTPV2C_ULP_API_RSP_FAILURE_IND;
       ulpApi.apiInfo.rspFailureInfo.hUlpTrxn = thiz->hUlpTrxn;
+      ulpApi.apiInfo.rspFailureInfo.msgType = (thiz->hUlpTrxn) ? ((NwGtpv2cTrxnT*)(thiz->hUlpTrxn))->pMsg->msgType : 0;
       ulpApi.apiInfo.rspFailureInfo.hUlpTunnel = ((thiz->hTunnel) ? ((NwGtpv2cTunnelT *) (thiz->hTunnel))->hUlpTunnel : 0);
+      ulpApi.apiInfo.rspFailureInfo.teidLocal = (ulpApi.apiInfo.rspFailureInfo.hUlpTunnel) ? ((NwGtpv2cTunnelT*)(ulpApi.apiInfo.rspFailureInfo.hUlpTunnel))->teid: 0;
       OAILOG_ERROR (LOG_GTPV2C, "N3 retries expired for transaction 0x%p\n", thiz);
       RB_REMOVE (NwGtpv2cOutstandingTxSeqNumTrxnMap, &(pStack->outstandingTxSeqNumMap), thiz);
       rc = nwGtpv2cTrxnDelete (&thiz);

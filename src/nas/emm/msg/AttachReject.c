@@ -73,6 +73,17 @@ decode_attach_reject (
       attach_reject->presencemask |= ATTACH_REJECT_ESM_MESSAGE_CONTAINER_PRESENT;
       break;
 
+    case ATTACH_REJECT_T3346_VALUE_IEI:
+      if ((decoded_result = decode_gprs_timer(&attach_reject->t3346value, ATTACH_REJECT_T3346_VALUE_IEI, buffer + decoded, len - decoded)) <= 0)
+        return decoded_result;
+
+      decoded += decoded_result;
+      /*
+       * Set corresponding mask to 1 in presencemask
+       */
+      attach_reject->presencemask |= ATTACH_REJECT_T3346_VALUE_PRESENT;
+      break;
+
     default:
       errorCodeDecoder = TLV_UNEXPECTED_IEI;
       return TLV_UNEXPECTED_IEI;
@@ -107,6 +118,16 @@ encode_attach_reject (
       // Return in case of error
       return encode_result;
     else
+      encoded += encode_result;
+  }
+
+  if ((attach_reject->presencemask & ATTACH_REJECT_T3346_VALUE_PRESENT)
+      == ATTACH_REJECT_T3346_VALUE_PRESENT) {
+    if ((encode_result = encode_gprs_timer (&attach_reject->t3346value, ATTACH_REJECT_T3346_VALUE_IEI, buffer + encoded, len - encoded)) < 0) {
+      OAILOG_ERROR (LOG_NAS_EMM, "Failed encode_gprs_timer\n");
+      // Return in case of error
+      OAILOG_FUNC_RETURN (LOG_NAS_EMM, encode_result);
+    } else
       encoded += encode_result;
   }
 

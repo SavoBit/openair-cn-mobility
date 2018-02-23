@@ -118,7 +118,6 @@ int emm_proc_status(mme_ue_s1ap_id_t ue_id, int emm_cause);
  * --------------------------------------------------------------------------
  */
 
-
 int emm_proc_attach_request(mme_ue_s1ap_id_t ue_id,
                             emm_proc_attach_type_t type,
                             AdditionalUpdateType additional_update_type,
@@ -139,9 +138,21 @@ int emm_proc_tracking_area_update_request (
         const mme_ue_s1ap_id_t ue_id,
         const tracking_area_update_request_msg *msg,
         int *emm_cause,
-        const tac_t new_tac,
-        const plmn_t          *plmn_id,
-        const nas_message_decode_status_t *decode_status);
+        const tai_t *new_tai,
+        const tai_t           *last_visited_registered_tai,
+        const guti_t * old_guti,
+        const int gea,
+        const bool gprs_present,
+        const nas_message_decode_status_t *decode_status,
+        const bstring nas_msg);
+
+int
+emm_proc_tracking_area_update_complete (
+  mme_ue_s1ap_id_t ue_id);
+
+int emm_proc_tracking_area_update_accept(
+        const mme_ue_s1ap_id_t ue_id,
+        const EpsUpdateType *epsUpdateType);
 
 int emm_proc_tracking_area_update_reject (
         const mme_ue_s1ap_id_t ue_id,
@@ -210,6 +221,19 @@ int emm_proc_security_mode_control(const mme_ue_s1ap_id_t ue_id, ksi_t ksi,
                                    emm_common_failure_callback_t failure);
 int emm_proc_security_mode_complete(mme_ue_s1ap_id_t ue_id);
 int emm_proc_security_mode_reject(mme_ue_s1ap_id_t ue_id);
+
+
+/*
+ * --------------------------------------------------------------------------
+ *              Handover procedure
+ * --------------------------------------------------------------------------
+ */
+
+int
+emm_proc_s1ap_handover_notify(
+  mme_ue_s1ap_id_t ue_id,
+  const tai_t   * const originating_tai,
+  const ecgi_t   * const originating_ecgi);
 
 void
 _clear_emm_ctxt(emm_data_context_t *emm_ctx); 

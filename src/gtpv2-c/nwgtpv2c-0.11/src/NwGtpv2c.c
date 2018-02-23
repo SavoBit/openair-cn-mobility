@@ -551,7 +551,7 @@ extern                                  "C" {
       pTrxn->pMsg = (NwGtpv2cMsgT *) pUlpReq->hMsg;
       pTrxn->hTunnel = pUlpReq->apiInfo.initialReqInfo.hTunnel;
       pTrxn->hUlpTrxn = pUlpReq->apiInfo.initialReqInfo.hUlpTrxn;
-      pTrxn->peerIp = ((NwGtpv2cTunnelT *) (pTrxn->hTunnel))->ipv4AddrRemote;
+      pTrxn->peerIp = pUlpReq->apiInfo.initialReqInfo.peerIp; // todo: ((NwGtpv2cTunnelT *) (pTrxn->hTunnel))->ipv4AddrRemote;
       pTrxn->peerPort = NW_GTPV2C_UDP_PORT;
 
       if (pUlpReq->apiType & NW_GTPV2C_ULP_API_FLAG_IS_COMMAND_MESSAGE) {
@@ -644,7 +644,7 @@ extern                                  "C" {
   @return NW_OK on success.
 */
 
-  static NwRcT                            nwGtpv2cHandleUlpTriggeredRsp (
+  static NwRcT                     nwGtpv2cHandleUlpTriggeredRsp          (
   NW_IN NwGtpv2cStackT * thiz,
   NW_IN NwGtpv2cUlpApiT * pUlpRsp) {
     NwRcT                                   rc = NW_FAILURE;
@@ -662,13 +662,42 @@ extern                                  "C" {
     pReqTrxn->pMsg = (NwGtpv2cMsgT *) pUlpRsp->hMsg;
     rc = nwGtpv2cTrxnStartDulpicateRequestWaitTimer (pReqTrxn);
 
-    // todo: assert tunnel exists!!
-//    if ((pUlpRsp->apiType & 0xFF000000) == NW_GTPV2C_ULP_API_FLAG_CREATE_LOCAL_TUNNEL) {
-//      rc = nwGtpv2cCreateLocalTunnel (thiz, pUlpRsp->apiInfo.triggeredRspInfo.teidLocal, pReqTrxn->peerIp, pUlpRsp->apiInfo.triggeredRspInfo.hUlpTunnel, &pUlpRsp->apiInfo.triggeredRspInfo.hTunnel);
-//    }
+    /** Creating a local tunnel if flag is set. */
+    if ((pUlpRsp->apiType & 0xFF000000) == NW_GTPV2C_ULP_API_FLAG_CREATE_LOCAL_TUNNEL) {
+      rc = nwGtpv2cCreateLocalTunnel (thiz, pUlpRsp->apiInfo.triggeredRspInfo.teidLocal, pReqTrxn->peerIp, pUlpRsp->apiInfo.triggeredRspInfo.hUlpTunnel, &pUlpRsp->apiInfo.triggeredRspInfo.hTunnel);
+    }
 
     OAILOG_FUNC_RETURN( LOG_GTPV2C, rc);
   }
+
+
+  /**
+    Process NW_GTPV2C_ULP_API_TRIGGERED_ACK from ULP entity.
+
+    @param[in] hGtpcStackHandle : Stack handle
+    @param[in] pUlpReq : Pointer to Ulp Req.
+    @return NW_OK on success.
+   */
+  static
+  NwRcT                            nwGtpv2cHandleUlpTriggeredAck (NW_IN NwGtpv2cStackT * thiz, NW_IN NwGtpv2cUlpApiT * pUlpRsp) {
+    NwRcT                                   rc = NW_FAILURE;
+    NwGtpv2cTrxnT                          *pReqTrxn = NULL;
+
+    OAILOG_FUNC_IN (LOG_GTPV2C);
+    pReqTrxn = (NwGtpv2cTrxnT *) pUlpRsp->apiInfo.triggeredAckInfo.hTrxn;
+    NW_ASSERT (pReqTrxn != NULL);
+
+    if (((NwGtpv2cMsgT *) pUlpRsp->hMsg)->seqNum == 0)
+      ((NwGtpv2cMsgT *) pUlpRsp->hMsg)->seqNum = pReqTrxn->seqNum;
+
+    OAILOG_DEBUG (LOG_GTPV2C, "Sending a triggered ACK message over seq '0x%x'\n", pReqTrxn->seqNum);
+    rc = nwGtpv2cCreateAndSendMsg (thiz, pReqTrxn->seqNum, pReqTrxn->peerIp, pReqTrxn->peerPort, (NwGtpv2cMsgT *) pUlpRsp->hMsg);
+    pReqTrxn->pMsg = (NwGtpv2cMsgT *) pUlpRsp->hMsg;
+    /** Don't start a timer. */
+
+    OAILOG_FUNC_RETURN( LOG_GTPV2C, rc);
+  }
+
 
 /**
   Process NW_GTPV2C_ULP_CREATE_LOCAL_TUNNEL Request from ULP entity.
@@ -747,7 +776,7 @@ extern                                  "C" {
     ulpApi.apiInfo.initialReqIndInfo.hUlpTunnel = hUlpTunnel;
     ulpApi.apiInfo.initialReqIndInfo.peerIp = peerIp;
     ulpApi.apiInfo.initialReqIndInfo.peerPort = peerPort;
-    ulpApi.apiInfo.triggeredRspIndInfo.error = *pError;
+    ulpApi.apiInfo.initialReqIndInfo.error = *pError;
     rc = thiz->ulp.ulpReqCallback (thiz->ulp.hUlp, &ulpApi);
     OAILOG_FUNC_RETURN (LOG_GTPV2C, rc);
   }
@@ -876,6 +905,49 @@ extern                                  "C" {
   }
 
 /**
+  Handle Initial Request from S10 Peer Entity.
+
+  @param[in] thiz : Stack context
+  @return NW_OK on success.
+*/
+
+static NwRcT                            nwGtpv2cHandleInitialS10Req (
+NW_IN NwGtpv2cStackT * thiz,
+NW_IN uint32_t msgType,
+NW_IN uint8_t * msgBuf,
+NW_IN uint32_t msgBufLen,
+NW_IN uint16_t peerPort,
+NW_IN uint32_t peerIp) {
+  NwRcT                                   rc = NW_FAILURE;
+  uint32_t                                seqNum = 0;
+  NwGtpv2cTrxnT                          *pTrxn = NULL;
+  NwGtpv2cTunnelT                        *pLocalTunnel = NULL,
+                                          keyTunnel = {0};
+  NwGtpv2cMsgHandleT                      hMsg = 0;
+  NwGtpv2cUlpTunnelHandleT                hUlpTunnel = 0;
+  NwGtpv2cErrorT                          error = {0};
+
+  hUlpTunnel = 0;
+
+  seqNum = ntohl (*((uint32_t *) (msgBuf + (((*msgBuf) & 0x08) ? 8 : 4)))) >> 8;
+  pTrxn = nwGtpv2cTrxnOutstandingRxNew (thiz, 0, peerIp, peerPort, (seqNum));
+
+  if (pTrxn) {
+    rc = nwGtpv2cMsgFromBufferNew ((NwGtpv2cStackHandleT) thiz, msgBuf, msgBufLen, &(hMsg));
+    NW_ASSERT (thiz->pGtpv2cMsgIeParseInfo[msgType]);
+    rc = nwGtpv2cMsgIeParse (thiz->pGtpv2cMsgIeParseInfo[msgType], hMsg, &error);
+
+    if (rc != NW_OK) {
+      OAILOG_WARNING (LOG_GTPV2C,  "Malformed request message received from peer 0x%x. Notifying ULP.\n", htonl (peerIp));
+    }
+
+    rc = nwGtpv2cSendInitialReqIndToUlp (thiz, &error, pTrxn, hUlpTunnel, msgType, peerIp, peerPort, hMsg);
+  }
+
+  return NW_OK;
+}
+
+/**
   Handle Triggered Response from Peer Entity.
 
   @param[in] thiz : Stack context
@@ -913,9 +985,9 @@ extern                                  "C" {
       rc = nwGtpv2cMsgFromBufferNew ((NwGtpv2cStackHandleT) thiz, msgBuf, msgBufLen, &(hMsg));
       NW_ASSERT (thiz->pGtpv2cMsgIeParseInfo[msgType]);
 
-      if(msgType == NW_GTP_CREATE_SESSION_RSP){
+      if(msgType == NW_GTP_FORWARD_ACCESS_CONTEXT_ACK){
         test=2;
-      }else if(msgType == NW_GTP_MODIFY_BEARER_RSP){
+      }else if(msgType == NW_GTP_FORWARD_RELOCATION_RSP){
         test=3;
       }
       rc = nwGtpv2cMsgIeParse (thiz->pGtpv2cMsgIeParseInfo[msgType], hMsg, &error);
@@ -973,16 +1045,24 @@ extern                                  "C" {
       NW_GTPV2C_INIT_MSG_IE_PARSE_INFO (thiz, NW_GTP_MODIFY_BEARER_RSP);
       NW_GTPV2C_INIT_MSG_IE_PARSE_INFO (thiz, NW_GTP_RELEASE_ACCESS_BEARERS_REQ);
       NW_GTPV2C_INIT_MSG_IE_PARSE_INFO (thiz, NW_GTP_RELEASE_ACCESS_BEARERS_RSP);
+      /** Paging related GTPv2c signaling. */
+      NW_GTPV2C_INIT_MSG_IE_PARSE_INFO (thiz, NW_GTP_DOWNLINK_DATA_NOTIFICATION);
+
       /*
        * For S10 interface
        */
       NW_GTPV2C_INIT_MSG_IE_PARSE_INFO (thiz, NW_GTP_FORWARD_RELOCATION_REQ);
       NW_GTPV2C_INIT_MSG_IE_PARSE_INFO (thiz, NW_GTP_FORWARD_RELOCATION_RSP);
+      NW_GTPV2C_INIT_MSG_IE_PARSE_INFO (thiz, NW_GTP_FORWARD_ACCESS_CONTEXT_NTF);
+      NW_GTPV2C_INIT_MSG_IE_PARSE_INFO (thiz, NW_GTP_FORWARD_ACCESS_CONTEXT_ACK);
       NW_GTPV2C_INIT_MSG_IE_PARSE_INFO (thiz, NW_GTP_FORWARD_RELOCATION_COMPLETE_NTF);
       NW_GTPV2C_INIT_MSG_IE_PARSE_INFO (thiz, NW_GTP_FORWARD_RELOCATION_COMPLETE_ACK);
       NW_GTPV2C_INIT_MSG_IE_PARSE_INFO (thiz, NW_GTP_CONTEXT_REQ);
-      NW_GTPV2C_INIT_MSG_IE_PARSE_INFO (thiz, NW_GTP_CONTEXT_REQ);
+      NW_GTPV2C_INIT_MSG_IE_PARSE_INFO (thiz, NW_GTP_CONTEXT_RSP);
       NW_GTPV2C_INIT_MSG_IE_PARSE_INFO (thiz, NW_GTP_CONTEXT_ACK);
+      NW_GTPV2C_INIT_MSG_IE_PARSE_INFO (thiz, NW_GTP_RELOCATION_CANCEL_REQ);
+      NW_GTPV2C_INIT_MSG_IE_PARSE_INFO (thiz, NW_GTP_RELOCATION_CANCEL_RSP);
+
       NW_GTPV2C_INIT_MSG_IE_PARSE_INFO (thiz, NW_GTP_IDENTIFICATION_REQ);
       NW_GTPV2C_INIT_MSG_IE_PARSE_INFO (thiz, NW_GTP_IDENTIFICATION_RSP);
       nwGtpv2cDisplayBanner (thiz);
@@ -1164,13 +1244,44 @@ extern                                  "C" {
     case NW_GTP_RELEASE_ACCESS_BEARERS_REQ:
     case NW_GTP_CREATE_INDIRECT_DATA_FORWARDING_TUNNEL_REQ:
     case NW_GTP_DELETE_INDIRECT_DATA_FORWARDING_TUNNEL_REQ:{
-        rc = nwGtpv2cHandleInitialReq (thiz, msgType, udpData, udpDataLen, peerPort, peerIp);
-      }
-      break;
+      rc = nwGtpv2cHandleInitialReq (thiz, msgType, udpData, udpDataLen, peerPort, peerIp);
+    }
+    break;
+
+    case NW_GTP_FORWARD_RELOCATION_REQ:{
+      rc = nwGtpv2cHandleInitialS10Req (thiz, msgType, udpData, udpDataLen, peerPort, peerIp);
+    }
+    break;
+
+    case NW_GTP_FORWARD_ACCESS_CONTEXT_NTF: {
+      rc = nwGtpv2cHandleInitialS10Req(thiz, msgType, udpData, udpDataLen, peerPort, peerIp);
+    }
+    break;
+
+    case NW_GTP_FORWARD_RELOCATION_COMPLETE_NTF: {
+      rc = nwGtpv2cHandleInitialS10Req(thiz, msgType, udpData, udpDataLen, peerPort, peerIp);
+    }
+    break;
+
+    case NW_GTP_FORWARD_RELOCATION_COMPLETE_ACK: {
+      rc = nwGtpv2cHandleTriggeredRsp(thiz, msgType, udpData, udpDataLen, peerPort, peerIp);
+    }
+    break;
+
+    case NW_GTP_RELOCATION_CANCEL_REQ: {
+      rc = nwGtpv2cHandleInitialS10Req(thiz, msgType, udpData, udpDataLen, peerPort, peerIp);
+    }
+    break;
+
+    case NW_GTP_RELOCATION_CANCEL_RSP: {
+      rc = nwGtpv2cHandleTriggeredRsp(thiz, msgType, udpData, udpDataLen, peerPort, peerIp);
+    }
+    break;
+
     case NW_GTP_MODIFY_BEARER_RSP:{
-        rc = nwGtpv2cHandleTriggeredRsp (thiz, msgType, udpData, udpDataLen, peerPort, peerIp);
-      }
-      break;
+      rc = nwGtpv2cHandleTriggeredRsp (thiz, msgType, udpData, udpDataLen, peerPort, peerIp);
+    }
+    break;
 
     case NW_GTP_ECHO_RSP:
     case NW_GTP_CREATE_SESSION_RSP:
@@ -1180,10 +1291,38 @@ extern                                  "C" {
     case NW_GTP_DELETE_BEARER_RSP:
     case NW_GTP_RELEASE_ACCESS_BEARERS_RSP:
     case NW_GTP_CREATE_INDIRECT_DATA_FORWARDING_TUNNEL_RSP:
+
     case NW_GTP_DELETE_INDIRECT_DATA_FORWARDING_TUNNEL_RSP: {
         rc = nwGtpv2cHandleTriggeredRsp (thiz, msgType, udpData, udpDataLen, peerPort, peerIp);
       }
       break;
+    case NW_GTP_FORWARD_RELOCATION_RSP: {
+        rc = nwGtpv2cHandleTriggeredRsp (thiz, msgType, udpData, udpDataLen, peerPort, peerIp);
+      }
+      break;
+    case NW_GTP_FORWARD_ACCESS_CONTEXT_ACK: {
+        rc = nwGtpv2cHandleTriggeredRsp (thiz, msgType, udpData, udpDataLen, peerPort, peerIp);
+      }
+      break;
+    /** S10 Context Request. */
+    case NW_GTP_CONTEXT_REQ: {
+      rc = nwGtpv2cHandleInitialS10Req (thiz, msgType, udpData, udpDataLen, peerPort, peerIp);
+    }
+    break;
+    case NW_GTP_CONTEXT_RSP: {
+      rc = nwGtpv2cHandleTriggeredRsp (thiz, msgType, udpData, udpDataLen, peerPort, peerIp);
+    }
+    break;
+    case NW_GTP_CONTEXT_ACK: {
+      rc = nwGtpv2cHandleTriggeredRsp (thiz, msgType, udpData, udpDataLen, peerPort, peerIp);
+    }
+    break;
+
+    /** S11: Paging. */
+    case NW_GTP_DOWNLINK_DATA_NOTIFICATION: {
+      rc = nwGtpv2cHandleInitialReq(thiz, msgType, udpData, udpDataLen, peerPort, peerIp);
+    }
+    break;
 
     default:{
         /*
@@ -1233,11 +1372,17 @@ extern                                  "C" {
       }
       break;
 
-//    case NW_GTPV2C_ULP_CREATE_LOCAL_TUNNEL:{
-//        OAILOG_DEBUG (LOG_GTPV2C, "Received create local tunnel from ulp\n");
-//        rc = nwGtpv2cHandleUlpCreateLocalTunnel (thiz, pUlpReq);
-//      }
-//      break;
+    case NW_GTPV2C_ULP_API_TRIGGERED_ACK:{
+        OAILOG_DEBUG (LOG_GTPV2C, "Received triggered acknowledgement from ulp\n");
+        rc = nwGtpv2cHandleUlpTriggeredAck (thiz, pUlpReq);
+      }
+      break;
+
+    case NW_GTPV2C_ULP_CREATE_LOCAL_TUNNEL:{
+        OAILOG_DEBUG (LOG_GTPV2C, "Received create local tunnel from ulp\n");
+        rc = nwGtpv2cHandleUlpCreateLocalTunnel (thiz, pUlpReq);
+      }
+      break;
 
     case NW_GTPV2C_ULP_DELETE_LOCAL_TUNNEL:{
         OAILOG_DEBUG (LOG_GTPV2C, "Received delete local tunnel from ulp\n");

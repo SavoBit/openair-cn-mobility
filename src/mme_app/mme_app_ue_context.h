@@ -63,6 +63,29 @@ typedef struct {
   char data[IMSI_DIGITS_MAX + 1];
 } mme_app_imsi_t;
 
+
+
+typedef int ( *mme_app_ue_callback_t) (void*);
+
+/**
+ * Callback methods to set for MME_APP.
+ */
+int                                     EmmCbS1apDeregistered(
+  const mme_ue_s1ap_id_t ueId);
+int                                     EmmCbS1apRegistered(
+  const mme_ue_s1ap_id_t ueId);
+int                                     EmmCbS1apHandoverTau(
+  const mme_ue_s1ap_id_t ueId);
+//
+///* EMM state machine handlers */
+//static const mme_app_ue_callback_t          _mme_ue_callbacks[UE_CONTEXT_STATE_MAX] = {
+//  NULL,
+//  NULL,
+//  EmmCbS1apHandover,
+//};
+
+
+
 // TODO: (amar) only used in testing
 #define IMSI_FORMAT "s"
 #define IMSI_DATA(MME_APP_IMSI) (MME_APP_IMSI.data)
@@ -89,40 +112,48 @@ mme_ue_s1ap_id_t mme_app_ctx_get_new_ue_id(void);
 #define MME_APP_DELTA_REACHABILITY_IMPLICIT_DETACH_TIMER 0 // in minutes 
 #define MME_APP_INITIAL_CONTEXT_SETUP_RSP_TIMER_VALUE 2 // In seconds
 
-// handover !!
+/** Handover !!. */
 #define MME_APP_PATH_SWITCH_REQ_TIMER_VALUE 2 // In seconds
+
+/* Handover Related Information. */
+typedef struct handover_target_information_s {
+  tai_t                            target_tai;         /* The timer identifier.                */
+  unsigned                         macro_enb_id:20;    /* Macro-Enb-Id.                        */
+  F_Container_t                    eutran_container;   /* The timer interval value in seconds. */
+
+  F_Cause_t                        f_cause;
+  /** After Handover Request. */
+//  pdn_connection_t                 pdn_connection;
+  bearer_contexts_to_be_modified_t bearer_contexts_to_be_modified;///< C: This IE shall be sent on the S4/S11 interface and S5/S8
+
+  /** S10 Interface Information. */
+  teid_t                           source_mme_s10_teid;           // the local MME is either source or target mme (local_mme_s10_fteid)!
+  teid_t                           target_mme_s10_teid;
+  // todo: local mme_s10_teid also here?!
+
+  /* S11 stack specific parameter. Not used in standalone EPC mode */
+  void                            *trxn;                ///< Transaction identifier
+}handover_target_information_t;
+
+//typedef struct tau_target_information_s {
+//  tai_t                            target_tai;         /* The timer identifier.                */
+//
+//  /** S10 Interface Information. */
+//  ipv4_nbo_t                       source_mme_s10_ip;
+//  uint32_t                         source_mme_s10_port;
+//  teid_t                           source_mme_s10_teid;           // the local MME is either source or target mme (local_mme_s10_fteid)!
+//  teid_t                           target_mme_s10_teid;
+//
+//  Complete_Request_Message_Type_t  request_type;
+//  /* S11 stack specific parameter. Not used in standalone EPC mode */
+//  void                            *last_trxn;                ///< Transaction identifier: Contains the last transaction identifier.
+//}tau_target_information_t;
 
 /* Timer structure */
 struct mme_app_timer_t {
   long id;         /* The timer identifier                 */
   long sec;       /* The timer interval value in seconds  */
 };
-
-/** @struct bearer_context_t
- *  @brief Parameters that should be kept for an eps bearer.
- */
-typedef struct bearer_context_s {
-  /* S-GW Tunnel Endpoint for User-Plane */
-  s1u_teid_t              s_gw_teid;
-
-  /* S-GW IP address for User-Plane */
-  ip_address_t            s_gw_address;
-
-  /* P-GW Tunnel Endpoint for User-Plane */
-  teid_t                  p_gw_teid;
-
-  /* P-GW IP address for User-Plane */
-  ip_address_t            p_gw_address;
-
-  /* QoS for this bearer */
-  qci_t                   qci;
-  priority_level_t        prio_level;
-  pre_emp_vulnerability_t pre_emp_vulnerability;
-  pre_emp_capability_t    pre_emp_capability;
-
-  /* TODO: add TFT */
-} bearer_context_t;
-
 
 /** @struct ue_context_t
  *  @brief Useful parameters to know in MME application layer. They are set
@@ -152,7 +183,11 @@ typedef struct ue_context_s {
   uint8_t                msisdn[MSISDN_LENGTH+1];     // set by S6A UPDATE LOCATION ANSWER
   uint8_t                msisdn_length;               // set by S6A UPDATE LOCATION ANSWER
 
-  bool                   pending_handover;             // handover pending
+  /** Handover Information. */
+  // todo: free this information after handover succeeds.
+//  handover_target_information_t *handover_info;          // Information r
+//  tau_target_information_t      *tau_info;
+
   mm_state_t             mm_state;
   ecm_state_t            ecm_state;
   /* Globally Unique Temporary Identity */
@@ -192,43 +227,81 @@ typedef struct ue_context_s {
   /* Store the radio capabilities as received in S1AP UE capability indication
    * message.
    */
-  uint8_t                  *ue_radio_capabilities;
+  uint8_t               *ue_radio_capabilities;
   int                    ue_radio_cap_length;
 
   teid_t                 mme_s11_teid;                // set by mme_app_send_s11_create_session_req
+  teid_t                 local_mme_s10_teid;      // 0 at first. Later set by FORWARD_RELOCATION_REQUEST / FORWARD_RELOCATION_RESPONSE
+
+  teid_t                 remote_mme_s10_teid;      // 0 at first. Later set by FORWARD_RELOCATION_REQUEST / FORWARD_RELOCATION_RESPONSE
+
   teid_t                 sgw_s11_teid;                // set by S11 CREATE_SESSION_RESPONSE
+
   PAA_t                  paa;                         // set by S11 CREATE_SESSION_RESPONSE
 
   // temp
+  FTeid_t                pending_s1u_downlink_bearer;
+  uint8_t                pending_s1u_downlink_bearer_ebi;
   char                   pending_pdn_connectivity_req_imsi[16];
   uint8_t                pending_pdn_connectivity_req_imsi_length;
   bstring                pending_pdn_connectivity_req_apn;
   bstring                pending_pdn_connectivity_req_pdn_addr;
+  pdn_type_t             pending_pdn_connectivity_req_pdn_type;
+  uint8_t                pending_pdn_connectivity_req_apn_restriction;
+  uint8_t                pending_pdn_connectivity_req_ebi;
+
   int                    pending_pdn_connectivity_req_pti;
   unsigned               pending_pdn_connectivity_req_ue_id;
   network_qos_t          pending_pdn_connectivity_req_qos;
   protocol_configuration_options_t   pending_pdn_connectivity_req_pco;
   void                  *pending_pdn_connectivity_req_proc_data;
   int                    pending_pdn_connectivity_req_request_type;
+
+  bool                   pending_clear_location_request;
+  bool                   pending_bearer_deactivation;
+  /** Pending TAU information. */
+  EpsUpdateType          pending_tau_epsUpdateType;
+
+  /** Pending Transparent Container: will be automatically freed, when the S1AP Handover Request message is sent. */
+  bstring                pending_s1ap_source_to_target_handover_container;
+
+  /** Handover Target Information. */
+  tai_t                  pending_handover_target_tai;     /**< Todo: can they be directly set? with the first handover required message? */
+  uint32_t               pending_handover_target_enb_id:20;
+  void                  *pending_s10_response_trxn;       ///< Transaction identifier;
+  enb_ue_s1ap_id_t       pending_handover_enb_ue_s1ap_id; /**< eNB-UE-S1AP-Id of the target-ENB if it is a single MME s1AP handover. */
+
   ebi_t                  default_bearer_id;
-  bearer_context_t       eps_bearers[BEARERS_PER_UE];
   
+  uint8_t                num_bearers;
+  bearer_context_t     **eps_bearers; // todo: better bearer list structure..
+
   // Mobile Reachability Timer-Start when UE moves to idle state. Stop when UE moves to connected state
   struct mme_app_timer_t       mobile_reachability_timer; 
   // Implicit Detach Timer-Start at the expiry of Mobile Reachability timer. Stop when UE moves to connected state
   struct mme_app_timer_t       implicit_detach_timer; 
   // Initial Context Setup Procedure Guard timer 
   struct mme_app_timer_t       initial_context_setup_rsp_timer; 
+  // Handover/TAU completion timer (TS 23.401)
+  struct mme_app_timer_t       mme_mobility_completion_timer; // todo: not TXXXX value found for this.
+  struct mme_app_timer_t       mme_paging_timeout_timer; // todo: not TXXXX value found for this.
 
-  // Handover related stuff
+  // Handover related stuff (for which messages to use the following
   struct mme_app_timer_t       path_switch_req_timer;
+  // todo: (2) timers necessary for handover?
+  struct mme_app_timer_t       s1ap_handover_req_timer;
 
+  /**
+   * No UE specific callback handler.
+   * Callback is same for all UEs and state dependent.
+   * todo: remove pending_handover flag and do it with states. */
 } ue_context_t;
 
 
 typedef struct mme_ue_context_s {
   hash_table_ts_t       *imsi_ue_context_htbl;
   hash_table_ts_t       *tun11_ue_context_htbl;
+  hash_table_ts_t       *tun10_ue_context_htbl;
   hash_table_ts_t       *mme_ue_s1ap_id_ue_context_htbl;
   hash_table_ts_t       *enb_ue_s1ap_id_ue_context_htbl;
   obj_hash_table_t      *guti_ue_context_htbl;
@@ -248,6 +321,9 @@ ue_context_t *mme_ue_context_exists_imsi(mme_ue_context_t * const mme_ue_context
  **/
 ue_context_t *mme_ue_context_exists_s11_teid(mme_ue_context_t * const mme_ue_context,
     const s11_teid_t teid);
+
+ue_context_t *mme_ue_context_exists_s10_teid(mme_ue_context_t * const mme_ue_context,
+    const s10_teid_t teid);
 
 /** \brief Retrieve an UE context by selecting the provided mme_ue_s1ap_id
  * \param mme_ue_s1ap_id The UE id identifier used in S1AP MME (and NAS)
@@ -305,6 +381,7 @@ mme_ue_context_notified_new_ue_s1ap_id_association (
  * \param mme_ue_s1ap_id The UE id identifier used in S1AP MME (and NAS)
  * \param imsi
  * \param mme_s11_teid The tunnel endpoint identifier used between MME and S-GW
+ * \param mme_s10_teid The tunnel endpoint identifier used between source and target MME
  * \param nas_ue_id The UE id identifier used in S1AP MME and NAS
  * \param guti_p The GUTI used by the UE
  **/
@@ -315,6 +392,7 @@ void mme_ue_context_update_coll_keys(
     const mme_ue_s1ap_id_t   mme_ue_s1ap_id,
     const imsi64_t     imsi,
     const s11_teid_t         mme_s11_teid,
+    const s10_teid_t         mme_s10_teid,
     const guti_t     * const guti_p);
 
 /** \brief dump MME associative collections
@@ -334,16 +412,19 @@ int mme_insert_ue_context(mme_ue_context_t * const mme_ue_context,
 /** \brief TODO WORK HERE Remove UE context unnecessary information.
  *  mark it as released. It is necessary to keep track of the association (s_tmsi (guti), mme_ue_s1ap_id)
  * \param ue_context_p The UE context to remove
+ *
+ *
+ * beken: no
  **/
-void mme_notify_ue_context_released (
-    mme_ue_context_t * const mme_ue_context_p,
-    struct ue_context_s *ue_context_p);
+//void mme_notify_ue_context_released (
+//    mme_ue_context_t * const mme_ue_context_p,
+//    struct ue_context_s *ue_context_p);
 
 /** \brief Remove a UE context of the tree of known UEs.
  * \param ue_context_p The UE context to remove
  **/
 void mme_remove_ue_context(mme_ue_context_t * const mme_ue_context,
-		                   struct ue_context_s * const ue_context_p);
+                       struct ue_context_s * const ue_context_p);
 
 
 /** \brief Allocate memory for a new UE context

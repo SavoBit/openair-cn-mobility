@@ -192,6 +192,11 @@ typedef struct {
   int mbrUL;      /* Maximum Bit Rate for uplink      */
   int mbrDL;      /* Maximum Bit Rate for downlink    */
   int qci;        /* QoS Class Identifier         */
+
+  /** Bearer ARP. */
+  unsigned pci:1;
+  unsigned pl:4;
+  unsigned pvi:1;
 } network_qos_t;
 
 /*

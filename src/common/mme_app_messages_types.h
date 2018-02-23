@@ -28,8 +28,10 @@
  */
 #ifndef FILE_MME_APP_MESSAGES_TYPES_SEEN
 #define FILE_MME_APP_MESSAGES_TYPES_SEEN
+
 #include "nas_messages_types.h"
 #include "s1ap_common.h"
+#include "s10_messages_types.h"
 
 #define MME_APP_INITIAL_UE_MESSAGE(mSGpTR)                  (mSGpTR)->ittiMsg.mme_app_initial_ue_message
 #define MME_APP_INITIAL_UE_MESSAGE_CHECK_DUPLICATE(mSGpTR)  (mSGpTR)->ittiMsg.mme_app_initial_ue_message_check_duplicate
@@ -45,12 +47,11 @@
 // handover messages from S11 to MME_APP to NAS
 #define MME_APP_HO_BEARER_MODIFICATION_RES(mSGpTR)       (mSGpTR)->ittiMsg.mme_app_ho_bearer_modification_rsp
 #define MME_APP_HO_BEARER_MODIFICATION_FAIL(mSGpTR)      (mSGpTR)->ittiMsg.mme_app_ho_bearer_modification_fail
-// handover messages from NAS to MME_APP to S1AP
-#define MME_APP_HANDOVER_CNF(mSGpTR)                     (mSGpTR)->ittiMsg.mme_app_handover_cnf
-#define MME_APP_HANDOVER_REJ(mSGpTR)                     (mSGpTR)->ittiMsg.mme_app_handover_rej
 
 #define MME_APP_PATH_SWITCH_REQ(mSGpTR)                  (mSGpTR)->ittiMsg.mme_app_path_switch_req
+//#define MME_APP_FORWARD_RELOCATION_REQUEST(mSGpTR)       (mSGpTR)->ittiMsg.mme_app_forward_relocation_request
 
+#define MME_APP_NAS_UPDATE_LOCATION_CNF(mSGpTR)          (mSGpTR)->ittiMsg.mme_app_nas_update_location_cnf
 
 typedef struct itti_mme_app_initial_ue_message_s {
   sctp_assoc_id_t     sctp_assoc_id; // key stored in MME_APP for MME_APP forward NAS response to S1AP
@@ -140,34 +141,13 @@ typedef struct itti_mme_app_ho_bearer_modification_fail_s {
 //  FTeid_t                 bearer_s1u_sgw_fteid;
 } itti_mme_app_ho_bearer_modification_fail_t;
 
-// HANDOVER MESSAGE SENT FROM MME_APP to S1AP after processing and validating in NAS todo: reject
-typedef struct itti_mme_app_handover_cnf_s {
-  ebi_t                   eps_bearer_id;
-  FTeid_t                 bearer_s1u_sgw_fteid;
-
-  /* Key eNB */
-  uint8_t                 nh[AUTH_NH_SIZE];
-  uint8_t                 ncc:3;
-
-  uint16_t                security_capabilities_encryption_algorithms;
-  uint16_t                security_capabilities_integrity_algorithms;
-
-  itti_nas_handover_cnf_t nas_handover_cnf; /**< Original message sent by NAS after validation. */
-} itti_mme_app_handover_cnf_t;
-
-typedef struct itti_mme_app_handover_rej_s {
-  itti_nas_handover_rej_t nas_handover_rej; /**< Original message sent by NAS after validation. */
-} itti_mme_app_handover_rej_t;
-
 typedef struct itti_mme_app_initial_context_setup_rsp_s {
   uint32_t                mme_ue_s1ap_id;
   ebi_t                   eps_bearer_id;
   FTeid_t                 bearer_s1u_enb_fteid;
 } itti_mme_app_initial_context_setup_rsp_t;
 
-
-
-
+/** ITTI Handover Messages. */
 typedef struct itti_mme_app_path_switch_req_s {
   uint32_t                mme_ue_s1ap_id;
   uint32_t                enb_ue_s1ap_id;
@@ -221,6 +201,16 @@ typedef struct itti_mme_app_s1ap_initial_ue_message_duplicate_cnf_s {
   bool                is_csg_id_valid;
   bool                is_gummei_valid;
 } itti_mme_app_s1ap_initial_ue_message_duplicate_cnf_t;
+
+typedef struct itti_mme_app_nas_update_location_cnf_s {
+  mme_ue_s1ap_id_t    ue_id;
+
+  char       imsi[IMSI_BCD_DIGITS_MAX + 1]; // username
+  uint8_t    imsi_length;               // username
+
+  s6a_result_t result;
+
+}itti_mme_app_nas_update_location_cnf_t;
 
 
 //// handover messages

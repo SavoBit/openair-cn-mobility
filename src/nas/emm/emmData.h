@@ -62,6 +62,9 @@ Description Defines internal private data handled by EPS Mobility
 #include "EpsBearerContextStatus.h"
 #include "EpsNetworkFeatureSupport.h"
 
+#include "../../mme/mme_ie_defs.h"
+#include "../api/network/nas_message.h" //nas_message_decode_status_t
+
 
 /****************************************************************************/
 /*********************  G L O B A L    C O N S T A N T S  *******************/
@@ -107,11 +110,7 @@ typedef struct emm_security_context_s {
   uint8_t ncc:3; /* next hop chaining counter for handover. */
   uint8_t nh_conj[AUTH_NH_SIZE];      /* nh */
 
-  struct count_s{
-    uint32_t spare:8;
-    uint32_t overflow:16;
-    uint32_t seq_num:8;
-  } dl_count, ul_count;   /* Downlink and uplink count parameters    */
+  count_t dl_count, ul_count;   /* Downlink and uplink count parameters    */
   struct {
     uint8_t eps_encryption;   /* algorithm used for ciphering            */
     uint8_t eps_integrity;    /* algorithm used for integrity protection */
@@ -145,7 +144,7 @@ typedef struct emm_data_context_s {
   bool             is_dynamic;  /* Dynamically allocated context indicator         */
   bool             is_attached; /* Attachment indicator                            */
   bool             is_emergency;/* Emergency bearer services indicator             */
-  bool             is_has_been_attached; /* Attachment indicator                   */
+//  bool             is_has_been_attached; /* Attachment indicator                   */
 
   /*
    * attach_type has type emm_proc_attach_type_t.
@@ -156,6 +155,7 @@ typedef struct emm_data_context_s {
   AdditionalUpdateType       additional_update_type;
 
   uint             num_attach_request;/* Num attach request received               */
+  uint             num_tau_request;/* Num attach request received               */
   //bool             is_attach_accept_sent ;/* Do we have sent attach accept         */
   //bool             is_attach_reject_sent ;/* Do we have sent attach reject         */
   //bool             is_attach_complete_received ;/* Do we have received attach complete */
@@ -250,8 +250,8 @@ typedef struct emm_data_context_s {
   struct nas_timer_t       T3460; /* Authentication timer         */
   struct nas_timer_t       T3470; /* Identification timer         */
   struct nas_timer_t       timer_s6a_auth_info_rsp; // MME<->HSS Authentication Information Rsp Timer over S6a interface
-  void *timer_s6a_auth_info_rsp_arg;
 
+  void *timer_s6a_auth_info_rsp_arg; // todo: timer in S6a stack?
 
   esm_data_context_t       esm_data_ctx;
 
@@ -297,6 +297,7 @@ typedef struct emm_data_context_s {
 #define           IS_EMM_CTXT_VALID_NON_CURRENT_SECURITY( eMmCtXtPtR )    (!!((eMmCtXtPtR)->member_valid_mask & EMM_CTXT_MEMBER_NON_CURRENT_SECURITY))
 #define           IS_EMM_CTXT_VALID_UE_NETWORK_CAPABILITY( eMmCtXtPtR )   (!!((eMmCtXtPtR)->member_valid_mask & EMM_CTXT_MEMBER_UE_NETWORK_CAPABILITY_IE))
 #define           IS_EMM_CTXT_VALID_MS_NETWORK_CAPABILITY( eMmCtXtPtR )   (!!((eMmCtXtPtR)->member_valid_mask & EMM_CTXT_MEMBER_MS_NETWORK_CAPABILITY_IE))
+#define           IS_EMM_CTXT_VALID_CURRENT_DRX_PARAMETER( eMmCtXtPtR )   (!!((eMmCtXtPtR)->member_valid_mask & EMM_CTXT_MEMBER_CURRENT_DRX_PARAMETER))
 
 #define           IS_EMM_CTXT_VALID_AUTH_VECTOR( eMmCtXtPtR, KsI )        (!!((eMmCtXtPtR)->member_valid_mask & ((EMM_CTXT_MEMBER_AUTH_VECTOR0) << KsI)))
 
@@ -328,6 +329,11 @@ typedef struct s6a_auth_info_rsp_timer_arg_s {
   mme_ue_s1ap_id_t                        ue_id;  // UE identifier 
   bool                                    resync; // Indicates whether the authentication information is requested due to sync failure
 } s6a_auth_info_rsp_timer_arg_t;
+
+typedef struct s10_context_rsp_timer_arg_s {
+  mme_ue_s1ap_id_t                        ue_id;  // UE identifier
+//  bool                                    resync; // Indicates whether the authentication information is requested due to sync failure
+} s10_context_rsp_timer_arg_t;
 
 mme_ue_s1ap_id_t emm_ctx_get_new_ue_id(emm_data_context_t *ctxt) __attribute__((nonnull));
 
@@ -401,7 +407,8 @@ void emm_ctx_clear_eps_bearer_context_status(emm_data_context_t * const ctxt) __
 void emm_ctx_set_eps_bearer_context_status(emm_data_context_t * const ctxt, EpsBearerContextStatus *status) __attribute__ ((nonnull)) ;
 void emm_ctx_set_valid_eps_bearer_context_status(emm_data_context_t * const ctxt, EpsBearerContextStatus *status) __attribute__ ((nonnull)) ;
 
-
+/** Update the EMM context from the received MM Context during Handover/TAU procedure. */
+void emm_ctx_update_from_mm_eps_context(emm_data_context_t * const ctxt, void * const _mm_eps_ctxt);
 
 struct emm_data_context_s *emm_data_context_get(
   emm_data_t *emm_data, const mme_ue_s1ap_id_t ueid) __attribute__ ((nonnull)) ;
@@ -418,6 +425,14 @@ struct emm_data_context_s *emm_data_context_remove(
 void emm_data_context_remove_mobile_ids(
   emm_data_t *_emm_data, struct emm_data_context_s *elm) __attribute__ ((nonnull)) ;
 
+/**
+ * This method updates the AS security parameters.
+ * Used for handover.
+ */
+int emm_data_context_update_security_parameters(const mme_ue_s1ap_id_t ue_id,
+    uint16_t *encryption_algorithm_capabilities,
+    uint16_t *integrity_algorithm_capabilities);
+
 int  emm_data_context_add(emm_data_t *emm_data, struct emm_data_context_s *elm) __attribute__ ((nonnull)) ;
 int  emm_data_context_add_guti (emm_data_t * emm_data, struct emm_data_context_s *elm) __attribute__ ((nonnull)) ;
 int  emm_data_context_add_old_guti (emm_data_t * emm_data, struct emm_data_context_s *elm) __attribute__ ((nonnull)) ;
@@ -429,6 +444,9 @@ void emm_data_context_silently_reset_procedures (struct emm_data_context_s *emm_
 void emm_data_context_stop_all_timers (struct emm_data_context_s *emm_ctx) __attribute__ ((nonnull)) ;
 void free_emm_data_context(struct emm_data_context_s * const emm_ctx) __attribute__ ((nonnull)) ;
 void emm_data_context_dump(const struct emm_data_context_s * const elm_pP) __attribute__ ((nonnull)) ;
+
+MMECause_t
+emm_data_context_validate_complete_nas_request(struct emm_data_context_s *emm_ctx_p, Complete_Request_Message_t *request_p);
 
 void emm_data_context_dump_all(void);
 

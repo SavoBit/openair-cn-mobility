@@ -611,6 +611,48 @@ extern                                  "C" {
     return NW_GTPV2C_IE_MISSING;
   }
 
+  NwRcT                                   nwGtpv2cMsgAddIeFCause (
+  NW_IN NwGtpv2cMsgHandleT hMsg,
+  NW_IN uint8_t instance,
+  NW_IN uint8_t fcauseType,
+  NW_IN uint8_t fcauseValue){
+    uint8_t fcauseBuf[8];
+
+    fcauseBuf[0] = fcauseType;
+    fcauseBuf[1] = fcauseValue;
+    // todo: extended f-cause?!
+    return (nwGtpv2cMsgAddIe(hMsg, NW_GTPV2C_IE_F_CAUSE, 2, instance, fcauseBuf));
+  }
+
+  NwRcT                                   nwGtpv2cMsgAddIeFContainer (
+  NW_IN NwGtpv2cMsgHandleT hMsg,
+  NW_IN uint8_t   instance,
+  NW_IN uint8_t*  container_value,
+  NW_IN uint32_t  container_data_size,
+  NW_IN uint8_t   container_type){
+    uint8_t fContainerBuf[container_data_size];
+
+    fContainerBuf[0] = container_type;
+    memcpy(&fContainerBuf[1], container_value, container_data_size -1 );
+    // todo: extended f-cause?!
+    return (nwGtpv2cMsgAddIe(hMsg, NW_GTPV2C_IE_F_CONTAINER, container_data_size, instance, fContainerBuf));
+  }
+
+
+  NwRcT                                   nwGtpv2cMsgAddIeCompleteRequestMessage (
+  NW_IN NwGtpv2cMsgHandleT hMsg,
+  NW_IN uint8_t   instance,
+  NW_IN uint8_t*  request_value,
+  NW_IN uint32_t  request_size,
+  NW_IN uint8_t   request_type){
+    uint8_t requestBuf[request_size];
+
+    requestBuf[0] = request_type;
+    memcpy(&requestBuf[1], request_value, request_size -1 );
+    // todo: extended f-cause?!
+    return (nwGtpv2cMsgAddIe(hMsg, NW_GTPV2C_IE_COMPLETE_REQUEST_MESSAGE, request_size, instance, requestBuf));
+  }
+
   NwRcT                                   nwGtpv2cMsgGetIeFteid (
   NW_IN NwGtpv2cMsgHandleT hMsg,
   NW_IN uint8_t instance,

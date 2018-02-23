@@ -34,6 +34,7 @@
 
 #define MAX_GUMMEI                2
 
+#define MAX_NGH_MMES              2
 
 
 #endif /* FILE_COMMON_DIM_SEEN */

@@ -35,7 +35,8 @@
 #define S6A_UPDATE_LOCATION_ANS(mSGpTR)  (mSGpTR)->ittiMsg.s6a_update_location_ans
 #define S6A_AUTH_INFO_REQ(mSGpTR)        (mSGpTR)->ittiMsg.s6a_auth_info_req
 #define S6A_AUTH_INFO_ANS(mSGpTR)        (mSGpTR)->ittiMsg.s6a_auth_info_ans
-
+#define S6A_CANCEL_LOCATION_REQ(mSGpTR)  (mSGpTR)->ittiMsg.s6a_cancel_location_req
+#define S6A_RESET_REQ(mSGpTR)            (mSGpTR)->ittiMsg.s6a_reset_req
 
 #define AUTS_LENGTH 14
 #define RESYNC_PARAM_LENGTH AUTS_LENGTH + RAND_LENGTH_OCTETS
@@ -72,8 +73,20 @@ typedef struct s6a_update_location_ans_s {
   char    imsi[IMSI_BCD_DIGITS_MAX + 1];
   uint8_t imsi_length;
 
-
 } s6a_update_location_ans_t;
+
+typedef struct s6a_cancel_location_req_s {
+  char       imsi[IMSI_BCD_DIGITS_MAX + 1]; // username
+  uint8_t    imsi_length;               // username
+
+  uint32_t   clr_flags;               // clr flags
+
+  cancellation_type_t cancellation_type;
+} s6a_cancel_location_req_t;
+
+typedef struct s6a_reset_req_s {
+// todo: maybe username?
+} s6a_reset_req_t;
 
 typedef struct s6a_auth_info_req_s {
   char    imsi[IMSI_BCD_DIGITS_MAX + 1];

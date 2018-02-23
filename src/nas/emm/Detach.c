@@ -77,9 +77,9 @@ _clear_emm_ctxt(emm_data_context_t *emm_ctx) {
   }
 
   emm_data_context_stop_all_timers(emm_ctx);
-  
+
   esm_sap_t                               esm_sap = {0};
-  /* 
+  /*
    * Release ESM PDN and bearer context
    */
 
@@ -88,7 +88,7 @@ _clear_emm_ctxt(emm_data_context_t *emm_ctx) {
   esm_sap.ctx = emm_ctx;
   esm_sap.data.eps_bearer_context_deactivate.ebi = ESM_SAP_ALL_EBI;
   esm_sap_send (&esm_sap);
-  
+
   if (emm_ctx->esm_msg) {
     bdestroy(emm_ctx->esm_msg);
   }
@@ -270,6 +270,102 @@ emm_proc_detach_request (
     rc = emm_sap_send (&emm_sap);
   }
 
+  /**
+   * Although MME_APP and EMM contexts are separated, doing it like this causes the recursion problem.
+   *
+   * TS 23.401: 5.4.4.1 -> (Although dedicated bearers, works for me).
+   *
+   * If all the bearers belonging to a UE are released, the MME shall change the MM state of the UE to EMM-
+   * DEREGISTERED and the MME sends the S1 Release Command to the eNodeB, which initiates the release of the RRC
+   * connection for the given UE if it is not released yet, and returns an S1 Release Complete message to the MME.
+   *
+   * Don't do it recursively over MME_APP, do it over the EMM/ESM, that's what they're for.
+   * So just triggering the ESM (before purging the context, to remove/purge all the PDN connections.
+   *
+   */
+
+  /** Check if there are any active sessions, if so terminate them all. */
+  OAILOG_INFO (LOG_NAS_EMM, "ue_id=" MME_UE_S1AP_ID_FMT " EMM-PROC  - Attach UE \n", emm_ctx->ue_id);
+  /*
+   * 3GPP TS 24.401, Figure 5.3.2.1-1, point 5a
+   * At this point, all NAS messages shall be protected by the NAS security
+   * functions (integrity and ciphering) indicated by the MME unless the UE
+   * is emergency attached and not successfully authenticated.
+   */
+
+  /*
+   * Notify ESM that PDN connectivity is requested
+   */
+
+  /*
+   * Release ESM PDN and bearer context
+   */
+
+  // todo: check that any session exists.
+  if(emm_ctx->esm_data_ctx.n_pdns){
+    esm_sap_t                               esm_sap = {0};
+
+    esm_sap.primitive = ESM_PDN_DISCONNECT_REQ;
+    esm_sap.is_standalone = false;
+    esm_sap.ue_id = emm_ctx->ue_id;
+    esm_sap.ctx = emm_ctx;
+    esm_sap.recv = emm_ctx->esm_msg;
+//    esm_sap.data.eps_bearer_context_deactivate.ebi = 5; /**< Default Bearer Id of default APN. */
+
+    ESM_msg                         esm_msg;
+    memset (&esm_msg, 0, sizeof (ESM_msg));
+
+    esm_msg.header.message_type = PDN_DISCONNECT_REQUEST;
+    esm_msg.header.procedure_transaction_identity = PROCEDURE_TRANSACTION_IDENTITY_UNASSIGNED;
+//    int
+//    _emm_sap_process_esm_message(
+//        ESM_msg                                *esm_msg_p,
+//        int                                     esm_cause,
+//        int                                     is_discarded,
+//        int                                     triggered_by_ue,
+//        int                                     pti,
+//        unsigned int                            ebi,
+//        int                                     is_standalone,
+//        esm_sap_error_t                        *err,
+//        esm_proc_procedure_t                    esm_procedure,
+//        emm_data_context_t                     *ctx)
+
+    esm_sap_error_t                         err = ESM_SAP_SUCCESS;
+    esm_proc_procedure_t                    esm_procedure = NULL;
+    int                                     esm_cause = (-1);
+    unsigned int                            default_bearer_id = 5;
+
+//    rc = _emm_sap_process_esm_message (&esm_msg, esm_cause, 0, 0, PROCEDURE_TRANSACTION_IDENTITY_UNASSIGNED,
+//        default_bearer_id, 1, &err, esm_procedure, &emm_ctx->esm_data_ctx);
+
+    /**
+     * Use this temporary function until session removal is implemented in ESM.
+     * Method just sends the S11 message. Not doing any deregistration.
+     */
+    // todo: still deregister the MME_APP UE context from the hashtable with the S11 key..
+    rc = mme_api_delete_session_request(ue_id);
+    /**
+     * Just deal with this later properly.
+     * The ESM context will be cleaned up later with the EMM context, without waiting for a response from the SAE-GW.
+     */
+
+    // todo: check rc
+
+    /** Not needed anymore. */
+    if (emm_ctx->esm_msg) {
+      bdestroy(emm_ctx->esm_msg);
+    }
+
+    OAILOG_INFO (LOG_NAS_EMM, "ue_id=" MME_UE_S1AP_ID_FMT " EMM-PROC  - Deactivating PDN Connection via ESM for detach before continuing. \n", emm_ctx->ue_id);
+    /**
+     * Not waiting for a response. Will assume that the session is correctly purged.. Continuing with the detach and assuming that the SAE-GW session is purged.
+     * Assuming, that in 5G AMF/SMF structure, it is like in PCRF, sending DELETE_SESSION_REQUEST and not caring about the response. Assuming the session is deactivated.
+     */
+  }else{
+    /** No PDNs existing, continue with the EMM detach. */
+    rc = RETURNok;
+  }
+
   if (rc != RETURNerror) {
 
     emm_sap_t                               emm_sap = {0};
@@ -282,10 +378,11 @@ emm_proc_detach_request (
     emm_sap.u.emm_reg.ue_id = ue_id;
     emm_sap.u.emm_reg.ctx = emm_ctx;
     rc = emm_sap_send (&emm_sap);
-    // Notify MME APP to trigger Session release towards SGW and S1 signaling release towards S1AP.
+    // Notify MME APP to trigger S1 signaling release towards S1AP. (not triggering session release towards SGW).
     nas_itti_detach_req(ue_id);
   }
-  // Release emm and esm context  
+
+  // Release the emm context, not the ESM context.. Assert that the ESM context is already release.
   _clear_emm_ctxt(emm_ctx);
 
   OAILOG_FUNC_RETURN (LOG_NAS_EMM, RETURNok);

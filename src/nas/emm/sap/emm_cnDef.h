@@ -46,6 +46,13 @@ typedef enum emmcn_primitive_s {
   _EMMCN_START = 400,
   _EMMCN_AUTHENTICATION_PARAM_RES,
   _EMMCN_AUTHENTICATION_PARAM_FAIL,
+  /** Newly added pritimitives for TAU handling. */
+
+  _EMMCN_CONTEXT_RES,
+  _EMMCN_CONTEXT_FAIL,
+  _EMMCN_UPDATE_LOCATION_RES,
+  _EMMCN_UPDATE_LOCATION_FAIL,
+
   _EMMCN_DEREGISTER_UE,
   _EMMCN_PDN_CONNECTIVITY_RES, // LG
   _EMMCN_PDN_CONNECTIVITY_FAIL,// LG
@@ -53,6 +60,10 @@ typedef enum emmcn_primitive_s {
   // handover related
   _EMMCN_HO_BEARER_MODIFICATION_RES,
   _EMMCN_HO_BEARER_MODIFICATION_FAIL,
+  _EMMCN_HO_SESSION_ESTABLISHMENT_RES,
+  _EMMCN_HO_SESSION_ESTABLISHMENT_FAIL,
+
+  _EMMCN_HO_FORWARD_RELOCATION_REQ,
 
   _EMMCN_IMPLICIT_DETACH_UE,
   _EMMCN_SMC_PROC_FAIL,
@@ -78,12 +89,44 @@ typedef struct emm_cn_auth_fail_s {
   nas_cause_t cause;
 } emm_cn_auth_fail_t;
 
+typedef struct emm_cn_context_fail_s {
+  /* UE identifier */
+  mme_ue_s1ap_id_t    ue_id;
+
+  /* S10 mapped to NAS cause */
+  nas_cause_t cause;
+} emm_cn_context_fail_t;
+
+typedef struct emm_cn_update_loc_res_s {
+  /* UE identifier */
+  mme_ue_s1ap_id_t ue_id;
+  EpsUpdateType epsUpdateType;
+
+  /* For future use: nb of vectors provided */
+//  uint8_t nb_apns;
+
+  /* Consider only one E-UTRAN vector for the moment... */
+//  apn_configuration_t *apn_configurations[MAX_EPS_APN];
+} emm_cn_update_loc_res_t;
+
+typedef struct emm_cn_update_loc_fail_s {
+  /* UE identifier */
+  mme_ue_s1ap_id_t    ue_id;
+
+  /* S6A mapped to NAS cause */
+  nas_cause_t cause;
+} emm_cn_update_loc_fail_t;
+
 typedef itti_nas_pdn_connectivity_rsp_t  emm_cn_pdn_res_t;
 typedef itti_nas_pdn_connectivity_fail_t emm_cn_pdn_fail_t;
+
+/** NAS UE context response. */
+typedef itti_nas_ue_context_rsp_t  emm_cn_context_res_t;
 
 // todo: add the new typedef to EMM_CN only if the MBR request came from EMM and not S1AP
 typedef itti_nas_ho_bearer_modification_rsp_t     emm_cn_ho_bearer_mod_res_t;
 typedef itti_nas_ho_bearer_modification_fail_t    emm_cn_ho_bearer_mod_fail_t;
+typedef itti_nas_ho_forward_relocation_req_t   emm_cn_ho_forward_relocation_req_t;
 
 typedef struct emm_cn_deregister_ue_s {
   uint32_t ue_id;
@@ -101,13 +144,23 @@ typedef struct emm_cn_smc_fail_s {
 typedef struct emm_mme_ul_s {
   emm_cn_primitive_t primitive;
   union {
-    emm_cn_auth_res_t       *auth_res;
-    emm_cn_auth_fail_t      *auth_fail;
-    emm_cn_deregister_ue_t   deregister;
-    emm_cn_pdn_res_t        *emm_cn_pdn_res;
-    emm_cn_pdn_fail_t       *emm_cn_pdn_fail;
-    emm_cn_ho_bearer_mod_res_t       *emm_cn_ho_bearer_mod_res;
-    emm_cn_ho_bearer_mod_fail_t      *emm_cn_ho_bearer_mod_fail;
+    emm_cn_auth_res_t        *auth_res;
+    emm_cn_auth_fail_t       *auth_fail;
+
+    emm_cn_context_res_t     *context_res;
+    emm_cn_context_fail_t    *context_fail;
+
+    emm_cn_update_loc_res_t  *update_loc_res;
+    emm_cn_update_loc_fail_t *update_loc_fail;
+
+    emm_cn_deregister_ue_t    deregister;
+    emm_cn_pdn_res_t         *emm_cn_pdn_res;
+    emm_cn_pdn_fail_t        *emm_cn_pdn_fail;
+
+    /** Handover Related Messages. */
+    emm_cn_ho_bearer_mod_res_t          *emm_cn_ho_bearer_mod_res;
+    emm_cn_ho_bearer_mod_fail_t         *emm_cn_ho_bearer_mod_fail;
+    emm_cn_ho_forward_relocation_req_t  *emm_cn_ho_forward_relocation_req; /**< S10 Forward Relocation Request Handover message. */
 
     emm_cn_implicit_detach_ue_t   emm_cn_implicit_detach;
     emm_cn_smc_fail_t        *smc_fail;

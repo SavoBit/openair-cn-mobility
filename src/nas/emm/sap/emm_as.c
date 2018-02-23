@@ -108,7 +108,7 @@ static int _emm_as_recv (
 
 static int _emm_as_establish_req (const emm_as_establish_t * msg, int *emm_cause);
 static int _emm_as_data_ind (const emm_as_data_t * msg, int *emm_cause);
-
+static int _emm_as_s1ap_handover_establish_ind (const emm_as_s1ap_handover_establish_ind_t * msg, int *emm_cause);
 /*
    Functions executed to send data to the network when requested
    within EMM procedure processing
@@ -127,8 +127,8 @@ static int _emm_as_establish_cnf (const emm_as_establish_t *, nas_establish_rsp_
 static int _emm_as_establish_rej (const emm_as_establish_t *, nas_establish_rsp_t *);
 
 // handover
-static int _emm_as_ho_bearer_modification_cnf (const emm_as_ho_bearer_modification_t *, nas_ho_bearer_modification_cnf_t *);
-static int _emm_as_ho_bearer_modification_rej (const emm_as_ho_bearer_modification_t *, nas_ho_bearer_modification_cnf_t *);
+static int _emm_as_ho_tau_bearer_modification_cnf (const emm_as_ho_bearer_modification_t *, nas_ho_tau_bearer_modification_cnf_t *);
+static int _emm_as_ho_tau_bearer_modification_rej (const emm_as_ho_bearer_modification_t *, nas_ho_tau_bearer_modification_cnf_t *);
 
 static int _emm_as_page_ind (const emm_as_page_t *, paging_req_t *);
 static int _emm_as_data_req (const emm_as_data_t *, dl_info_transfer_req_t *);
@@ -184,6 +184,7 @@ int emm_as_send (const emm_as_t * msg)
   emm_as_primitive_t                      primitive = msg->primitive;
   uint32_t                                ue_id = 0;
 
+  // todo: this is wrong!
   OAILOG_INFO (LOG_NAS_EMM, "EMMAS-SAP - Received primitive %s (%d)\n", _emm_as_primitive_str[primitive - _EMMAS_START - 1], primitive);
 
   switch (primitive) {
@@ -195,6 +196,11 @@ int emm_as_send (const emm_as_t * msg)
   case _EMMAS_ESTABLISH_REQ:
     rc = _emm_as_establish_req (&msg->u.establish, &emm_cause);
     ue_id = msg->u.establish.ue_id;
+    break;
+
+  case _EMMAS_S1AP_HO_ESTABLISHMENT_IND:
+    rc = _emm_as_s1ap_handover_establish_ind (&msg->u.s1ap_ho_establishment_ind, &emm_cause);
+    ue_id = msg->u.s1ap_ho_establishment_ind.ue_id;
     break;
 
   default:
@@ -348,7 +354,7 @@ static int _emm_as_recv (
   case ATTACH_REQUEST:
     REQUIREMENT_3GPP_24_301(R10_4_4_4_3__1); // Integrity checking of NAS signalling messages in the MME
     REQUIREMENT_3GPP_24_301(R10_4_4_4_3__2); // Integrity checking of NAS signalling messages in the MME
-    rc = emm_recv_attach_request (ue_id, originating_tai, originating_ecgi, &emm_msg->attach_request, emm_cause, decode_status);
+    rc = emm_recv_attach_request (ue_id, originating_tai, originating_ecgi, &emm_msg->attach_request, emm_cause, decode_status, msg);
     break;
 
   case IDENTITY_RESPONSE:
@@ -401,7 +407,68 @@ static int _emm_as_recv (
     rc = emm_recv_attach_complete (ue_id, &emm_msg->attach_complete, emm_cause, decode_status);
     break;
 
+  case TRACKING_AREA_UPDATE_REQUEST:
+//    // Check for emm_ctx and integrity verification
+//    /** Check for this case too, that if no security context is existing, it should be received by the source MME. */
+//      if ((emm_ctx == NULL) ||
+//              ((0 == decode_status->security_context_available) ||
+//                  (0 == decode_status->integrity_protected_message) ||
+//                      ((1 == decode_status->security_context_available) && (0 == decode_status->mac_matched)))) {
+//
+//        *emm_cause = EMM_CAUSE_UE_IDENTITY_CANT_BE_DERIVED_BY_NW;
+//        // Send Reject with cause "UE identity cannot be derived by the network" to trigger fresh attach
+//        rc = emm_proc_tracking_area_update_reject (ue_id, EMM_CAUSE_UE_IDENTITY_CANT_BE_DERIVED_BY_NW);
+//        OAILOG_FUNC_RETURN (LOG_NAS_EMM,rc);
+//      }
+//
+//      // Process periodic TAU
+//      rc = emm_recv_tracking_area_update_request (ue_id,
+//          &emm_msg->tracking_area_update_request,
+//          emm_cause,
+//          originating_tai->tac,
+//          &originating_tai->plmn,
+//          decode_status,
+//          );
+//      break;
+    // Check for emm_ctx and integrity verification
+    /** If the TAU message does not has an integrity header reject it. */
+    if (0 == decode_status->integrity_protected_message) {     /**< TAU must have an MAC header!. */
+      /** Reject the TAU Request rightaway. */
+      *emm_cause = EMM_CAUSE_UE_IDENTITY_CANT_BE_DERIVED_BY_NW;
+      // Send Reject with cause "UE identity cannot be derived by the network" to trigger fresh attach
+      rc = emm_proc_tracking_area_update_reject (ue_id, EMM_CAUSE_UE_IDENTITY_CANT_BE_DERIVED_BY_NW);
+      OAILOG_FUNC_RETURN (LOG_NAS_EMM,rc);
+    }
+    /** Check that a UE context/security_context exists for this UE, if  not request one via S10. */
+    if ((emm_ctx == NULL) ||                                                      /**< A context must exist. */
+            ((0 == decode_status->security_context_available) ||                     /**< It must have a valid security context. */
+                    ((1 == decode_status->security_context_available) && (0 == decode_status->mac_matched)))) {     /**< Security context existed and MAC did not matched. */
+      /** Continue with the establishment of an UE context. Will ask the source MME for an UE context. */
+      OAILOG_INFO (LOG_NAS_EMM, "EMMAS-SAP - no UE context is existing for received TAU request for ue_id " MME_UE_S1AP_ID_FMT "."
+          " Will create new UE context & ask source MME if possible. \n", ue_id);
+    }
+    /** Process the TAU request. It may ask the S10 for UE Context creation. */
+    rc = emm_recv_tracking_area_update_request (ue_id,
+        &emm_msg->tracking_area_update_request,
+        emm_cause,
+        originating_tai,
+        decode_status,
+        msg);       /**< Send the encoded  NAS_EMM message together with it. */
+    /** If ask_ue_context is set.. Ask the MME_APP to send S10_UE_CONTEXT. */
+    if(msg)
+      bdestroy(msg);
+    break;
   case TRACKING_AREA_UPDATE_COMPLETE:
+    REQUIREMENT_3GPP_24_301(R10_4_4_4_3__1);
+      if ((0 == decode_status->security_context_available) ||
+          (0 == decode_status->integrity_protected_message) ||
+         // Requirement MME24.301R10_4.4.4.3_2
+         ((1 == decode_status->security_context_available) && (0 == decode_status->mac_matched))) {
+        *emm_cause = EMM_CAUSE_PROTOCOL_ERROR;
+        OAILOG_FUNC_RETURN (LOG_NAS_EMM, decoder_rc);
+      }
+    rc = emm_recv_tracking_area_update_complete (ue_id, &emm_msg->attach_complete, emm_cause, decode_status);
+    break;
   case GUTI_REALLOCATION_COMPLETE:
   case UPLINK_NAS_TRANSPORT:
     REQUIREMENT_3GPP_24_301(R10_4_4_4_3__1);
@@ -412,7 +479,6 @@ static int _emm_as_recv (
       *emm_cause = EMM_CAUSE_PROTOCOL_ERROR;
       OAILOG_FUNC_RETURN (LOG_NAS_EMM, decoder_rc);
     }
-
     /*
      * TODO
      */
@@ -432,7 +498,7 @@ static int _emm_as_recv (
     break;
 
   default:
-    OAILOG_WARNING (LOG_NAS_EMM, "EMMAS-SAP - EMM message 0x%x is not valid", emm_msg->header.message_type);
+    OAILOG_WARNING (LOG_NAS_EMM, "EMMAS-SAP - EMM message 0x%x is not valid. \n", emm_msg->header.message_type);
     *emm_cause = EMM_CAUSE_MESSAGE_TYPE_NOT_COMPATIBLE;
     break;
   }
@@ -526,7 +592,8 @@ static int _emm_as_data_ind (const emm_as_data_t * msg, int *emm_cause)
           rc = lowerlayer_data_ind (msg->ue_id, plain_msg);
         }
 
-        bdestroy (plain_msg);
+        if(plain_msg)
+          bdestroy (plain_msg);
       }
     } else {
       /*
@@ -595,7 +662,6 @@ static int _emm_as_establish_req (const emm_as_establish_t * msg, int *emm_cause
    * Decode initial NAS message
    */
   decoder_rc = nas_message_decode (msg->nas_msg->data, &nas_msg, blength(msg->nas_msg), emm_security_context, &decode_status);
-  bdestroy(msg->nas_msg);
 
   if (decoder_rc < TLV_FATAL_ERROR) {
     *emm_cause = EMM_CAUSE_PROTOCOL_ERROR;
@@ -606,11 +672,31 @@ static int _emm_as_establish_req (const emm_as_establish_t * msg, int *emm_cause
     *emm_cause = EMM_CAUSE_PROTOCOL_ERROR;
   }
 
+  EMM_msg                                *emm_msg = &nas_msg.plain.emm;
+
+  /** Check the status..
+   * if no security context is existing
+   * mac_matched == 0
+   * ATTACH_REQ or TAU
+   * don't purge the message! */
+  if(emm_ctx == NULL /**< Will reject the message if an EMM context exists. */
+      && decode_status.security_context_available == 0
+      && decode_status.integrity_protected_message == 1
+      && decode_status.mac_matched == 0
+      && (emm_msg->header.message_type == ATTACH_REQUEST || emm_msg->header.message_type == TRACKING_AREA_UPDATE_REQUEST)){
+    /**
+     * Not purging the encoded nas_msg.. will send it to the source MME for security validation.
+     * It may be the ciphered message.
+     */
+    OAILOG_INFO (LOG_NAS_EMM, "EMMAS-SAP - Not purging the nas_msg for later context request for integrity check! \n");
+  }else{
+    OAILOG_INFO (LOG_NAS_EMM, "EMMAS-SAP - purging the nas_msg %p\n", emm_ctx);
+    bdestroy(msg->nas_msg); /**< We don't need the encoded message anymore. */
+  }
+
   /*
    * Process initial NAS message
    */
-  EMM_msg                                *emm_msg = &nas_msg.plain.emm;
-
   switch (emm_msg->header.message_type) {
   case ATTACH_REQUEST:
     originating_tai.tac = msg->tac;
@@ -620,7 +706,36 @@ static int _emm_as_establish_req (const emm_as_establish_t * msg, int *emm_cause
     originating_tai.plmn.mnc_digit1 = msg->plmn_id->mnc_digit1;
     originating_tai.plmn.mnc_digit2 = msg->plmn_id->mnc_digit2;
     originating_tai.plmn.mnc_digit3 = msg->plmn_id->mnc_digit3;
-    rc = emm_recv_attach_request (msg->ue_id, &originating_tai, &msg->ecgi, &emm_msg->attach_request, emm_cause, &decode_status);
+    rc = emm_recv_attach_request (msg->ue_id, &originating_tai, &msg->ecgi, &emm_msg->attach_request, emm_cause, &decode_status, msg->nas_msg);
+    if(msg->nas_msg)
+      bdestroy(msg->nas_msg);
+    break;
+
+  case TRACKING_AREA_UPDATE_REQUEST:
+    // Check for emm_ctx and integrity verification
+    /**
+     * Not rejecting the the TAU, if no integrity header.
+     * NAS messages could also be sent without integrity header.
+     */
+
+    originating_tai.tac = msg->tac;
+    originating_tai.plmn.mcc_digit1 = msg->plmn_id->mcc_digit1;
+    originating_tai.plmn.mcc_digit2 = msg->plmn_id->mcc_digit2;
+    originating_tai.plmn.mcc_digit3 = msg->plmn_id->mcc_digit3;
+    originating_tai.plmn.mnc_digit1 = msg->plmn_id->mnc_digit1;
+    originating_tai.plmn.mnc_digit2 = msg->plmn_id->mnc_digit2;
+    originating_tai.plmn.mnc_digit3 = msg->plmn_id->mnc_digit3;
+
+    /** Process the TAU request. It may ask the S10 for UE Context creation. */
+    rc = emm_recv_tracking_area_update_request (msg->ue_id,
+        &emm_msg->tracking_area_update_request,
+        emm_cause,
+        &originating_tai,
+        &decode_status,
+        msg->nas_msg);       /**< Send the encoded  NAS_EMM message together with it. */
+    /** If ask_ue_context is set.. Ask the MME_APP to send S10_UE_CONTEXT. */
+    if(msg->nas_msg)
+      bdestroy(msg->nas_msg);
     break;
 
   case DETACH_REQUEST:
@@ -650,28 +765,6 @@ static int _emm_as_establish_req (const emm_as_establish_t * msg, int *emm_cause
     // Process Detach Request
     rc = emm_recv_detach_request (
       msg->ue_id, &emm_msg->detach_request, emm_cause, &decode_status);
-    break;
-
-  case TRACKING_AREA_UPDATE_REQUEST:
-    // Check for emm_ctx and integrity verification 
-    if ((emm_ctx == NULL) || 
-            ((0 == decode_status.security_context_available) ||
-                (0 == decode_status.integrity_protected_message) ||
-                    ((1 == decode_status.security_context_available) && (0 == decode_status.mac_matched)))) {
-      
-      *emm_cause = EMM_CAUSE_UE_IDENTITY_CANT_BE_DERIVED_BY_NW;
-      // Send Reject with cause "UE identity cannot be derived by the network" to trigger fresh attach 
-      rc = emm_proc_tracking_area_update_reject (msg->ue_id, EMM_CAUSE_UE_IDENTITY_CANT_BE_DERIVED_BY_NW);
-      OAILOG_FUNC_RETURN (LOG_NAS_EMM,rc);
-    }
-    
-    // Process periodic TAU   
-    rc = emm_recv_tracking_area_update_request (msg->ue_id,
-        &emm_msg->tracking_area_update_request,
-        emm_cause,
-        msg->tac,
-        msg->plmn_id,
-        &decode_status);
     break;
 
   case SERVICE_REQUEST:
@@ -715,6 +808,53 @@ static int _emm_as_establish_req (const emm_as_establish_t * msg, int *emm_cause
   OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
 }
 
+
+/****************************************************************************
+ **                                                                        **
+ ** Name:    _emm_as_s1ap_handover_establish_ind()                                   **
+ **                                                                        **
+ ** Description: Processes the EMMAS-SAP S1AP Handover Establishment Indicator       **
+ **      primitive (processing TAI and ECGI received in the HANDOVER_NOTIFY).        **
+ **                                                                        **
+ **                                                                        **
+ ***************************************************************************/
+static int _emm_as_s1ap_handover_establish_ind (const emm_as_s1ap_handover_establish_ind_t* s1ap_handover_est_ind, int *emm_cause)
+{
+  struct emm_data_context_s              *emm_ctx = NULL;
+  emm_security_context_t                 *emm_security_context = NULL;
+  nas_message_decode_status_t             decode_status = {0};
+  int                                     decoder_rc = 0;
+  int                                     rc = RETURNerror;
+  tai_t                                   originating_tai = {.plmn = {0}, .tac = INVALID_TAC_0000};
+
+  OAILOG_FUNC_IN (LOG_NAS_EMM);
+  OAILOG_INFO (LOG_NAS_EMM, "EMMAS-SAP - Received AS connection establish request\n");
+  nas_message_t                           nas_msg = {.security_protected.header = {0},
+                                                     .security_protected.plain.emm.header = {0},
+                                                     .security_protected.plain.esm.header = {0}};
+
+  emm_ctx = emm_data_context_get (&_emm_data, s1ap_handover_est_ind->ue_id);
+
+  if (emm_ctx) {
+    OAILOG_INFO (LOG_NAS_EMM, "EMMAS-SAP - got context %p\n", emm_ctx);
+    if (IS_EMM_CTXT_PRESENT_SECURITY(emm_ctx)) {
+      emm_security_context = &emm_ctx->_security;
+    }
+  }
+//  /*
+//   * Process initial NAS message
+//   */
+    originating_tai.tac = s1ap_handover_est_ind->tac;
+    originating_tai.plmn.mcc_digit1 = s1ap_handover_est_ind->plmn_id->mcc_digit1;
+    originating_tai.plmn.mcc_digit2 = s1ap_handover_est_ind->plmn_id->mcc_digit2;
+    originating_tai.plmn.mcc_digit3 = s1ap_handover_est_ind->plmn_id->mcc_digit3;
+    originating_tai.plmn.mnc_digit1 = s1ap_handover_est_ind->plmn_id->mnc_digit1;
+    originating_tai.plmn.mnc_digit2 = s1ap_handover_est_ind->plmn_id->mnc_digit2;
+    originating_tai.plmn.mnc_digit3 = s1ap_handover_est_ind->plmn_id->mnc_digit3;
+    rc = emm_recv_s1ap_handover_notify (s1ap_handover_est_ind->ue_id, &originating_tai, &s1ap_handover_est_ind->ecgi, emm_cause);
+
+    OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
+}
 
 /*
    --------------------------------------------------------------------------
@@ -963,13 +1103,13 @@ static int _emm_as_send (const emm_as_t * msg)
     as_msg.msg_id = _emm_as_establish_rej (&msg->u.establish, &as_msg.msg.nas_establish_rsp);
     break;
 
-    // handover
-  case _EMMAS_HO_BEARER_MODIFICATION_CNF:
-    as_msg.msg_id = _emm_as_ho_bearer_modification_cnf(&msg->u.establish, &as_msg.msg.nas_ho_bearer_modification_cnf);
+  // handover related EMMAS signals.. indicate that core network procedures (bearer/session establishment but no update location request) for X2AP or S1AP have been succeeded..
+  case _EMMAS_HO_TAU_BEARER_MODIFICATION_CNF:
+    as_msg.msg_id = _emm_as_ho_tau_bearer_modification_cnf(&msg->u.establish, &as_msg.msg.nas_ho_tau_bearer_modification_cnf);
     break;
 
-  case _EMMAS_HO_BEARER_MODIFICATION_REJ:
-    as_msg.msg_id = _emm_as_ho_bearer_modification_rej(&msg->u.establish, &as_msg.msg.nas_ho_bearer_modification_cnf);
+  case _EMMAS_HO_TAU_BEARER_MODIFICATION_REJ:
+    as_msg.msg_id = _emm_as_ho_tau_bearer_modification_rej(&msg->u.establish, &as_msg.msg.nas_ho_tau_bearer_modification_cnf);
     break;
 
   case _EMMAS_PAGE_IND:
@@ -1017,24 +1157,26 @@ static int _emm_as_send (const emm_as_t * msg)
         }
       }
       break;
-    case AS_NAS_HANDOVER_CNF:{
-           if (as_msg.msg.nas_ho_bearer_modification_cnf.err_code != AS_SUCCESS) {
-             // Sending a HO preperation failure or a path switch failure in the error case..
-             nas_itti_handover_rej (as_msg.msg.nas_ho_bearer_modification_cnf.ue_id, as_msg.msg.nas_ho_bearer_modification_cnf.err_code);
+    case AS_NAS_HANDOVER_TAU_CNF:{
+      if (as_msg.msg.nas_ho_tau_bearer_modification_cnf.err_code != AS_SUCCESS) {
+             // Sending a HO preparation failure or a path switch failure in the error case..
+             nas_itti_handover_tau_rej (as_msg.msg.nas_ho_tau_bearer_modification_cnf.ue_id, as_msg.msg.nas_ho_tau_bearer_modification_cnf.err_code);
              OAILOG_FUNC_RETURN (LOG_NAS_EMM, RETURNok);
            } else {
-             OAILOG_DEBUG (LOG_NAS_EMM, "EMMAS-SAP - Sending nas_itti_handover_cnf to S1AP UE ID 0x%x sea 0x%04X sia 0x%04X\n",
-                 as_msg.msg.nas_ho_bearer_modification_cnf.ue_id,
-                 as_msg.msg.nas_ho_bearer_modification_cnf.selected_encryption_algorithm,
-                 as_msg.msg.nas_ho_bearer_modification_cnf.selected_integrity_algorithm);
+             OAILOG_DEBUG (LOG_NAS_EMM, "EMMAS-SAP - Sending nas_itti_handover_tau_cnf to S1AP UE ID 0x%x sea 0x%04X sia 0x%04X\n",
+                 as_msg.msg.nas_ho_tau_bearer_modification_cnf.ue_id,
+                 as_msg.msg.nas_ho_tau_bearer_modification_cnf.selected_encryption_algorithm,
+                 as_msg.msg.nas_ho_tau_bearer_modification_cnf.selected_integrity_algorithm);
 
              /*
-              * Handle success case
+              * Handle successful Handover/TAU.
+              * This should either -> trigger S1AP handover request (HO) or an ULR.
+              * todo: normal TAU (TAU request handled, where UE context was already established (entering TAU request after CSR)
               */
-             nas_itti_handover_cnf(as_msg.msg.nas_ho_bearer_modification_cnf.ue_id,
-                 as_msg.msg.nas_ho_bearer_modification_cnf.err_code,
-                 as_msg.msg.nas_ho_bearer_modification_cnf.selected_encryption_algorithm,
-                 as_msg.msg.nas_ho_bearer_modification_cnf.selected_integrity_algorithm);
+             nas_itti_handover_tau_cnf(as_msg.msg.nas_ho_tau_bearer_modification_cnf.ue_id,
+                 as_msg.msg.nas_ho_tau_bearer_modification_cnf.err_code,
+                 as_msg.msg.nas_ho_tau_bearer_modification_cnf.selected_encryption_algorithm,
+                 as_msg.msg.nas_ho_tau_bearer_modification_cnf.selected_integrity_algorithm);
              OAILOG_FUNC_RETURN (LOG_NAS_EMM, RETURNok);
            }
          }
@@ -1104,6 +1246,12 @@ static int _emm_as_data_req (const emm_as_data_t * msg, dl_info_transfer_req_t *
       size = emm_send_attach_accept_dl_nas (msg, &emm_msg->attach_accept);
       break;
     
+    /** HANDOVER REQUEST. */
+    case EMM_AS_NAS_DATA_HANDOVER_REQUEST:
+      /** We needed to handle the PDN/IP related stuff in the ESM layer. But we are not going to send any piggybacked NAS message. */
+      size = emm_send_handover_request_dl_nas (msg, NULL);
+      break;
+
     case EMM_AS_NAS_DATA_DETACH:
       size = emm_send_detach_accept (msg, &emm_msg->detach_accept);
       break;
@@ -1152,8 +1300,22 @@ static int _emm_as_data_req (const emm_as_data_t * msg, dl_info_transfer_req_t *
     }
 
     if (bytes > 0) {
+      /** Immediately go into idle mode. */
       if (msg->nas_info == EMM_AS_NAS_DATA_TAU) {
-        as_msg->err_code = AS_TERMINATED_NAS;
+        /** Check the EMM state. */
+        if(emm_ctx->_emm_fsm_status == EMM_REGISTERED && mme_api_get_pending_bearer_deactivation(emm_ctx->ue_id)){
+          OAILOG_DEBUG (LOG_NAS_EMM, "UE with IMSI " IMSI_64_FMT " and valid GUTI " GUTI_FMT " will enter ECM_IDLE mode after TAU_ACCEPT. \n",
+              emm_ctx->_imsi64, GUTI_ARG(&emm_ctx->_guti));
+          as_msg->err_code = AS_TERMINATED_NAS; /**< Immediately terminate the session. This will not happen for a TAU with S10 since UE will be in EMM_COMMON state. */
+          mme_api_set_pending_bearer_deactivation(emm_ctx->ue_id, false);
+        }else{
+          OAILOG_DEBUG (LOG_NAS_EMM, "UE with IMSI " IMSI_64_FMT " and valid GUTI " GUTI_FMT " will stay in ECM_CONNECTED mode after TAU_ACCEPT. \n",
+              emm_ctx->_imsi64, GUTI_ARG(&emm_ctx->_guti));
+          if(mme_api_get_pending_bearer_deactivation(emm_ctx->ue_id)){
+            OAILOG_DEBUG (LOG_NAS_EMM, "UE with IMSI " IMSI_64_FMT " and valid GUTI " GUTI_FMT " will enter ECM_IDLE mode after TAU_COMPLETE (not EMM_REGISTERED yet). \n",
+                emm_ctx->_imsi64, GUTI_ARG(&emm_ctx->_guti));
+          }
+        }
       } else {
         as_msg->err_code = AS_SUCCESS;
       }
@@ -1733,7 +1895,7 @@ static int _emm_as_establish_rej (const emm_as_establish_t * msg, nas_establish_
  **      Others:    None                                       **
  **                                                                        **
  ***************************************************************************/
-static int _emm_as_ho_bearer_modification_cnf (const emm_as_ho_bearer_modification_t * msg, nas_ho_bearer_modification_cnf_t * as_msg)
+static int _emm_as_ho_tau_bearer_modification_cnf (const emm_as_ho_bearer_modification_t * msg, nas_ho_tau_bearer_modification_cnf_t * as_msg)
 {
   EMM_msg                                *emm_msg = NULL;
   int                                     size = 0;
@@ -1775,7 +1937,7 @@ static int _emm_as_ho_bearer_modification_cnf (const emm_as_ho_bearer_modificati
    * No NAS message has to be sent. Just
    */
     as_msg->err_code = AS_SUCCESS;
-    ret_val = AS_NAS_HANDOVER_CNF;
+    ret_val = AS_NAS_HANDOVER_TAU_CNF;
     OAILOG_FUNC_RETURN (LOG_NAS_EMM, ret_val);
 
   // next hop chaining counter is in s1ap hop counter here !!
@@ -1801,7 +1963,7 @@ static int _emm_as_ho_bearer_modification_cnf (const emm_as_ho_bearer_modificati
  **      Others:    None                                       **
  **                                                                        **
  ***************************************************************************/
-static int _emm_as_ho_bearer_modification_rej (const emm_as_ho_bearer_modification_t * msg, nas_ho_bearer_modification_cnf_t * as_msg)
+static int _emm_as_ho_tau_bearer_modification_rej (const emm_as_ho_bearer_modification_t * msg, nas_ho_tau_bearer_modification_cnf_t * as_msg)
 {
   EMM_msg                                *emm_msg = NULL;
   int                                     size = 0;
@@ -1843,7 +2005,7 @@ static int _emm_as_ho_bearer_modification_rej (const emm_as_ho_bearer_modificati
    * No NAS message has to be sent. Just
    */
     as_msg->err_code = AS_FAILURE;
-    ret_val = AS_NAS_HANDOVER_CNF;
+    ret_val = AS_NAS_HANDOVER_TAU_CNF;
     OAILOG_FUNC_RETURN (LOG_NAS_EMM, ret_val);
 
   // next hop chaining counter is in s1ap hop counter here !!

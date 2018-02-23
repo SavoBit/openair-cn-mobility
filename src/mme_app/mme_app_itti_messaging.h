@@ -42,4 +42,26 @@ static inline void mme_app_itti_ue_context_release(
   OAILOG_FUNC_OUT (LOG_MME_APP);
 }
 
+/**
+ * Send an S1AP Handover Cancel Acknowledge to the S1AP layer.
+ */
+static inline void mme_app_send_s1ap_handover_cancel_acknowledge(mme_ue_s1ap_id_t mme_ue_s1ap_id, enb_ue_s1ap_id_t enb_ue_s1ap_id, sctp_assoc_id_t assoc_id){
+  OAILOG_FUNC_IN (LOG_MME_APP);
+  MessageDef * message_p = itti_alloc_new_message (TASK_MME_APP, S1AP_HANDOVER_CANCEL_ACKNOWLEDGE);
+  DevAssert (message_p != NULL);
+
+  itti_s1ap_handover_cancel_acknowledge_t *s1ap_handover_cancel_acknowledge_p = &message_p->ittiMsg.s1ap_handover_cancel_acknowledge;
+  memset ((void*)s1ap_handover_cancel_acknowledge_p, 0, sizeof (itti_s1ap_handover_cancel_acknowledge_t));
+
+  /** Set the identifiers. */
+  s1ap_handover_cancel_acknowledge_p->mme_ue_s1ap_id = mme_ue_s1ap_id;
+  s1ap_handover_cancel_acknowledge_p->enb_ue_s1ap_id = enb_ue_s1ap_id;
+  s1ap_handover_cancel_acknowledge_p->assoc_id = assoc_id;
+
+  MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME, MSC_NAS_MME, NULL, 0, "MME_APP Sending S1AP HANDOVER_CANCEL_ACKNOWLEDGE");
+  /** Sending a message to S10. */
+  itti_send_msg_to_task (TASK_S1AP, INSTANCE_DEFAULT, message_p);
+  OAILOG_FUNC_OUT (LOG_MME_APP);
+}
+
 #endif /* FILE_MME_APP_ITTI_MESSAGING_SEEN */

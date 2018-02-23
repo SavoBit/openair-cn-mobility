@@ -41,6 +41,9 @@
 //------------------------------------------------------------------------------
 
 typedef enum {
+  /* Error where a security procedure is pending. */
+  TLV_SECURITY_PENDING                    = -15,
+
   /* Fatal errors - received message should not be processed */
   TLV_MAC_MISMATCH                        = -14,
   TLV_BUFFER_NULL                         = -13,

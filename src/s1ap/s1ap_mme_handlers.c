@@ -65,11 +65,12 @@ struct s1ap_message_s;
 /* Handlers matrix. Only mme related procedures present here.
 */
 s1ap_message_decoded_callback           messages_callback[][3] = {
-  {0, 0, 0},                    /* HandoverPreparation */
-  {0, 0, 0},                    /* HandoverResourceAllocation */
-  {0, 0, 0},                    /* HandoverNotification */
+  {s1ap_mme_handle_handover_preparation, 0, 0},                    /* HandoverPreparation */
+  {0, s1ap_mme_handle_handover_resource_allocation_response,              /* HandoverResourceAllocation */
+      s1ap_mme_handle_handover_resource_allocation_failure},
+  {s1ap_mme_handle_handover_notification, 0, 0},                    /* HandoverNotification */
   {s1ap_mme_handle_path_switch_request, 0, 0},  /* PathSwitchRequest */
-  {0, 0, 0},                    /* HandoverCancel */
+  {s1ap_mme_handle_handover_cancel, 0, 0},                    /* HandoverCancel */
   {0, 0, 0},                    /* E_RABSetup */
   {0, 0, 0},                    /* E_RABModify */
   {0, 0, 0},                    /* E_RABRelease */
@@ -93,8 +94,8 @@ s1ap_message_decoded_callback           messages_callback[][3] = {
   {
    s1ap_mme_handle_ue_context_release_request,
    s1ap_mme_handle_ue_context_release_complete, 0},     /* UEContextRelease */
-  {0, 0, 0},                    /* eNBStatusTransfer */
-  {0, 0, 0},                    /* MMEStatusTransfer */
+  {s1ap_mme_handle_enb_status_transfer, 0, 0},                    /* eNBStatusTransfer */
+  {0, 0, 0},                    /* MMEStatusTransfer : sent message to the eNB.*/
   {0, 0, 0},                    /* DeactivateTrace */
   {0, 0, 0},                    /* TraceStart */
   {0, 0, 0},                    /* TraceFailureIndication */
@@ -331,11 +332,9 @@ s1ap_mme_handle_s1_setup_request (
   if (s1SetupRequest_p->global_ENB_ID.eNB_ID.present == S1ap_ENB_ID_PR_homeENB_ID) {
     // Home eNB ID = 28 bits
     uint8_t *enb_id_buf = s1SetupRequest_p->global_ENB_ID.eNB_ID.choice.homeENB_ID.buf;
-
     if (s1SetupRequest_p->global_ENB_ID.eNB_ID.choice.macroENB_ID.size != 28) {
       //TODO: handle case were size != 28 -> notify ? reject ?
     }
-
     enb_id = (enb_id_buf[0] << 20) + (enb_id_buf[1] << 12) + (enb_id_buf[2] << 4) + ((enb_id_buf[3] & 0xf0) >> 4);
     OAILOG_MESSAGE_ADD (context, "home eNB id: %07x", enb_id);
   } else {
@@ -749,6 +748,8 @@ s1ap_mme_generate_ue_context_release_command (
   S1ap_Cause_PR                           cause_type;
   long                                    cause_value;
 
+  bool                                    expect_release_complete = true;
+
   OAILOG_FUNC_IN (LOG_S1AP);
   if (ue_ref_p == NULL) {
     OAILOG_FUNC_RETURN (LOG_S1AP, RETURNerror);
@@ -777,6 +778,21 @@ s1ap_mme_generate_ue_context_release_command (
   case S1AP_INITIAL_CONTEXT_SETUP_FAILED:cause_type = S1ap_Cause_PR_radioNetwork;
     cause_value = S1ap_CauseRadioNetwork_unspecified;
     break;
+  case S1AP_HANDOVER_CANCELLED:cause_type = S1ap_Cause_PR_radioNetwork;
+    cause_value = S1ap_CauseRadioNetwork_handover_cancelled;
+    break;
+  case S1AP_HANDOVER_FAILED:cause_type = S1ap_Cause_PR_radioNetwork;
+      cause_value = S1ap_CauseRadioNetwork_ho_failure_in_target_EPC_eNB_or_target_system;
+      break;
+  /**
+   * If the cause is an S1AP_NETWORK_ERROR or an S1AP_SYSTEM_FAILURE, we send just a UE-Context-Release-Request (and dismiss the complete).
+   * No UE Reference will exist at that point.
+   */
+  case S1AP_NETWORK_ERROR:
+  case S1AP_SYSTEM_FAILURE: cause_type = S1ap_Cause_PR_transport;
+    cause_value = S1ap_CauseTransport_unspecified;
+    expect_release_complete = false;
+    break;
   default:
     AssertFatal(false, "Unknown cause for context release");
     break;
@@ -795,20 +811,28 @@ s1ap_mme_generate_ue_context_release_command (
   bstring b = blk2bstr(buffer, length);
   free(buffer);
   rc = s1ap_mme_itti_send_sctp_request (&b, ue_ref_p->enb->sctp_assoc_id, ue_ref_p->sctp_stream_send, ue_ref_p->mme_ue_s1ap_id);
-  ue_ref_p->s1_ue_state = S1AP_UE_WAITING_CRR;
+  ue_ref_p->s1_release_cause = cause;
   
-  // Start timer to track UE context release complete from eNB
-  if (timer_setup (ue_ref_p->s1ap_ue_context_rel_timer.sec, 0, 
-                TASK_S1AP, INSTANCE_DEFAULT, TIMER_ONE_SHOT, (void *)&(ue_ref_p->mme_ue_s1ap_id), &(ue_ref_p->s1ap_ue_context_rel_timer.id)) < 0) { 
-    OAILOG_ERROR (LOG_S1AP, "Failed to start UE context release complete timer for UE id %d \n", ue_ref_p->mme_ue_s1ap_id);
-    ue_ref_p->s1ap_ue_context_rel_timer.id = S1AP_TIMER_INACTIVE_ID;
-  } else {
-    OAILOG_DEBUG (LOG_S1AP, "Started S1AP UE context release timer for UE id  %d \n", ue_ref_p->mme_ue_s1ap_id);
+  if(!expect_release_complete){
+    OAILOG_DEBUG (LOG_S1AP, "UE_CONTEXT_RELEASE_REQUEST will be sent for UE with mmeUeS1apId " MME_UE_S1AP_ID_FMT " with directy UE-Reference removal "
+        "(not waiting for RELEASE-COMPLETE due reason %d. \n", ue_ref_p->mme_ue_s1ap_id, cause);
+    s1ap_remove_ue (ue_ref_p);
+    OAILOG_FUNC_RETURN (LOG_S1AP, RETURNok);
+  }else{
+    ue_ref_p->s1_ue_state = S1AP_UE_WAITING_CRR;
+    OAILOG_DEBUG (LOG_S1AP, "UE_CONTEXT_RELEASE_REQUEST will be sent for UE with mmeUeS1apId " MME_UE_S1AP_ID_FMT ". Waiting for RELEASE-COMPLETE to remove the UE-Reference due reason %d. \n",
+        ue_ref_p->mme_ue_s1ap_id, cause);
+    // Start timer to track UE context release complete from eNB
+    if (timer_setup (ue_ref_p->s1ap_ue_context_rel_timer.sec, 0,
+        TASK_S1AP, INSTANCE_DEFAULT, TIMER_ONE_SHOT, (void *)&(ue_ref_p->mme_ue_s1ap_id), &(ue_ref_p->s1ap_ue_context_rel_timer.id)) < 0) {
+      OAILOG_ERROR (LOG_S1AP, "Failed to start UE context release complete timer for UE id %d \n", ue_ref_p->mme_ue_s1ap_id);
+      ue_ref_p->s1ap_ue_context_rel_timer.id = S1AP_TIMER_INACTIVE_ID;
+    } else {
+      OAILOG_DEBUG (LOG_S1AP, "Started S1AP UE context release timer for UE id  %d \n", ue_ref_p->mme_ue_s1ap_id);
+    }
+    OAILOG_FUNC_RETURN (LOG_S1AP, rc);
   }
-  OAILOG_FUNC_RETURN (LOG_S1AP, rc);
 }
-
-//------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
 int
@@ -825,10 +849,9 @@ s1ap_handle_ue_context_release_command (
     MSC_LOG_EVENT (MSC_S1AP_MME, "0 UE_CONTEXT_RELEASE_COMMAND ignored, no context mme_ue_s1ap_id " MME_UE_S1AP_ID_FMT " ", ue_context_release_command_pP->mme_ue_s1ap_id);
     rc = RETURNok;
   } else {
-    
-    /*
-     * Check the cause. If it is implicit detach or sctp reset/shutdown no need to send UE context release command to
-     * eNB. Free UE context locally.
+    /**
+     * Check the cause. If it is implicit detach or sctp reset/shutdown no need to send UE context release command to eNB.
+     * Free UE context locally.
      */
     if (ue_context_release_command_pP->cause == S1AP_IMPLICIT_CONTEXT_RELEASE ||
         ue_context_release_command_pP->cause == S1AP_SCTP_SHUTDOWN_OR_RESET) {
@@ -863,15 +886,15 @@ s1ap_mme_handle_ue_context_release_complete (
   if ((ue_ref_p = s1ap_is_ue_mme_id_in_list (ueContextReleaseComplete_p->mme_ue_s1ap_id)) == NULL) {
     /*
      * MME doesn't know the MME UE S1AP ID provided.
-     * This implies that UE context has already been deleted on the expiry of timer
-     * Ignore this message. 
+     * This implies that UE context has already been deleted on the expiry of timer!
+     * Ignore this message. The timer will trigger the cleanup in the MME_APP. EMM is again independent.
      */
     OAILOG_DEBUG (LOG_S1AP, " UE Context Release commplete:No S1 context. Ignore the message for ueid " MME_UE_S1AP_ID_FMT "\n", (uint32_t) ueContextReleaseComplete_p->mme_ue_s1ap_id);
     MSC_LOG_EVENT (MSC_S1AP_MME, "0 UEContextReleaseComplete ignored, no context mme_ue_s1ap_id " MME_UE_S1AP_ID_FMT " ", ueContextReleaseComplete_p->mme_ue_s1ap_id);
     OAILOG_FUNC_RETURN (LOG_S1AP, RETURNok);
   }
 
-  /*
+  /**
    * eNB has sent a release complete message. We can safely remove UE context.
    * TODO: inform NAS and remove e-RABS.
    */
@@ -1051,7 +1074,7 @@ s1ap_mme_handle_path_switch_request (
     }
 
     // todo: starting a timer?
-    ue_ref_p->s1_ue_state     = S1AP_UE_HANDOVER_X2;
+//    ue_ref_p->s1_ue_state     = S1AP_UE_HANDOVER_X2;
 
     ue_ref_p->enb_ue_s1ap_id = enb_ue_s1ap_id;
     // Will be allocated by NAS
@@ -1172,6 +1195,605 @@ s1ap_send_path_switch_request_failure (
   free_s1ap_pathswitchrequestfailure(pathSwitchRequestFailure_p);
 
   OAILOG_FUNC_RETURN (LOG_S1AP, rc);
+}
+
+int
+s1ap_mme_handle_handover_preparation(const sctp_assoc_id_t assoc_id, const sctp_stream_id_t stream,
+                                        struct s1ap_message_s *message)                                         {
+  S1ap_HandoverRequiredIEs_t            *handoverRequired_p = NULL;
+  S1ap_E_RABInformationListIEs_t        *eRABInformationListIEs_p = NULL;
+
+  ue_description_t                      *ue_ref_p = NULL;
+  enb_ue_s1ap_id_t                       enb_ue_s1ap_id = 0;
+  mme_ue_s1ap_id_t                       mme_ue_s1ap_id = 0;
+  MessageDef                            *message_p = NULL;
+  int                                    rc = RETURNok;
+  tai_t                                  target_tai;
+
+  //Request IEs:
+  //S1ap-ENB-UE-S1AP-ID
+  //S1ap-HandoverType
+  //S1ap-MME-UE-S1AP-ID
+  //S1ap-Cause
+  //S1ap-TargetID
+  //S1ap-Source-ToTarget-TransparentContainer
+
+  OAILOG_FUNC_IN (LOG_S1AP);
+  handoverRequired_p = &message->msg.s1ap_HandoverRequiredIEs;
+  // eNB UE S1AP ID is limited to 24 bits
+  enb_ue_s1ap_id = (enb_ue_s1ap_id_t) (handoverRequired_p->eNB_UE_S1AP_ID & ENB_UE_S1AP_ID_MASK);
+  mme_ue_s1ap_id = (uint32_t) handoverRequired_p->mme_ue_s1ap_id;
+
+  OAILOG_DEBUG (LOG_S1AP, "Handover Required message received from eNB UE S1AP ID: " ENB_UE_S1AP_ID_FMT "\n", enb_ue_s1ap_id);
+
+  if ((ue_ref_p = s1ap_is_ue_mme_id_in_list (mme_ue_s1ap_id)) == NULL) {
+    /**
+     * The MME UE S1AP ID provided by eNB doesn't point to any valid UE.
+     * * * * MME replies with a HANDOVER PREPARATION FAILURE message and start operation.
+     * * * * as described in TS 36.413 [11].
+     */
+    OAILOG_ERROR(LOG_S1AP, "MME UE S1AP ID provided by source eNB doesn't point to any valid UE: " MME_UE_S1AP_ID_FMT "\n", enb_ue_s1ap_id);
+    rc = s1ap_handover_preparation_failure(assoc_id, mme_ue_s1ap_id, enb_ue_s1ap_id, S1ap_Cause_PR_misc);
+    OAILOG_FUNC_RETURN (LOG_S1AP, rc);
+  }
+  /**
+   * No timers to be started. Also, the state does not need to be changed from UE_CONNECTED, since TS 36.413 8.4.1.2 specifies that MME may/can initiate some E-RAB Modification signaling towards the source
+   * eNB before the Handover Procedure is completed. Handover restart won't be triggered by eNB.
+   * Source eNB may restart the Handover. If the UE is still connected (Handover dismissed or still going on, it will send a HO-Preparation-Failure.
+   */
+  if(ue_ref_p->s1_ue_state  != S1AP_UE_CONNECTED){
+    OAILOG_ERROR(LOG_S1AP, "UE: " MME_UE_S1AP_ID_FMT " is not in connected mode, instead %d \n", enb_ue_s1ap_id, ue_ref_p->s1_ue_state);
+    rc = s1ap_handover_preparation_failure(assoc_id, mme_ue_s1ap_id, enb_ue_s1ap_id, S1ap_Cause_PR_misc);
+    OAILOG_FUNC_RETURN (LOG_S1AP, rc);
+  }
+  /** Get the target tai information. */
+  if(!handoverRequired_p->targetID.choice.targeteNB_ID.selected_TAI.pLMNidentity.buf || !handoverRequired_p->targetID.choice.targeteNB_ID.selected_TAI.tAC.buf
+      || !handoverRequired_p->targetID.choice.targeteNB_ID.global_ENB_ID.pLMNidentity.buf ){
+    OAILOG_ERROR(LOG_S1AP, "Handover Required message for UE: " MME_UE_S1AP_ID_FMT " has no target_tai or enb_id information. \n", enb_ue_s1ap_id);
+    rc = s1ap_handover_preparation_failure(assoc_id, mme_ue_s1ap_id, enb_ue_s1ap_id, S1ap_Cause_PR_misc);
+    OAILOG_FUNC_RETURN (LOG_S1AP, rc);
+  }
+  memset((void*)&target_tai, 0, sizeof(tai_t));
+
+  TBCD_TO_PLMN_T (&handoverRequired_p->targetID.choice.targeteNB_ID.selected_TAI.pLMNidentity, &target_tai.plmn);
+  target_tai.tac = htons(*((uint16_t *) handoverRequired_p->targetID.choice.targeteNB_ID.selected_TAI.tAC.buf));
+
+  /** Not changing any ue_reference properties. */
+  message_p = itti_alloc_new_message (TASK_S1AP, S1AP_HANDOVER_REQUIRED);
+  AssertFatal (message_p != NULL, "itti_alloc_new_message Failed");
+  memset ((void *)&message_p->ittiMsg.s1ap_handover_required, 0, sizeof (itti_s1ap_handover_required_t));
+
+  S1AP_HANDOVER_REQUIRED (message_p).mme_ue_s1ap_id = ue_ref_p->mme_ue_s1ap_id;
+  S1AP_HANDOVER_REQUIRED (message_p).enb_ue_s1ap_id = ue_ref_p->enb_ue_s1ap_id;
+  /** Selected-TAI. */
+  S1AP_HANDOVER_REQUIRED (message_p).selected_tai  = target_tai;
+  S1AP_HANDOVER_REQUIRED (message_p).selected_tai  = target_tai;
+
+  /** Global-ENB-ID. */
+  plmn_t enb_id_plmn;
+  memset(&enb_id_plmn, 0, sizeof(plmn_t));
+  TBCD_TO_PLMN_T (&handoverRequired_p->targetID.choice.targeteNB_ID.global_ENB_ID.pLMNidentity, &enb_id_plmn);
+  S1AP_HANDOVER_REQUIRED (message_p).global_enb_id.plmn = enb_id_plmn;
+  // Macro eNB = 20 bits
+  uint8_t *enb_id_buf = handoverRequired_p->targetID.choice.targeteNB_ID.global_ENB_ID.eNB_ID.choice.macroENB_ID.buf;
+  if (handoverRequired_p->targetID.choice.targeteNB_ID.global_ENB_ID.eNB_ID.choice.macroENB_ID.size != 20) {
+    //TODO: handle case were size != 20 -> notify ? reject ?
+  }
+  uint32_t enb_id = (enb_id_buf[0] << 12) + (enb_id_buf[1] << 4) + ((enb_id_buf[2] & 0xf0) >> 4);
+  S1AP_HANDOVER_REQUIRED (message_p).global_enb_id.cell_identity.enb_id = enb_id;
+  OAILOG_DEBUG(LOG_S1AP, "Successfully decoded targetID IE in Handover Required. \n");
+
+  /**  Get the cause. */
+  S1ap_Cause_PR s1ap_cause_present = handoverRequired_p->cause.present;
+  switch(s1ap_cause_present){
+  case S1ap_Cause_PR_radioNetwork:
+    S1AP_HANDOVER_REQUIRED (message_p).f_cause_type      = s1ap_cause_present;
+    S1AP_HANDOVER_REQUIRED (message_p).f_cause_value     = handoverRequired_p->cause.choice.radioNetwork;
+    break;
+  default:
+    OAILOG_WARNING(LOG_S1AP, "Cause type %d is not evaluated. Setting cause to radio.. \n", s1ap_cause_present);
+    S1AP_HANDOVER_REQUIRED (message_p).f_cause_type      = S1ap_Cause_PR_radioNetwork;
+    S1AP_HANDOVER_REQUIRED (message_p).f_cause_value     = 16;
+    break;
+  }
+  /**
+   * Set the container into a bstring.
+   * todo:
+   * We don't need to purge the bstring's, etc in MME_APP (of the newly allocated itti). Since it will automatically be purged with: s1ap_free_mme_decode_pdu.
+   * All allocated messages will be purged, so either allocated new into bstring's or copy into stacked parameters.
+   */
+  S1AP_HANDOVER_REQUIRED (message_p).eutran_source_to_target_container = blk2bstr(handoverRequired_p->source_ToTarget_TransparentContainer.buf,
+        handoverRequired_p->source_ToTarget_TransparentContainer.size);
+
+//  OCTET_STRING_fromBuf (&S1AP_HANDOVER_REQUIRED (message_p).transparent_container,
+//      (char *)(handoverRequired_p->source_ToTarget_TransparentContainer.buf),
+//      handoverRequired_p->source_ToTarget_TransparentContainer.size);
+  // todo: no need to invoke the freer for the octet string?
+  // todo: what does ASM_FREE_CONTEXT_ONLY mean?
+//  free_wrapper((void**) &(handover_required_pP->transparent_container.buf));
+
+  /**
+   * The transparent container bstr must be deallocated later.
+   * No automatic deallocation function for that is present.
+   */
+  MSC_LOG_TX_MESSAGE (MSC_S1AP_MME,
+      MSC_MMEAPP_MME,
+      NULL, 0,
+      "0 S1AP_HANDOVER_REQUIRED mme_ue_s1ap_id " MME_UE_S1AP_ID_FMT,
+      S1AP_HANDOVER_REQUIRED (message_p).mme_ue_s1ap_id);
+  rc =  itti_send_msg_to_task (TASK_MME_APP, INSTANCE_DEFAULT, message_p);
+  OAILOG_FUNC_RETURN (LOG_S1AP, RETURNok);
+}
+
+int
+s1ap_mme_handle_handover_cancel(const sctp_assoc_id_t assoc_id, const sctp_stream_id_t stream,
+                                        struct s1ap_message_s *message)                                         {
+  S1ap_HandoverCancelIEs_t            *handoverCancel_p = NULL;
+
+  ue_description_t                     *ue_ref_p = NULL;
+  enb_ue_s1ap_id_t                      enb_ue_s1ap_id = 0;
+  mme_ue_s1ap_id_t                      mme_ue_s1ap_id = 0;
+  MessageDef                           *message_p = NULL;
+  int                                   rc = RETURNok;
+
+  //Request IEs:
+  //S1ap-ENB-UE-S1AP-ID
+  //S1ap-MME-UE-S1AP-ID
+  //S1ap-Cause
+
+  OAILOG_FUNC_IN (LOG_S1AP);
+  handoverCancel_p = &message->msg.s1ap_HandoverCancelIEs;
+  // eNB UE S1AP ID is limited to 24 bits
+  enb_ue_s1ap_id = (enb_ue_s1ap_id_t) (handoverCancel_p->eNB_UE_S1AP_ID & ENB_UE_S1AP_ID_MASK);
+  mme_ue_s1ap_id = (uint32_t) handoverCancel_p->mme_ue_s1ap_id;
+
+  OAILOG_DEBUG (LOG_S1AP, "Handover Cancel message received from eNB UE S1AP ID: " ENB_UE_S1AP_ID_FMT ". \n", enb_ue_s1ap_id);
+  if ((ue_ref_p = s1ap_is_ue_mme_id_in_list (mme_ue_s1ap_id)) == NULL) {
+    /*
+     * The MME UE S1AP ID provided by eNB doesn't point to any valid UE.
+     * * * * MME replies with a HANDOVER PREPARATION FAILURE message and start operation.
+     * * * * as described in TS 36.413 [11].
+     */
+    OAILOG_ERROR(LOG_S1AP, "MME UE S1AP ID provided by source eNB doesn't point to any valid UE: " MME_UE_S1AP_ID_FMT ". Continuing with the HO-Cancellation (impl. detach). \n", enb_ue_s1ap_id);
+  }
+  /**
+   * No timers to be started. Also, the state does not need to be changed from UE_CONNECTED, since TS 36.413 8.4.1.2 specifies that MME may/can initiate some E-RAB Modification signaling towards the source
+   * eNB before the Handover Procedure is completed. Handover restart won't be triggered by eNB.
+   * Source eNB may restart the Handover. If the UE is still connected (Handover dismissed or still going on, it will send a HO-Preparation-Failure.
+   */
+  if(ue_ref_p->s1_ue_state  != S1AP_UE_CONNECTED){
+    OAILOG_ERROR(LOG_S1AP, "UE: " MME_UE_S1AP_ID_FMT " is not in connected mode, instead %d. Continuing with cancellation (impl. detach). \n", enb_ue_s1ap_id, ue_ref_p->s1_ue_state);
+    OAILOG_FUNC_RETURN (LOG_S1AP, rc);
+  }
+  /** Not changing any ue_reference properties. */
+  message_p = itti_alloc_new_message (TASK_S1AP, S1AP_HANDOVER_CANCEL);
+  AssertFatal (message_p != NULL, "itti_alloc_new_message Failed");
+  memset ((void *)&message_p->ittiMsg.s1ap_handover_cancel, 0, sizeof (itti_s1ap_handover_cancel_t));
+  S1AP_HANDOVER_CANCEL (message_p).mme_ue_s1ap_id = ue_ref_p->mme_ue_s1ap_id;
+  S1AP_HANDOVER_CANCEL (message_p).enb_ue_s1ap_id = ue_ref_p->enb_ue_s1ap_id;
+  S1AP_UE_CONTEXT_RELEASE_REQ (message_p).enb_id  = ue_ref_p->enb->enb_id;
+  /** Ignore the cause. */
+  MSC_LOG_TX_MESSAGE (MSC_S1AP_MME,
+      MSC_MMEAPP_MME,
+      NULL, 0,
+      "0 S1AP_HANDOVER_CANCEL mme_ue_s1ap_id " MME_UE_S1AP_ID_FMT,
+      S1AP_HANDOVER_CANCEL (message_p).mme_ue_s1ap_id);
+  rc =  itti_send_msg_to_task (TASK_MME_APP, INSTANCE_DEFAULT, message_p);
+  OAILOG_FUNC_RETURN (LOG_S1AP, RETURNok);
+}
+
+int
+s1ap_mme_handle_handover_notification(const sctp_assoc_id_t assoc_id, const sctp_stream_id_t stream,
+                                        struct s1ap_message_s *message)                                         {
+  S1ap_HandoverNotifyIEs_t              *handoverNotification_p = NULL;
+
+  ue_description_t                      *ue_ref_p = NULL;
+  enb_ue_s1ap_id_t                       enb_ue_s1ap_id = 0;
+  mme_ue_s1ap_id_t                       mme_ue_s1ap_id = 0;
+  MessageDef                            *message_p = NULL;
+  int                                    rc = RETURNok;
+  tai_t                                  tai = {.plmn = {0}, .tac = INVALID_TAC_0000};
+  ecgi_t                                 ecgi = {.plmn = {0}, .cell_identity = {0}};
+
+  //  todo: The MME shall verify that the UE security
+  //  capabilities received from the eNB are the same as the UE security capabilities that the MME has stored. If
+  //  there is a mismatch, the MME may log the event and may take additional measures, such as raising an alarm.
+
+  //Request IEs:
+  //S1ap-ENB-UE-S1AP-ID
+  //S1ap-MME-UE-S1AP-ID
+  //S1ap-id-TAI
+  //S1ap-id-EUTRAN-CGI
+
+  OAILOG_FUNC_IN (LOG_S1AP);
+  handoverNotification_p= &message->msg.s1ap_HandoverNotifyIEs;
+  // eNB UE S1AP ID is limited to 24 bits
+  enb_ue_s1ap_id = (enb_ue_s1ap_id_t) (handoverNotification_p->eNB_UE_S1AP_ID & ENB_UE_S1AP_ID_MASK);
+  mme_ue_s1ap_id = (uint32_t) handoverNotification_p->mme_ue_s1ap_id;
+
+  OAILOG_DEBUG (LOG_S1AP, "Handover Notify message received from eNB UE S1AP ID: " ENB_UE_S1AP_ID_FMT "\n", enb_ue_s1ap_id);
+  /**
+   * Search the UE via the ENB-ID and the ENB_UE_S1AP_ID.
+   * The MME_UE_S1AP_ID will not be registered with the UE_REFERECNCE until HANDOVER_NOTIFY is completed.
+   */
+
+  if ((ue_ref_p = s1ap_is_ue_mme_id_in_list (mme_ue_s1ap_id)) == NULL) {
+    /*
+     * The MME UE S1AP ID provided by eNB doesn't point to any valid UE.
+     * * * * MME replies with a PATH SWITCH REQUEST FAILURE message and start operation
+     * * * * as described in TS 36.413 [11].
+     * * * * TODO
+     */
+    OAILOG_ERROR(LOG_S1AP, "MME UE S1AP ID provided by source eNB doesn't point to any valid UE: " MME_UE_S1AP_ID_FMT "\n", enb_ue_s1ap_id);
+    // todo: what is the error code of HANDOVER_NOTIFY?
+//    s1ap_send_handover_preparation_failure(assoc_id, stream, mme_ue_s1ap_id, enb_ue_s1ap_id);
+
+    OAILOG_FUNC_RETURN (LOG_S1AP, RETURNok);
+  }
+ // No checking in the transparent container how many bearers --> leave it to the target MME
+    // todo: check existence and count of bearers.
+
+    /** Not removing old s1ap UE context & not creating a new S1AP UE context (reference) --> todo: Remove later explicitly with UE Context Release. */
+
+    // todo: starting a timer?
+    // todo: checking the state
+      // if it is already in handover state, sending back preparation failure?
+      // if it is in idle state, sending back preparation failure?
+
+    /** Not changing any ue_reference properties. */
+
+    /*
+     * Increment the sctp stream for the eNB association.
+     * If the next sctp stream is >= instream negociated between eNB and MME, wrap to first stream.
+     * TODO: search for the first available stream instead.
+     */
+
+    /** Get the TAI and the eCGI: Values that are sent with Attach Request. */
+    OCTET_STRING_TO_TAC (&handoverNotification_p->tai.tAC, tai.tac);
+    DevAssert (handoverNotification_p->tai.pLMNidentity.size == 3);
+    TBCD_TO_PLMN_T(&handoverNotification_p->tai.pLMNidentity, &tai.plmn);
+    DevAssert (handoverNotification_p->eutran_cgi.pLMNidentity.size == 3);
+    TBCD_TO_PLMN_T(&handoverNotification_p->eutran_cgi.pLMNidentity, &ecgi.plmn);
+    BIT_STRING_TO_CELL_IDENTITY (&handoverNotification_p->eutran_cgi.cell_ID, ecgi.cell_identity);
+
+    // Currently just use this message send the MBR to SAE-GW and inform the source MME
+    message_p = itti_alloc_new_message (TASK_S1AP, S1AP_HANDOVER_NOTIFY);
+    AssertFatal (message_p != NULL, "itti_alloc_new_message Failed");
+    memset ((void *)&message_p->ittiMsg.s1ap_handover_notify, 0, sizeof (itti_s1ap_handover_notify_t));
+    /*
+     * Bad, very bad cast...
+     */
+    S1AP_HANDOVER_NOTIFY (message_p).mme_ue_s1ap_id = ue_ref_p->mme_ue_s1ap_id;
+    S1AP_HANDOVER_NOTIFY (message_p).enb_ue_s1ap_id = ue_ref_p->enb_ue_s1ap_id;
+    S1AP_HANDOVER_NOTIFY (message_p).tai                    = tai;       /**< MME will not check if thats the correct target eNB. Just update the UE Context. */
+    S1AP_HANDOVER_NOTIFY (message_p).cgi                    = ecgi;
+
+    MSC_LOG_TX_MESSAGE (MSC_S1AP_MME,
+                        MSC_MMEAPP_MME,
+                        NULL, 0,
+                        "0 S1AP_HANDOVER_NOTIFY mme_ue_s1ap_id " MME_UE_S1AP_ID_FMT,
+                        S1AP_HANDOVER_NOTIFY(message_p).mme_ue_s1ap_id);
+  rc =  itti_send_msg_to_task (TASK_MME_APP, INSTANCE_DEFAULT, message_p);
+
+  /** Set the state to connected!. */
+  // todo: what if handover with 2 enbs at same mme?
+  ue_ref_p->s1_ue_state = S1AP_UE_CONNECTED;
+
+  OAILOG_FUNC_RETURN (LOG_S1AP, RETURNok);
+}
+
+//------------------------------------------------------------------------------
+int
+s1ap_mme_handle_handover_resource_allocation_response(const sctp_assoc_id_t assoc_id, const sctp_stream_id_t stream,
+                                        struct s1ap_message_s *message)                                         {
+
+  S1ap_HandoverRequestAcknowledgeIEs_t     *handoverRequestAcknowledge_p = NULL;
+  S1ap_E_RABAdmittedItemIEs_t              *eRABAdmittedItemIEs_p = NULL;
+
+  ue_description_t                         *ue_ref_p = NULL;
+  enb_ue_s1ap_id_t                          enb_ue_s1ap_id = 0;
+  mme_ue_s1ap_id_t                          mme_ue_s1ap_id = 0;
+  MessageDef                               *message_p = NULL;
+  int                                       rc = RETURNok;
+
+  //  todo: The MME shall verify that the UE security
+  //  capabilities received from the eNB are the same as the UE security capabilities that the MME has stored. If
+  //  there is a mismatch, the MME may log the event and may take additional measures, such as raising an alarm.
+
+  //Request IEs:
+  //S1ap-ENB-UE-S1AP-ID
+  //S1ap-E-RABToBeSwitchedDLList
+  //S1ap-MME-UE-S1AP-ID
+  //S1ap-EUTRAN-CGI
+  //S1ap-TAI
+  //S1ap-UESecurityCapabilities
+
+  //Acknowledge IEs:
+  //S1ap-MME-UE-S1AP-ID
+  //S1ap-ENB-UE-S1AP-ID
+  //S1ap-E-RABToBeSwitchedULList
+
+  OAILOG_FUNC_IN (LOG_S1AP);
+  handoverRequestAcknowledge_p = &message->msg.s1ap_HandoverRequestAcknowledgeIEs;
+  // eNB UE S1AP ID is limited to 24 bits
+  enb_ue_s1ap_id = (enb_ue_s1ap_id_t) (handoverRequestAcknowledge_p->eNB_UE_S1AP_ID & ENB_UE_S1AP_ID_MASK);
+  mme_ue_s1ap_id = handoverRequestAcknowledge_p->mme_ue_s1ap_id;
+  OAILOG_DEBUG (LOG_S1AP, "Handover Request Acknowledge received from eNB UE S1AP ID: " ENB_UE_S1AP_ID_FMT "\n", enb_ue_s1ap_id);
+
+  /** Will return NULL if an UE-Reference already exists in the UE_MAP of the target-eNB. */
+
+  /*
+   * This UE eNB Id has currently no known s1 association.
+   * * * * Create new UE context by associating new mme_ue_s1ap_id.
+   * * * * Update eNB UE list.
+   * * * * Forward message to NAS.
+   */
+  if ((ue_ref_p = s1ap_new_ue (assoc_id, enb_ue_s1ap_id)) == NULL) {
+    OAILOG_ERROR (LOG_S1AP, "S1AP:Handover Request Message- Failed to allocate S1AP UE Context, mmeUeS1APId:" MME_UE_S1AP_ID_FMT "\n", mme_ue_s1ap_id);
+    /** This is a SYSTEM_FAILURE. No UE_REFERENCE for the target-ENB exists. */
+    message_p = itti_alloc_new_message (TASK_S1AP, S1AP_HANDOVER_FAILURE);
+    AssertFatal (message_p != NULL, "itti_alloc_new_message Failed");
+    itti_s1ap_handover_failure_t *handover_failure_p = &message_p->ittiMsg.s1ap_handover_failure;
+    memset ((void *)&message_p->ittiMsg.s1ap_handover_failure, 0, sizeof (itti_s1ap_handover_failure_t));
+    /** Fill the S1AP Handover Failure elements per hand. */
+    handover_failure_p->mme_ue_s1ap_id = mme_ue_s1ap_id;
+    handover_failure_p->enb_ue_s1ap_id = enb_ue_s1ap_id; /**< Set it from the invalid context. */
+    handover_failure_p->assoc_id       = assoc_id; /**< Set it from the invalid context. */
+    /**
+     * Set it to S1AP_SYSTEM_FAILURE for the invalid context. Not waiting for RELEASE-COMPLETE from target-eNB.
+     * It may remove the sctp association to the correct MME_UE_S1AP_ID, too. For that, to continue with the handover fail case,
+     * to reach the source-ENB, the MME_APP has to re-notify the MME_UE_S1AP_ID/SCTP association.
+     */
+    handover_failure_p->cause          = S1AP_SYSTEM_FAILURE;
+    MSC_LOG_TX_MESSAGE (MSC_S1AP_MME, MSC_MMEAPP_MME, NULL, 0, "0 Sending manually S1AP_HANDOVER_FAILURE for mme_ue_s1ap_id  " MME_UE_S1AP_ID_FMT " ", mme_ue_s1ap_id);
+    itti_send_msg_to_task (TASK_MME_APP, INSTANCE_DEFAULT, message_p);
+    itti_s1ap_ue_context_release_command_t *ue_context_release_cmd_p = &((itti_s1ap_ue_context_release_command_t){ .mme_ue_s1ap_id = mme_ue_s1ap_id, .enb_ue_s1ap_id = ue_ref_p->enb_ue_s1ap_id, .cause = S1AP_SYSTEM_FAILURE});
+    /** Remove the UE-Reference to the target-eNB implicitly. Don't need to wait for the UE_CONTEXT_REMOVAL_COMMAND_COMPLETE. */
+    s1ap_handle_ue_context_release_command(ue_context_release_cmd_p); /**< Send a removal message and remove the context also directly. */
+    // There are some race conditions were NAS T3450 timer is stopped and removed at same time
+    OAILOG_FUNC_RETURN (LOG_S1AP, RETURNerror);
+  }
+  /**
+   * Successfully created a UE-Reference to the target-ENB.
+   * Don't register the MME_UE_S1AP_ID to SCTP_ASSOC association yet.
+   * Do it with HANDOVER_NOTIFY.
+   */
+  if (handoverRequestAcknowledge_p->e_RABAdmittedList.s1ap_E_RABAdmittedItem.count < 1) {
+    OAILOG_ERROR(LOG_S1AP, "E-RAB's where not addmitted for S1AP handover. \n");
+    OAILOG_ERROR (LOG_S1AP, "S1AP:Handover Request Message- Failed to allocate S1AP UE Context, mmeUeS1APId:" MME_UE_S1AP_ID_FMT "\n", mme_ue_s1ap_id);
+    /** This is a SYSTEM_FAILURE. No UE_REFERENCE for the target-ENB exists. */
+    message_p = itti_alloc_new_message (TASK_S1AP, S1AP_HANDOVER_FAILURE);
+    AssertFatal (message_p != NULL, "itti_alloc_new_message Failed");
+    itti_s1ap_handover_failure_t *handover_failure_p = &message_p->ittiMsg.s1ap_handover_failure;
+    memset ((void *)&message_p->ittiMsg.s1ap_handover_failure, 0, sizeof (itti_s1ap_handover_failure_t));
+    /** Fill the S1AP Handover Failure elements per hand. */
+    handover_failure_p->mme_ue_s1ap_id = mme_ue_s1ap_id;
+    handover_failure_p->enb_ue_s1ap_id = enb_ue_s1ap_id; /**< Set it from the invalid context. */
+    handover_failure_p->assoc_id       = assoc_id; /**< Set it from the invalid context. */
+    /**
+     * Set it to S1AP_SYSTEM_FAILURE for the invalid context. Not waiting for RELEASE-COMPLETE from target-eNB.
+     * It may remove the sctp association to the correct MME_UE_S1AP_ID, too. For that, to continue with the handover fail case,
+     * to reach the source-ENB, the MME_APP has to re-notify the MME_UE_S1AP_ID/SCTP association (S1 association).
+     */
+    handover_failure_p->cause          = S1AP_SYSTEM_FAILURE;
+    MSC_LOG_TX_MESSAGE (MSC_S1AP_MME, MSC_MMEAPP_MME, NULL, 0, "0 Sending manually S1AP_HANDOVER_FAILURE for mme_ue_s1ap_id  " MME_UE_S1AP_ID_FMT " ", mme_ue_s1ap_id);
+    itti_send_msg_to_task (TASK_MME_APP, INSTANCE_DEFAULT, message_p);
+    itti_s1ap_ue_context_release_command_t *ue_context_release_cmd_p = &((itti_s1ap_ue_context_release_command_t){ .mme_ue_s1ap_id = mme_ue_s1ap_id, .enb_ue_s1ap_id = enb_ue_s1ap_id, .cause = S1AP_SYSTEM_FAILURE});
+    /** Remove the UE-Reference to the target-eNB implicitly. Don't need to wait for the UE_CONTEXT_REMOVAL_COMMAND_COMPLETE. */
+    s1ap_handle_ue_context_release_command(ue_context_release_cmd_p); /**< Send a removal message and remove the context also directly. */
+    OAILOG_FUNC_RETURN (LOG_S1AP, RETURNok);
+  }
+  /**
+   * UE Reference will be in IDLE state.
+   * We can already set the streams on which we received the messsage.
+   */
+  ue_ref_p->sctp_stream_recv = stream;
+  ue_ref_p->sctp_stream_send = ue_ref_p->enb->next_sctp_stream;
+
+  /*
+   * Increment the sctp stream for the eNB association.
+   * If the next sctp stream is >= instream negociated between eNB and MME, wrap to first stream.
+   * TODO: search for the first available stream instead.
+   */
+
+  /*
+   * TODO task#15456359.
+   * todo: updating the sctp streams?!
+   * Below logic seems to be incorrect , revisit it.
+   */
+  ue_ref_p->enb->next_sctp_stream += 1;
+  if (ue_ref_p->enb->next_sctp_stream >= ue_ref_p->enb->instreams) {
+    ue_ref_p->enb->next_sctp_stream = 1;
+  }
+
+  /** Set the new association and the new stream. */
+  ue_ref_p->enb->sctp_assoc_id = assoc_id;
+  ue_ref_p->enb->next_sctp_stream = stream;
+
+  // set the new enb id
+  ue_ref_p->enb_ue_s1ap_id = enb_ue_s1ap_id;
+
+  /**
+   * E-RAB Admitted List.
+   */
+  message_p = itti_alloc_new_message (TASK_S1AP, S1AP_HANDOVER_REQUEST_ACKNOWLEDGE);
+  AssertFatal (message_p != NULL, "itti_alloc_new_message Failed");
+  itti_s1ap_handover_request_acknowledge_t *handover_request_acknowledge_p = &message_p->ittiMsg.s1ap_handover_request_acknowledge;
+  memset ((void *)&message_p->ittiMsg.s1ap_handover_request_acknowledge, 0, sizeof (itti_s1ap_handover_request_t));
+  /*
+   * Bad, very bad cast...
+   */
+  eRABAdmittedItemIEs_p = (S1ap_E_RABAdmittedItemIEs_t *)
+    handoverRequestAcknowledge_p->e_RABAdmittedList.s1ap_E_RABAdmittedItem.array[0];
+
+  handover_request_acknowledge_p->mme_ue_s1ap_id = ue_ref_p->mme_ue_s1ap_id;
+  handover_request_acknowledge_p->enb_ue_s1ap_id = ue_ref_p->enb_ue_s1ap_id;
+  handover_request_acknowledge_p->eps_bearer_id = eRABAdmittedItemIEs_p->e_RABAdmittedItem.e_RAB_ID;
+  handover_request_acknowledge_p->bearer_s1u_enb_fteid.ipv4 = 1;  // TO DO
+  handover_request_acknowledge_p->bearer_s1u_enb_fteid.ipv6 = 0;  // TO DO
+  handover_request_acknowledge_p->bearer_s1u_enb_fteid.interface_type = S1_U_ENODEB_GTP_U;
+  handover_request_acknowledge_p->bearer_s1u_enb_fteid.teid = htonl ( *((uint32_t *) eRABAdmittedItemIEs_p->e_RABAdmittedItem.gTP_TEID.buf));
+  handover_request_acknowledge_p->bearer_s1u_enb_fteid.ipv4_address = htonl (*((uint32_t *)eRABAdmittedItemIEs_p->e_RABAdmittedItem.transportLayerAddress.buf));
+
+  /**
+   * Set the transparent container as a bstring.
+   * The method ASN_STRUCT_FREE_CONTENTS_ONLY(asn_DEF_S1ap_Target_ToSource_TransparentContainer, &s1ap_HandoverRequestAcknowledgeIEs->target_ToSource_TransparentContainer)
+   * is assumed to remove the OCTET_STRING.
+   * todo: ask Lionel if thats correct? what is context only?
+   */
+  handover_request_acknowledge_p->target_to_source_eutran_container = blk2bstr(handoverRequestAcknowledge_p->target_ToSource_TransparentContainer.buf,
+      handoverRequestAcknowledge_p->target_ToSource_TransparentContainer.size);
+  // todo @ Lionel: do we need to run this method?
+  //  free_wrapper((void**) &(handover_request_acknowledge_pP->transparent_container.buf));
+
+  /** Not checking if the Target-to-Source Transparent container exists. */
+  MSC_LOG_TX_MESSAGE (MSC_S1AP_MME,
+                      MSC_MMEAPP_MME,
+                      NULL, 0,
+                      "0 S1AP_HANDOVER_REQUEST_ACKNOWLEDGE mme_ue_s1ap_id " MME_UE_S1AP_ID_FMT " ebi %u s1u enb teid %u",
+                      S1AP_HANDOVER_REQUEST_ACKNOWLEDGE (message_p).mme_ue_s1ap_id,
+                      S1AP_HANDOVER_REQUEST_ACKNOWLEDGE (message_p).eps_bearer_id,
+                      S1AP_HANDOVER_REQUEST_ACKNOWLEDGE (message_p).bearer_s1u_enb_fteid.teid);
+  rc =  itti_send_msg_to_task (TASK_MME_APP, INSTANCE_DEFAULT, message_p);
+  OAILOG_FUNC_RETURN (LOG_S1AP, RETURNok);
+}
+
+int
+s1ap_mme_handle_handover_resource_allocation_failure(const sctp_assoc_id_t assoc_id, const sctp_stream_id_t stream,
+                                        struct s1ap_message_s *message)                                         {
+  ue_description_t                         *ue_ref_p = NULL;
+  enb_ue_s1ap_id_t                          enb_ue_s1ap_id = 0;
+  mme_ue_s1ap_id_t                          mme_ue_s1ap_id = 0;
+  MessageDef                               *message_p = NULL;
+  int                                       rc = RETURNok;
+  S1ap_HandoverFailureIEs_t                *handoverFailure_p = NULL;
+  long                                      cause_value;
+  OAILOG_FUNC_IN (LOG_S1AP);
+
+  /** Get the Failure Message. */
+  handoverFailure_p = &message->msg.s1ap_HandoverFailureIEs;
+
+  /**
+   * No UE Reference to the target-eNB expected @ Handover Failure. Only will be created to the target eNB with Handover Request Acknowledge.
+   * Send Handover Failure back (manually) to the MME.
+   * This will trigger an implicit detach if the UE is not REGISTERED yet (single MME S1AP HO), or will just send a HO-PREP-FAILURE to the MME (if the cause is not S1AP-SYSTEM-FAILURE).
+   */
+  message_p = itti_alloc_new_message (TASK_S1AP, S1AP_HANDOVER_FAILURE);
+  AssertFatal (message_p != NULL, "itti_alloc_new_message Failed");
+  itti_s1ap_handover_failure_t *handover_failure_p = &message_p->ittiMsg.s1ap_handover_failure;
+  memset ((void *)&message_p->ittiMsg.s1ap_handover_failure, 0, sizeof (itti_s1ap_handover_failure_t));
+  /** Fill the S1AP Handover Failure elements per hand. */
+  handover_failure_p->mme_ue_s1ap_id = handoverFailure_p->mme_ue_s1ap_id;
+  handover_failure_p->enb_ue_s1ap_id = INVALID_ENB_UE_S1AP_ID_KEY;
+  /** Choice. */
+  S1ap_Cause_PR cause_type = handoverFailure_p->cause.present;
+
+  switch (cause_type)
+  {
+  case S1ap_Cause_PR_radioNetwork:
+    cause_value = handoverFailure_p->cause.choice.radioNetwork;
+    OAILOG_DEBUG (LOG_S1AP, "HANDOVER_FAILURE with Cause_Type = Radio Network and Cause_Value = %ld\n", cause_value);
+    break;
+
+  case S1ap_Cause_PR_transport:
+    cause_value = handoverFailure_p->cause.choice.transport;
+    OAILOG_DEBUG (LOG_S1AP, "HANDOVER_FAILURE with Cause_Type = Transport and Cause_Value = %ld\n", cause_value);
+    break;
+
+  case S1ap_Cause_PR_nas:
+    cause_value = handoverFailure_p->cause.choice.nas;
+    OAILOG_DEBUG (LOG_S1AP, "HANDOVER_FAILURE with Cause_Type = NAS and Cause_Value = %ld\n", cause_value);
+    break;
+
+  case S1ap_Cause_PR_protocol:
+    cause_value = handoverFailure_p->cause.choice.protocol;
+    OAILOG_DEBUG (LOG_S1AP, "HANDOVER_FAILURE with Cause_Type = Protocol and Cause_Value = %ld\n", cause_value);
+    break;
+
+  case S1ap_Cause_PR_misc:
+    cause_value = handoverFailure_p->cause.choice.misc;
+    OAILOG_DEBUG (LOG_S1AP, "HANDOVER_FAILURE with Cause_Type = MISC and Cause_Value = %ld\n", cause_value);
+    break;
+
+  default:
+    OAILOG_ERROR (LOG_S1AP, "HANDOVER_FAILURE with Invalid Cause_Type = %d\n", cause_type);
+    OAILOG_FUNC_RETURN (LOG_S1AP, RETURNerror);
+  }
+
+  /**
+   * No match function exists between the S1AP Cause and the decoded cause yet.
+   * Set it to anything else thatn SYSTEM_FAILURE, not to trigger any implicit detach due cause (only based on the handover type).
+   */
+  handover_failure_p->cause = S1AP_HANDOVER_FAILED;
+
+  /** No timer to stop on the target-MME side. */
+  MSC_LOG_TX_MESSAGE (MSC_S1AP_MME, MSC_MMEAPP_MME, NULL, 0, "0 Sending manually S1AP_HANDOVER_FAILURE for mme_ue_s1ap_id  " MME_UE_S1AP_ID_FMT " ", handover_failure_p->mme_ue_s1ap_id);
+  itti_send_msg_to_task (TASK_MME_APP, INSTANCE_DEFAULT, message_p);
+  /** No UE context to release. */
+  OAILOG_FUNC_OUT (LOG_S1AP);
+}
+
+//------------------------------------------------------------------------------
+/**
+ * ENB Status Transfer.
+ * Contains Transparent Data which is forwarded to the target eNB without state change.
+ */
+int
+s1ap_mme_handle_enb_status_transfer(const sctp_assoc_id_t assoc_id, const sctp_stream_id_t stream,
+                                        struct s1ap_message_s *message)   {
+
+  S1ap_ENBStatusTransferIEs_t              *enbStatusTransfer_p = NULL;
+
+  ue_description_t                         *ue_ref_p = NULL;
+  enb_ue_s1ap_id_t                          enb_ue_s1ap_id = 0;
+  mme_ue_s1ap_id_t                          mme_ue_s1ap_id = 0;
+  MessageDef                               *message_p = NULL;
+  int                                       rc = RETURNok;
+
+ //Request IEs:
+ //S1ap-ENB-UE-S1AP-ID
+ //S1ap-MME-UE-S1AP-ID
+ //S1ap-enb-StatusTransfer-TransparentContainer
+
+  OAILOG_FUNC_IN (LOG_S1AP);
+  enbStatusTransfer_p = &message->msg.s1ap_ENBStatusTransferIEs;
+  // eNB UE S1AP ID is limited to 24 bits
+  enb_ue_s1ap_id = (enb_ue_s1ap_id_t) (enbStatusTransfer_p->eNB_UE_S1AP_ID & ENB_UE_S1AP_ID_MASK);
+  mme_ue_s1ap_id = enbStatusTransfer_p->mme_ue_s1ap_id;
+  OAILOG_DEBUG (LOG_S1AP, "Enb Status Transfer received from source eNodeB for UE with eNB UE S1AP ID: " ENB_UE_S1AP_ID_FMT "\n", enb_ue_s1ap_id);
+
+  if ((ue_ref_p = s1ap_is_ue_mme_id_in_list (mme_ue_s1ap_id)) == NULL) {
+    /*
+     * The MME UE S1AP ID provided by eNB doesn't point to any valid UE.
+     * Since the message is optional, just disregard the message.
+     * No need to remove the UE implicitly.
+     * HANDOVER_NOTIFY timeout will purge the UE-Context.
+     */
+    OAILOG_ERROR( LOG_S1AP, "MME UE S1AP ID provided by eNB doesn't point to any valid UE: " MME_UE_S1AP_ID_FMT "\n", mme_ue_s1ap_id);
+    OAILOG_FUNC_RETURN (LOG_S1AP, RETURNerror);
+  }
+  /** UE resources will not be released yet. */
+  /** ENB Status Transfer message sent to MME_APP layer. It will decide if the target MME lies in the same MME or different MME. */
+  message_p = itti_alloc_new_message (TASK_S1AP, S1AP_ENB_STATUS_TRANSFER);
+  AssertFatal (message_p != NULL, "itti_alloc_new_message Failed");
+  memset ((void *)&message_p->ittiMsg.s1ap_enb_status_transfer, 0, sizeof (itti_s1ap_status_transfer_t));
+  S1AP_ENB_STATUS_TRANSFER (message_p).mme_ue_s1ap_id = ue_ref_p->mme_ue_s1ap_id;
+  S1AP_ENB_STATUS_TRANSFER (message_p).enb_ue_s1ap_id = ue_ref_p->enb_ue_s1ap_id;
+  S1AP_ENB_STATUS_TRANSFER (message_p).bearerStatusTransferList_buffer = blk2bstr(enbStatusTransfer_p->eNB_StatusTransfer_TransparentContainer.bearers_SubjectToStatusTransferList.list.array[0]->value.buf,
+      enbStatusTransfer_p->eNB_StatusTransfer_TransparentContainer.bearers_SubjectToStatusTransferList.list.array[0]->value.size);
+
+//  OCTET_STRING_fromBuf (&S1AP_ENB_STATUS_TRANSFER(message_p).bearerStatusTransferList_buffer,
+//      (char *)(enbStatusTransfer_p->eNB_StatusTransfer_TransparentContainer.bearers_SubjectToStatusTransferList.list.array[0]->value.buf),
+//      enbStatusTransfer_p->eNB_StatusTransfer_TransparentContainer.bearers_SubjectToStatusTransferList.list.array[0]->value.size);
+
+  /** Assuming that the OCTET-STRING will be freed automatically. */
+  MSC_LOG_TX_MESSAGE (MSC_S1AP_MME,
+      MSC_MMEAPP_MME,
+      NULL, 0,
+      "0 S1AP_ENB_STATUS_TRANSFER mme_ue_s1ap_id " MME_UE_S1AP_ID_FMT,
+      S1AP_ENB_STATUS_TRANSFER (message_p).mme_ue_s1ap_id);
+  rc =  itti_send_msg_to_task (TASK_MME_APP, INSTANCE_DEFAULT, message_p);
+  OAILOG_FUNC_RETURN (LOG_S1AP, RETURNok);
 }
 
 //------------------------------------------------------------------------------

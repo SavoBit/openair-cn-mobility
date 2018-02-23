@@ -36,4 +36,7 @@ int s11_mme_release_access_bearers_request(NwGtpv2cStackHandleT *stack_p, itti_s
 /* @brief Handle a Release Access Bearer Response received from S-GW. */
 int s11_mme_handle_release_access_bearer_response (NwGtpv2cStackHandleT * stack_p, NwGtpv2cUlpApiT * pUlpApi);
 
+/* @brief Handle a Downlink Data Notification received from S-GW. */
+int s11_mme_handle_downlink_data_notification(NwGtpv2cStackHandleT * stack_p, NwGtpv2cUlpApiT * pUlpApi);
+
 #endif /* FILE_S11_MME_BEARER_MANAGER_SEEN */

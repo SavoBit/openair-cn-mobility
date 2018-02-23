@@ -26,6 +26,7 @@
 #include "SecurityHeaderType.h"
 #include "MessageType.h"
 #include "EmmCause.h"
+#include "GprsTimer.h"
 
 /* Minimum length macro. Formed by minimum length of each mandatory field */
 #define TRACKING_AREA_UPDATE_REJECT_MINIMUM_LENGTH ( \
@@ -34,6 +35,16 @@
 /* Maximum length macro. Formed by maximum length of each field */
 #define TRACKING_AREA_UPDATE_REJECT_MAXIMUM_LENGTH ( \
     EMM_CAUSE_MAXIMUM_LENGTH )
+
+
+/* If an optional value is present and should be encoded, the corresponding
+ * Bit mask should be set to 1.
+ */
+# define TRACKING_AREA_UPDATE_REJECT_T3346_VALUE_PRESENT                  (1<<0)
+
+typedef enum tracking_area_update_reject_iei_tag {
+  TRACKING_AREA_UPDATE_REJECT_T3346_VALUE_IEI                   = 0x5F, /* 0x5F = 95 */
+} tracking_area_update_reject_iei;
 
 
 /*
@@ -49,6 +60,9 @@ typedef struct tracking_area_update_reject_msg_tag {
   SecurityHeaderType                      securityheadertype:4;
   MessageType                             messagetype;
   EmmCause                                emmcause;
+  /* Optional fields */
+  uint32_t                                presencemask;
+  GprsTimer                               t3346value;
 } tracking_area_update_reject_msg;
 
 int decode_tracking_area_update_reject(tracking_area_update_reject_msg *trackingareaupdatereject, uint8_t *buffer, uint32_t len);

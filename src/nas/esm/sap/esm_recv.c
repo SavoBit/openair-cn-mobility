@@ -208,7 +208,7 @@ esm_recv_pdn_connectivity_request (
     request_type = ESM_PDN_REQUEST_EMERGENCY;
   } else {
     /*
-     * Unkown PDN request type
+     * Unknown PDN request type
      */
     OAILOG_ERROR (LOG_NAS_ESM, "ESM-SAP   - Invalid PDN request type\n");
     OAILOG_FUNC_RETURN (LOG_NAS_ESM, ESM_CAUSE_INVALID_MANDATORY_INFO);
@@ -225,7 +225,7 @@ esm_recv_pdn_connectivity_request (
     esm_data->pdn_type = ESM_PDN_TYPE_IPV4V6;
   } else {
     /*
-     * Unkown PDN type
+     * Unknown PDN type
      */
     OAILOG_ERROR (LOG_NAS_ESM, "ESM-SAP   - Invalid PDN type\n");
     OAILOG_FUNC_RETURN (LOG_NAS_ESM, ESM_CAUSE_UNKNOWN_PDN_TYPE);
