@@ -125,19 +125,6 @@ static void *nas_intertask_interface (void *args_p)
     }
     break;
 
-    /** Signal Establishment of Handover. */
-    case NAS_HANDOVER_ESTABLISH_IND: {
-      nas_proc_s1ap_ho_establishment_ind (NAS_HANDOVER_ESTABLISH_IND (received_message_p).ue_id,
-          NAS_HANDOVER_ESTABLISH_IND (received_message_p).tai,
-          NAS_HANDOVER_ESTABLISH_IND (received_message_p).cgi);
-      }
-      break;
-    // Modify Bearer Handling
-//    case NAS_MODIFY_BEARER_RSP:{
-//        nas_proc_handover_ind (&NAS_MODIFY_BEARER_RSP (received_message_p));
-//      }
-//      break;
-
     case TIMER_HAS_EXPIRED:{
         /*
          * Call the NAS timer api

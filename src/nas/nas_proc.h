@@ -122,9 +122,6 @@ int nas_proc_ho_bearer_modification_fail (emm_cn_ho_bearer_mod_fail_t * emm_cn_h
 /** Handling Forward Relocation Request. */
 int nas_proc_ho_forward_relocation_request(emm_cn_ho_forward_relocation_req_t * emm_cn_ho_forward_relocation_req);
 
-// S1AP Handover Establishment
-int nas_proc_s1ap_ho_establishment_ind ( const mme_ue_s1ap_id_t ue_id, const tai_t originating_tai, const ecgi_t cgi);
-
 int nas_proc_implicit_detach_ue_ind (mme_ue_s1ap_id_t ue_id);
 int nas_proc_smc_fail(emm_cn_smc_fail_t *emm_cn_smc_fail);
 

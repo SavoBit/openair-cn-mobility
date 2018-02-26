@@ -813,9 +813,8 @@ s10_f_container_ie_get (
 
   f_container->container_type = *p_ieValue & 0x0F;
   p_ieValue++;
-
-  // todo: checking the length and copying it from there?
-  f_container->container_value = blk2bstr((void*)p_ieValue, ieLength -1); /**< Todo: Check if this works. Will it stay after ITTI message is sent, also in the destination ?*/
+  /** Allocating a new bstring. It will stay until it is manually deallocated. */
+  f_container->container_value = blk2bstr((void*)p_ieValue, ieLength -1); /**< Will it stay after ITTI message is sent, also in the destination ?*/
   return NW_OK;
 }
 

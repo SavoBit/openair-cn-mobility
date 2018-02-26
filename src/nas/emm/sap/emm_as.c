@@ -108,7 +108,7 @@ static int _emm_as_recv (
 
 static int _emm_as_establish_req (const emm_as_establish_t * msg, int *emm_cause);
 static int _emm_as_data_ind (const emm_as_data_t * msg, int *emm_cause);
-static int _emm_as_s1ap_handover_establish_ind (const emm_as_s1ap_handover_establish_ind_t * msg, int *emm_cause);
+
 /*
    Functions executed to send data to the network when requested
    within EMM procedure processing
@@ -196,11 +196,6 @@ int emm_as_send (const emm_as_t * msg)
   case _EMMAS_ESTABLISH_REQ:
     rc = _emm_as_establish_req (&msg->u.establish, &emm_cause);
     ue_id = msg->u.establish.ue_id;
-    break;
-
-  case _EMMAS_S1AP_HO_ESTABLISHMENT_IND:
-    rc = _emm_as_s1ap_handover_establish_ind (&msg->u.s1ap_ho_establishment_ind, &emm_cause);
-    ue_id = msg->u.s1ap_ho_establishment_ind.ue_id;
     break;
 
   default:
@@ -806,54 +801,6 @@ static int _emm_as_establish_req (const emm_as_establish_t * msg, int *emm_cause
   }
 
   OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
-}
-
-
-/****************************************************************************
- **                                                                        **
- ** Name:    _emm_as_s1ap_handover_establish_ind()                                   **
- **                                                                        **
- ** Description: Processes the EMMAS-SAP S1AP Handover Establishment Indicator       **
- **      primitive (processing TAI and ECGI received in the HANDOVER_NOTIFY).        **
- **                                                                        **
- **                                                                        **
- ***************************************************************************/
-static int _emm_as_s1ap_handover_establish_ind (const emm_as_s1ap_handover_establish_ind_t* s1ap_handover_est_ind, int *emm_cause)
-{
-  struct emm_data_context_s              *emm_ctx = NULL;
-  emm_security_context_t                 *emm_security_context = NULL;
-  nas_message_decode_status_t             decode_status = {0};
-  int                                     decoder_rc = 0;
-  int                                     rc = RETURNerror;
-  tai_t                                   originating_tai = {.plmn = {0}, .tac = INVALID_TAC_0000};
-
-  OAILOG_FUNC_IN (LOG_NAS_EMM);
-  OAILOG_INFO (LOG_NAS_EMM, "EMMAS-SAP - Received AS connection establish request\n");
-  nas_message_t                           nas_msg = {.security_protected.header = {0},
-                                                     .security_protected.plain.emm.header = {0},
-                                                     .security_protected.plain.esm.header = {0}};
-
-  emm_ctx = emm_data_context_get (&_emm_data, s1ap_handover_est_ind->ue_id);
-
-  if (emm_ctx) {
-    OAILOG_INFO (LOG_NAS_EMM, "EMMAS-SAP - got context %p\n", emm_ctx);
-    if (IS_EMM_CTXT_PRESENT_SECURITY(emm_ctx)) {
-      emm_security_context = &emm_ctx->_security;
-    }
-  }
-//  /*
-//   * Process initial NAS message
-//   */
-    originating_tai.tac = s1ap_handover_est_ind->tac;
-    originating_tai.plmn.mcc_digit1 = s1ap_handover_est_ind->plmn_id->mcc_digit1;
-    originating_tai.plmn.mcc_digit2 = s1ap_handover_est_ind->plmn_id->mcc_digit2;
-    originating_tai.plmn.mcc_digit3 = s1ap_handover_est_ind->plmn_id->mcc_digit3;
-    originating_tai.plmn.mnc_digit1 = s1ap_handover_est_ind->plmn_id->mnc_digit1;
-    originating_tai.plmn.mnc_digit2 = s1ap_handover_est_ind->plmn_id->mnc_digit2;
-    originating_tai.plmn.mnc_digit3 = s1ap_handover_est_ind->plmn_id->mnc_digit3;
-    rc = emm_recv_s1ap_handover_notify (s1ap_handover_est_ind->ue_id, &originating_tai, &s1ap_handover_est_ind->ecgi, emm_cause);
-
-    OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
 }
 
 /*

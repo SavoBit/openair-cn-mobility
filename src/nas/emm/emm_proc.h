@@ -222,19 +222,6 @@ int emm_proc_security_mode_control(const mme_ue_s1ap_id_t ue_id, ksi_t ksi,
 int emm_proc_security_mode_complete(mme_ue_s1ap_id_t ue_id);
 int emm_proc_security_mode_reject(mme_ue_s1ap_id_t ue_id);
 
-
-/*
- * --------------------------------------------------------------------------
- *              Handover procedure
- * --------------------------------------------------------------------------
- */
-
-int
-emm_proc_s1ap_handover_notify(
-  mme_ue_s1ap_id_t ue_id,
-  const tai_t   * const originating_tai,
-  const ecgi_t   * const originating_ecgi);
-
 void
 _clear_emm_ctxt(emm_data_context_t *emm_ctx); 
 /*

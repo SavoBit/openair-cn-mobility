@@ -79,7 +79,7 @@ void s1ap_handle_handover_cnf(const itti_s1ap_handover_cnf_t * const handover_cn
 int s1ap_handle_handover_preparation_failure (
     const itti_s1ap_handover_preparation_failure_t *handover_prep_failure_pP);
 
-static int                              s1ap_handover_preparation_failure (
+int                              s1ap_handover_preparation_failure (
     const sctp_assoc_id_t assoc_id,
     const mme_ue_s1ap_id_t mme_ue_s1ap_id,
     const enb_ue_s1ap_id_t enb_ue_s1ap_id,

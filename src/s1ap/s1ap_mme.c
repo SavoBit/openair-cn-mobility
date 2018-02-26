@@ -205,9 +205,9 @@ s1ap_mme_thread (
     break;
 
     case MME_APP_S1AP_MME_UE_ID_NOTIFICATION:{
-        s1ap_handle_mme_ue_id_notification (&MME_APP_S1AP_MME_UE_ID_NOTIFICATION (received_message_p));
-      }
-      break;
+      s1ap_handle_mme_ue_id_notification (&MME_APP_S1AP_MME_UE_ID_NOTIFICATION (received_message_p));
+    }
+    break;
     
     // Messages to continue to initial UE establishment after duplicate check
     case MME_APP_S1AP_INITIAL_UE_MESSAGE_DUPLICATE_CNF:{
@@ -518,7 +518,6 @@ s1ap_is_enb_ue_s1ap_id_in_list_per_enb (
   const uint32_t  enb_id)
 {
   ue_description_t                       *ue_ref = NULL;
-  mme_ue_s1ap_id_t                       *mme_ue_s1ap_id_p = (mme_ue_s1ap_id_t*)&enb_ue_s1ap_id;
   enb_description_t                      *enb_ref = NULL;
   enb_ref = s1ap_is_enb_id_in_list(enb_id);
   if(enb_ref == NULL){

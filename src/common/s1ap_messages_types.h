@@ -361,6 +361,8 @@ typedef struct itti_s1ap_handover_cancel_acknowledge_s {
 typedef struct itti_s1ap_status_transfer_s {
   mme_ue_s1ap_id_t        mme_ue_s1ap_id;
   enb_ue_s1ap_id_t        enb_ue_s1ap_id:24;
+  /** enb_id to find the correct UE_Reference. */
+  uint32_t                enb_id;
   /** F-Container. */
   bstring                 bearerStatusTransferList_buffer; /**< Target-ToSource Transparent Container. */
 

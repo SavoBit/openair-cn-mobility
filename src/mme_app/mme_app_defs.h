@@ -145,6 +145,8 @@ void mme_app_handle_implicit_detach_timer_expiry (struct ue_context_s *ue_contex
 
 void mme_app_handle_mme_mobility_completion_timer_expiry (struct ue_context_s *ue_context_p);
 
+void mme_app_handle_mme_s10_handover_completion_timer_expiry (struct ue_context_s *ue_context_p);
+
 void mme_app_handle_mme_paging_timeout_timer_expiry (struct ue_context_s *ue_context_p);
 
 void mme_app_handle_initial_context_setup_rsp_timer_expiry (struct ue_context_s *ue_context_p);

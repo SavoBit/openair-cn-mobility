@@ -720,37 +720,6 @@ nas_proc_ho_forward_relocation_request( /**< Creating a new UE context. */
 
 //------------------------------------------------------------------------------
 int
-nas_proc_s1ap_ho_establishment_ind ( const mme_ue_s1ap_id_t ue_id,
-  const tai_t originating_tai,
-  const ecgi_t cgi){
-  OAILOG_FUNC_IN (LOG_NAS_EMM);
-  int                                     rc = RETURNerror;
-
-  emm_sap_t                               emm_sap = {0};
-
-  MSC_LOG_TX_MESSAGE (MSC_NAS_MME, MSC_NAS_EMM_MME, NULL, 0, "0 EMMAS_S1AP_HO_ESTABLISH_IND ue id " MME_UE_S1AP_ID_FMT " tai:  plmn %c%c%c.%c%c%c tac %u",
-      ue_id,
-      (char)(originating_tai.plmn.mcc_digit1 + 0x30), (char)(originating_tai.plmn.mcc_digit2 + 0x30), (char)(originating_tai.plmn.mcc_digit3 + 0x30),
-      (char)(originating_tai.plmn.mnc_digit1 + 0x30), (char)(originating_tai.plmn.mnc_digit2 + 0x30),
-      (9 < originating_tai.plmn.mnc_digit3) ? ' ': (char)(originating_tai.plmn.mnc_digit3 + 0x30),
-          originating_tai.tac);
-  /*
-   * Notify the EMM procedure call manager that NAS signalling
-   * connection establishment indication message has been received
-   * from the Access-Stratum sublayer
-   */
-  emm_sap.primitive = EMMAS_S1AP_HO_ESTABLISHMENT_IND;
-  emm_sap.u.emm_as.u.s1ap_ho_establishment_ind.ue_id              = ue_id;
-  emm_sap.u.emm_as.u.s1ap_ho_establishment_ind.plmn_id            = &originating_tai.plmn;
-  emm_sap.u.emm_as.u.s1ap_ho_establishment_ind.tac                = originating_tai.tac;
-  emm_sap.u.emm_as.u.s1ap_ho_establishment_ind.ecgi               = cgi;
-  rc = emm_sap_send (&emm_sap);
-
-  OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
-}
-
-//------------------------------------------------------------------------------
-int
 nas_proc_smc_fail (
   emm_cn_smc_fail_t * emm_cn_smc_fail)
 {

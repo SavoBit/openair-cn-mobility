@@ -50,6 +50,7 @@
 #define MME_CONFIG_STRING_RELATIVE_CAPACITY              "RELATIVE_CAPACITY"
 #define MME_CONFIG_STRING_STATISTIC_TIMER                "MME_STATISTIC_TIMER"
 #define MME_CONFIG_STRING_MME_MOBILITY_COMPLETION_TIMER  "MME_MOBILITY_COMPLETION_TIMER"
+#define MME_CONFIG_STRING_MME_S10_HANDOVER_COMPLETION_TIMER  "MME_S10_HANDOVER_COMPLETION_TIMER"
 #define MME_CONFIG_STRING_MME_PAGING_TIMEOUT_TIMER       "MME_PAGING_TIMEOUT_TIMER"
 
 #define MME_CONFIG_STRING_EMERGENCY_ATTACH_SUPPORTED     "EMERGENCY_ATTACH_SUPPORTED"
@@ -140,6 +141,7 @@ typedef struct mme_config_s {
 
   uint32_t mme_statistic_timer;
   uint32_t mme_mobility_completion_timer;
+  uint32_t mme_s10_handover_completion_timer;
   uint32_t mme_paging_timeout_timer;
 
   uint8_t unauthenticated_imsi_supported;

@@ -75,9 +75,6 @@
 #define NAS_HO_FORWARD_RELOCATION_REQ(mSGpTR)       (mSGpTR)->ittiMsg.nas_ho_forward_relocation_req
 #define NAS_HO_FORWARD_RELOCATION_FAIL(mSGpTR)      (mSGpTR)->ittiMsg.nas_ho_forward_relocation_fail
 
-/** Handover Notify. */
-#define NAS_HANDOVER_ESTABLISH_IND(mSGpTR)          (mSGpTR)->ittiMsg.nas_handover_establish_ind
-
 /** NAS Context Request/Response. */
 #define NAS_UE_CONTEXT_REQ(mSGpTR)                  (mSGpTR)->ittiMsg.nas_ue_context_req
 #define NAS_UE_CONTEXT_RSP(mSGpTR)                  (mSGpTR)->ittiMsg.nas_ue_context_rsp
@@ -385,13 +382,6 @@ typedef struct itti_nas_ho_forward_reloc_fail_s {
   mme_ue_s1ap_id_t        ue_id;
 
 }itti_nas_ho_forward_reloc_fail_t;
-
-/** Handover Notify. */
-typedef struct itti_nas_handover_establish_ind_s {
-  mme_ue_s1ap_id_t        ue_id;
-  tai_t                   tai;            /* Indicating the Tracking Area from which the UE has sent the NAS message.  */
-  ecgi_t                  cgi;            /* Indicating the cell from which the UE has sent the NAS message.   */
-} itti_nas_handover_establish_ind_t;
 
 typedef struct itti_nas_initial_ue_message_s {
   nas_establish_ind_t nas;

@@ -67,8 +67,6 @@ typedef enum emm_as_primitive_u {
   // handover
   _EMMAS_HO_TAU_BEARER_MODIFICATION_CNF, /* AS->EMM: Handover confirmation */
   _EMMAS_HO_TAU_BEARER_MODIFICATION_REJ, /* AS->EMM: Handover rejection */
-  _EMMAS_S1AP_HO_ESTABLISHMENT_IND,
-
 
   _EMMAS_RELEASE_REQ,   /* EMM->AS: Connection release request    */
   _EMMAS_RELEASE_IND,   /* AS->EMM: Connection release indication */

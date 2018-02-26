@@ -328,6 +328,9 @@ void *mme_app_thread (
           } else if (received_message_p->ittiMsg.timer_has_expired.timer_id == ue_context_p->mme_mobility_completion_timer.id) {
             // MME Mobility Completion Timer expiry handler
             mme_app_handle_mme_mobility_completion_timer_expiry (ue_context_p);
+          } else if (received_message_p->ittiMsg.timer_has_expired.timer_id == ue_context_p->mme_s10_handover_completion_timer.id) {
+            // MME S10 Handover Completion Timer expiry handler
+            mme_app_handle_mme_s10_handover_completion_timer_expiry (ue_context_p);
           } else if (received_message_p->ittiMsg.timer_has_expired.timer_id == ue_context_p->mme_paging_timeout_timer.id) {
             // MME Paging Timeout Timer expiry handler
             mme_app_handle_mme_paging_timeout_timer_expiry (ue_context_p);

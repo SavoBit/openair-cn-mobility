@@ -287,7 +287,6 @@ s10_mme_forward_relocation_response (
    NwGtpv2cUlpApiT                         ulp_req;
    NwGtpv2cTrxnHandleT                     trxn;
    gtp_cause_t                             cause;
-   // todo: restart counter
 
    DevAssert (forward_relocation_response_p );
    DevAssert (stack_p );
@@ -366,6 +365,7 @@ s10_mme_forward_relocation_response (
        s10_bearer_context_created_ie_set( &(ulp_req.hMsg), &forward_relocation_response_p->list_of_bearers.bearer_contexts[i]);
      }
    }
+   /** No allocated context remains. */
    rc = nwGtpv2cProcessUlpReq (*stack_p, &ulp_req);
    DevAssert (NW_OK == rc);
    return RETURNok;
@@ -443,7 +443,7 @@ s10_mme_handle_forward_relocation_response(
     DevAssert (NW_OK == rc);
     rc = nwGtpv2cMsgDelete (*stack_p, (pUlpApi->hMsg));
     DevAssert (NW_OK == rc);
-    return RETURNerror;
+    return RETURNerror; /**< Timers will take care. */
   }
 
   rc = nwGtpv2cMsgParserDelete (*stack_p, pMsgParser);
@@ -677,7 +677,7 @@ s10_mme_handle_forward_access_context_acknowledge( NwGtpv2cStackHandleT * stack_
   DevAssert (NW_OK == rc);
   rc = nwGtpv2cMsgDelete (*stack_p, (pUlpApi->hMsg));
   DevAssert (NW_OK == rc);
-  MSC_LOG_RX_MESSAGE (MSC_S10_MME, MSC_SGW, NULL, 0, "0 FORWARD_ACCESS_CONTEXT_ACKNOWLEDGE local S10 teid " TEID_FMT , ack_p->teid);
+  MSC_LOG_RX_MESSAGE (MSC_S10_MME, MSC_S10_MME, NULL, 0, "0 FORWARD_ACCESS_CONTEXT_ACKNOWLEDGE local S10 teid " TEID_FMT , ack_p->teid);
   return itti_send_msg_to_task (TASK_MME_APP, INSTANCE_DEFAULT, message_p);
 }
 
@@ -704,7 +704,7 @@ s10_mme_forward_relocation_complete_notification(
   rc = nwGtpv2cMsgNew (*stack_p, NW_TRUE, NW_GTP_FORWARD_RELOCATION_COMPLETE_NTF, notif_p->teid, 0, &(ulp_req.hMsg));
   ulp_req.apiInfo.initialReqInfo.peerIp     = notif_p->peer_ip;
 
-  OAILOG_WARNING (LOG_S10, "Sending FW_RELOC_COMPLETE_NOTIF TO %x. \n", ulp_req.apiInfo.initialReqInfo.peerIp);
+  OAILOG_INFO(LOG_S10, "Sending FW_RELOC_COMPLETE_NOTIF TO %x. \n", ulp_req.apiInfo.initialReqInfo.peerIp);
 
   /** Setting the local teid twice, once here once later. */
   ulp_req.apiInfo.initialReqInfo.teidLocal  = notif_p->local_teid;  /**< Used to get the local tunnel... */
@@ -713,11 +713,11 @@ s10_mme_forward_relocation_complete_notification(
       (hash_key_t) ulp_req.apiInfo.initialReqInfo.teidLocal, (void **)(uintptr_t)&ulp_req.apiInfo.initialReqInfo.hTunnel);
 
   if (HASH_TABLE_OK != hash_rc) {
-    OAILOG_WARNING (LOG_S10, "Could not get GTPv2-C hTunnel for local teid for handover notification %X\n", ulp_req.apiInfo.initialReqInfo.teidLocal);
+    OAILOG_ERROR(LOG_S10, "Could not get GTPv2-C hTunnel for local teid for handover notification %X\n", ulp_req.apiInfo.initialReqInfo.teidLocal);
     return RETURNerror;
   }
 
-  MSC_LOG_TX_MESSAGE (MSC_S10_MME, MSC_SGW, NULL, 0, "0 FORWARD_RELOCATION_COMPLETE_NOTIFICATION local S10 teid " TEID_FMT,
+  MSC_LOG_TX_MESSAGE (MSC_S10_MME, MSC_S10_MME, NULL, 0, "0 FORWARD_RELOCATION_COMPLETE_NOTIFICATION local S10 teid " TEID_FMT,
       notif_p->local_teid);
 
   rc = nwGtpv2cProcessUlpReq (*stack_p, &ulp_req);
@@ -744,7 +744,7 @@ s10_mme_handle_forward_relocation_complete_notification(
   In this case, at reception and decoding, it is the local TEID, used to find the MME_APP ue_context. */
   notif_p->trxn = (void *)pUlpApi->apiInfo.initialReqIndInfo.hTrxn;
 
-  MSC_LOG_RX_MESSAGE (MSC_S10_MME, MSC_SGW, NULL, 0, "0 FORWARD_RELOCATION_COMPLETE_NOTIFICATION local S10 teid " TEID_FMT , notif_p->teid);
+  MSC_LOG_RX_MESSAGE (MSC_S10_MME, MSC_S10_MME, NULL, 0, "0 FORWARD_RELOCATION_COMPLETE_NOTIFICATION local S10 teid " TEID_FMT , notif_p->teid);
   return itti_send_msg_to_task (TASK_MME_APP, INSTANCE_DEFAULT, message_p);
 }
 
@@ -773,13 +773,11 @@ s10_mme_forward_relocation_complete_acknowledge(
    */
   memset (&ulp_ack, 0, sizeof (NwGtpv2cUlpApiT));
 
-  ulp_ack.apiInfo.triggeredRspInfo.teidLocal = forward_reloc_complete_ack_p->local_teid; // todo: check which teid is the local one, which the remote..
-//  ulp_req.apiInfo.triggeredRspInfo.peerIp = forward_access_context_ack_p->peer_ip;
+  ulp_ack.apiInfo.triggeredRspInfo.teidLocal = forward_reloc_complete_ack_p->local_teid;
   ulp_ack.apiType = NW_GTPV2C_ULP_API_TRIGGERED_RSP; /**< Sending Side. */
   ulp_ack.apiInfo.triggeredRspInfo.hUlpTunnel = 0;
   ulp_ack.apiInfo.triggeredRspInfo.hTunnel    = 0;
   ulp_ack.apiInfo.triggeredRspInfo.hTrxn = trxn;
-//  ulp_ack.apiInfo.triggeredRspInfo.peerIp = forward_access_context_ack_p->peer_ip;
 
   hashtable_rc_t hash_rc = hashtable_ts_get(s10_mme_teid_2_gtv2c_teid_handle,
       (hash_key_t) ulp_ack.apiInfo.triggeredRspInfo.teidLocal, (void **)(uintptr_t)&ulp_ack.apiInfo.triggeredRspInfo.hTunnel);
@@ -788,13 +786,11 @@ s10_mme_forward_relocation_complete_acknowledge(
     OAILOG_WARNING (LOG_S10, "Could not get GTPv2-C hTunnel for local TEID %X on S10 MME interface. \n", ulp_ack.apiInfo.triggeredRspInfo.teidLocal);
     return RETURNerror;
   }
-  // todo: hTrxn ?!?
 
   rc = nwGtpv2cMsgNew (*stack_p, NW_TRUE, NW_GTP_FORWARD_RELOCATION_COMPLETE_ACK, 0, 0, &(ulp_ack.hMsg));
   DevAssert (NW_OK == rc);
   /*
-   * Set the remote TEID
-   * todo: local or remote?
+   * Set the remote TEID.
    */
   rc = nwGtpv2cMsgSetTeid (ulp_ack.hMsg, forward_reloc_complete_ack_p->teid);
   DevAssert (NW_OK == rc);
@@ -867,7 +863,7 @@ s10_mme_handle_forward_relocation_complete_acknowledge(
   rc = nwGtpv2cMsgDelete (*stack_p, (pUlpApi->hMsg));
   DevAssert (NW_OK == rc);
 
-  MSC_LOG_RX_MESSAGE (MSC_S10_MME, MSC_SGW, NULL, 0, "0 FORWARD_RELOCATION_COMPLETE_ACKOWLEDGE local S10 teid " TEID_FMT , ack_p->teid);
+  MSC_LOG_RX_MESSAGE (MSC_S10_MME, MSC_S10_MME, NULL, 0, "0 FORWARD_RELOCATION_COMPLETE_ACKOWLEDGE local S10 teid " TEID_FMT , ack_p->teid);
   return itti_send_msg_to_task (TASK_MME_APP, INSTANCE_DEFAULT, message_p);
 }
 
@@ -1686,6 +1682,21 @@ s10_mme_handle_ulp_error_indicatior(
     /** Respond with an S10 Forward Access Context Acknowledgment Failure. */
     message_p = itti_alloc_new_message (TASK_S10, S10_FORWARD_ACCESS_CONTEXT_ACKNOWLEDGE);
     ack_p = &message_p->ittiMsg.s10_forward_access_context_acknowledge;
+    memset(ack_p, 0, sizeof(*ack_p));
+    /** Set the destination TEID (our TEID). */
+    ack_p->teid = pUlpApi->apiInfo.rspFailureInfo.teidLocal;
+    /** Set the transaction for the triggered acknowledgement. */
+    ack_p->trxn = (void *)pUlpApi->apiInfo.rspFailureInfo.hUlpTrxn;
+    /** Set the cause. */
+    ack_p->cause = SYSTEM_FAILURE; /**< Would mean that this message either did not come at all or could not be dealt with properly. */
+  }
+  break;
+  case NW_GTP_FORWARD_RELOCATION_COMPLETE_NTF:
+  {
+    itti_s10_forward_access_context_acknowledge_t            *ack_p;
+    /** Respond with an S10 Forward Relocation Complete Acknowledgment Failure. */
+    message_p = itti_alloc_new_message (TASK_S10, S10_FORWARD_RELOCATION_COMPLETE_ACKNOWLEDGE);
+    ack_p = &message_p->ittiMsg.s10_forward_relocation_complete_acknowledge;
     memset(ack_p, 0, sizeof(*ack_p));
     /** Set the destination TEID (our TEID). */
     ack_p->teid = pUlpApi->apiInfo.rspFailureInfo.teidLocal;

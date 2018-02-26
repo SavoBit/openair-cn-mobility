@@ -80,8 +80,6 @@ MESSAGE_DEF(NAS_HO_FORWARD_RELOCATION_FAIL,     MESSAGE_PRIORITY_MED,   itti_nas
 // handover (after NAS processing, confirming or rejecting the handover procedure)
 MESSAGE_DEF(NAS_HANDOVER_TAU_CNF,               MESSAGE_PRIORITY_MED,   itti_nas_handover_tau_cnf_t,        nas_handover_tau_cnf)
 MESSAGE_DEF(NAS_HANDOVER_TAU_REJ,               MESSAGE_PRIORITY_MED,   itti_nas_handover_tau_rej_t,        nas_handover_tau_rej)
-/** Handover Notify */
-MESSAGE_DEF(NAS_HANDOVER_ESTABLISH_IND,         MESSAGE_PRIORITY_MED,   itti_nas_handover_establish_ind_t,         nas_handover_establish_ind)
 
 /** S10 Context Transfer (TAU). */
 MESSAGE_DEF(NAS_UE_CONTEXT_REQ,                 MESSAGE_PRIORITY_MED,   itti_nas_ue_context_req_t,         nas_ue_context_req)

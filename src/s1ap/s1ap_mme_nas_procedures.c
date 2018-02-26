@@ -926,9 +926,7 @@ int s1ap_handover_preparation_failure (
 
   // Failed to encode
   if (enc_rval < 0) {
-    OAILOG_ERROR (LOG_S1AP, "Error encoding handover preparation failure.\n");
-//    OAILOG_LEVEL_ERROR
-    // todo: handover_notify_timer stopped before?
+    DevMessage ("Failed to encode handover preparation failure message\n");
   }
 
   bstring b = blk2bstr(buffer, length);
@@ -1257,6 +1255,11 @@ s1ap_handle_handover_command (
   handoverCommand_p->handoverType = S1ap_HandoverType_intralte;
   /*
    * E-UTRAN Target-ToSource Transparent Container.
+   * todo: Lionel: ask if correct:
+   * The octet string will be freed inside: .
+   *  s1ap_generate_successfull_outcome (
+       * We can safely free list of IE from sptr
+      ASN_STRUCT_FREE_CONTENTS_ONLY (*td, sptr);
    */
   OCTET_STRING_fromBuf(&handoverCommand_p->target_ToSource_TransparentContainer,
       handover_command_pP->eutran_target_to_source_container->data, blength(handover_command_pP->eutran_target_to_source_container));
@@ -1265,19 +1268,9 @@ s1ap_handle_handover_command (
   bdestroy(handover_command_pP->eutran_target_to_source_container);
 
   if (s1ap_mme_encode_pdu (&message, &buffer_p, &length) < 0) {
-    OAILOG_ERROR (LOG_S1AP, "Failed to encode handover command \n");
-    /** We rely on the handover_notify timeout to remove the UE context. */
-    OAILOG_FUNC_RETURN (LOG_S1AP, RETURNerror);
+    DevMessage("Failed to encode handover command \n");
   }
-
-  /** todo: The octet string will be freed inside: . */
-  //  s1ap_generate_successfull_outcome (
-  //        /*
-  //     * We can safely free list of IE from sptr
-  //     */
-  //    ASN_STRUCT_FREE_CONTENTS_ONLY (*td, sptr);
-
-  OAILOG_NOTICE (LOG_S1AP, "Send S1AP_HANDOVER_COMMAND message MME_UE_S1AP_ID = " MME_UE_S1AP_ID_FMT " eNB_UE_S1AP_ID = " ENB_UE_S1AP_ID_FMT "\n",
+ OAILOG_NOTICE (LOG_S1AP, "Send S1AP_HANDOVER_COMMAND message MME_UE_S1AP_ID = " MME_UE_S1AP_ID_FMT " eNB_UE_S1AP_ID = " ENB_UE_S1AP_ID_FMT "\n",
               (mme_ue_s1ap_id_t)handoverCommand_p->mme_ue_s1ap_id, (enb_ue_s1ap_id_t)handoverCommand_p->eNB_UE_S1AP_ID);
   MSC_LOG_TX_MESSAGE (MSC_S1AP_MME,
                       MSC_S1AP_ENB,
@@ -1320,63 +1313,7 @@ s1ap_handle_mme_status_transfer( const itti_s1ap_status_transfer_t * const s1ap_
         s1ap_status_transfer_pP->enb_ue_s1ap_id);
     OAILOG_FUNC_OUT (LOG_S1AP);
   }
-  /** No need to find the source_enb.. Assuming that the source_enb association is still present. */
-  /** Check the UE state is in S1AP_UE_HANDOVER_S1AP. */
-//  if(ue_ref->s1_ue_state != S1AP_UE_CONNECTED){
-//    OAILOG_ERROR (LOG_S1AP, " UE context is not in S1AP_UE_CONNECTED state but in %d for UE mme ue s1ap id (" MME_UE_S1AP_ID_FMT "). \n",
-//            ue_ref->s1_ue_state, s1ap_status_transfer_pP->mme_ue_s1ap_id);
-//    // todo: save the enb_association to the old enodeb temporarily in the newly created context?
-//    // There are some race conditions were NAS T3450 timer is stopped and removed at same time
-//    // todo: send the reject message back.. clear all the contexts..
-//    OAILOG_FUNC_OUT (LOG_S1AP);
-//  }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//
-//  // todo: check the correct size!!
-//  OCTET_STRING_fromBuf (&s1ap_status_transfer_p->bearerStatusTransferList_buffer,
-//      (forward_access_context_notification_pP->eutran_container.container_value->data + 6),
-//      blength(forward_access_context_notification_pP->eutran_container.container_value) - 6); // Must subtract 6 here somehow --> See added (hardcoded 6 bytes in s10) !
-//
-//  bdestroy(forward_access_context_notification_pP->eutran_container.container_value);
-//
-//  /** Set the transparent container. */
-////  OCTET_STRING_fromBuf (&S1AP_ENB_STATUS_TRANSFER(message_p).bearerStatusTransferList_buffer,
-////      (char *)(enbStatusTransfer_p->eNB_StatusTransfer_TransparentContainer.bearers_SubjectToStatusTransferList.list.array[0]->value.buf),
-////      enbStatusTransfer_p->eNB_StatusTransfer_TransparentContainer.bearers_SubjectToStatusTransferList.list.array[0]->value.size);
-//
-//  /** Successfully set the container. */
-//  // todo: OCTET_STRINGS where deallocated.. bstring in forward_relocation_response also manually deallocated?
-////  free_wrapper((void**) &(forward_access_context_notification_pP->eutran_container.container_value));
-//  // todo: how is this deallocated
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+  /** Create the MME S1AP Statut Transfer message. */
   message.procedureCode = S1ap_ProcedureCode_id_MMEStatusTransfer;
   message.direction = S1AP_PDU_PR_initiatingMessage;
   mmeStatusTransfer_p = &message.msg.s1ap_MMEStatusTransferIEs;
@@ -1396,21 +1333,21 @@ s1ap_handle_mme_status_transfer( const itti_s1ap_status_transfer_t * const s1ap_
   status_container.id = S1ap_ProtocolIE_ID_id_Bearers_SubjectToStatusTransfer_Item;
   status_container.criticality = S1ap_Criticality_ignore;
 
-  // todo: copy the buffer!!
+  /*
+   * E-UTRAN Target-ToSource Transparent Container.
+   */
+
+  /**
+   * todo: lionel:
+   * Here, do we need to allocate an OCTET String container because of the purge of the message in the encode?
+   * Or can we use this?
+   * What is exactly purged in the encoder? The list (without the contents)? the contents of the list? contents & list?
+   */
   status_container.value.buf  = s1ap_status_transfer_pP->bearerStatusTransferList_buffer->data + 6;
   status_container.value.size = blength(s1ap_status_transfer_pP->bearerStatusTransferList_buffer) - 6; // s1ap_status_transfer_pP->bearerStatusTransferList_buffer->slen;
-  bdestroy(s1ap_status_transfer_pP->bearerStatusTransferList_buffer);
 
   /** Adding stacked value. */
   ASN_SEQUENCE_ADD (&mmeStatusTransfer_p->eNB_StatusTransfer_TransparentContainer.bearers_SubjectToStatusTransferList, &status_container);
-
-//  mmeStatusTransfer_p->eNB_StatusTransfer_TransparentContainer.bearers_SubjectToStatusTransferList.listsize = handover_cmd_pP->eutran_container.container_type;
-
-  // todo: this is done wrong.
-  // todo: check what is the character
-//  handoverCommand_p->target_ToSource_TransparentContainer.buf = bstr2cstr (handover_cmd_pP->eutran_container.container_type, '0');
-  // todo: This returned value should be freed with a bcstrfree () call, by the calling application.
-  // todo: free the new one!
 
   /** Encoding without allocating? */
   if (s1ap_mme_encode_pdu (&message, &buffer_p, &length) < 0) {
@@ -1418,7 +1355,8 @@ s1ap_handle_mme_status_transfer( const itti_s1ap_status_transfer_t * const s1ap_
     /** We rely on the handover_notify timeout to remove the UE context. */
     OAILOG_FUNC_RETURN (LOG_S1AP, RETURNerror);
   }
-
+  // todo: do we need this destroy?
+  bdestroy(s1ap_status_transfer_pP->bearerStatusTransferList_buffer);
   OAILOG_NOTICE (LOG_S1AP, "Send S1AP_MME_STATUS_TRANSFER message MME_UE_S1AP_ID = " MME_UE_S1AP_ID_FMT " eNB_UE_S1AP_ID = " ENB_UE_S1AP_ID_FMT "\n",
               (mme_ue_s1ap_id_t)mmeStatusTransfer_p->mme_ue_s1ap_id, (enb_ue_s1ap_id_t)mmeStatusTransfer_p->eNB_UE_S1AP_ID);
   MSC_LOG_TX_MESSAGE (MSC_S1AP_MME,
@@ -1430,8 +1368,6 @@ s1ap_handle_mme_status_transfer( const itti_s1ap_status_transfer_t * const s1ap_
   bstring b = blk2bstr(buffer_p, length);
   free(buffer_p);
   s1ap_mme_itti_send_sctp_request (&b, ue_ref->enb->sctp_assoc_id, ue_ref->sctp_stream_send, ue_ref->mme_ue_s1ap_id);
-  /** todo: leaving the UE in S1AP_UE_HANDOVER_STATE? */
-  //  ue_ref->s1_ue_state = S1AP_UE_CONNECTED;
   OAILOG_FUNC_OUT (LOG_S1AP);
 }
 

@@ -267,7 +267,7 @@ typedef struct ue_context_s {
 
   /** Handover Target Information. */
   tai_t                  pending_handover_target_tai;     /**< Todo: can they be directly set? with the first handover required message? */
-  uint32_t               pending_handover_target_enb_id:20;
+  uint32_t               pending_handover_enb_id:20;
   void                  *pending_s10_response_trxn;       ///< Transaction identifier;
   enb_ue_s1ap_id_t       pending_handover_enb_ue_s1ap_id; /**< eNB-UE-S1AP-Id of the target-ENB if it is a single MME s1AP handover. */
 
@@ -284,6 +284,8 @@ typedef struct ue_context_s {
   struct mme_app_timer_t       initial_context_setup_rsp_timer; 
   // Handover/TAU completion timer (TS 23.401)
   struct mme_app_timer_t       mme_mobility_completion_timer; // todo: not TXXXX value found for this.
+  /** Custom timer to remove UE at the source-MME side after a timeout. */
+  struct mme_app_timer_t       mme_s10_handover_completion_timer; // todo: not TXXXX value found for this.
   struct mme_app_timer_t       mme_paging_timeout_timer; // todo: not TXXXX value found for this.
 
   // Handover related stuff (for which messages to use the following

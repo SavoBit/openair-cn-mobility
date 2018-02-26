@@ -1770,9 +1770,11 @@ mme_app_handle_s10_context_response(
   OAILOG_FUNC_IN (LOG_MME_APP);
   DevAssert (s10_context_response_pP );
 
+  /** Parse IMSI first, then get the MME_APP UE context. */
   IMSI_STRING_TO_IMSI64 (&s10_context_response_pP->imsi, &imsi);
   OAILOG_DEBUG (LOG_MME_APP, "Handling S10 CONTEXT RESPONSE for received imsi " IMSI_64_FMT " and local S10 TEID " TEID_FMT ". \n",
       imsi, s10_context_response_pP->teid);
+
   ue_context_p = mme_ue_context_exists_s10_teid (&mme_app_desc.mme_ue_contexts, s10_context_response_pP->teid);
   /** Check that the UE_CONTEXT exists for the S10_FTEID. */
   if (ue_context_p == NULL) { /**< If no UE_CONTEXT found, all tunnels are assumed to be cleared and not tunnels established when S10_CONTEXT_RESPONSE is received. */
@@ -2070,7 +2072,7 @@ mme_app_handle_relocation_cancel_request(
 
 //------------------------------------------------------------------------------
 void
-mme_app_handle_relocation_cancel_response(
+mme_app_handle_relocation_cancel_response( /**< Will only be sent to cancel a handover, not a TAU. */
      const itti_s10_relocation_cancel_response_t * const relocation_cancel_response_pP
     )
 {
@@ -2091,6 +2093,7 @@ mme_app_handle_relocation_cancel_response(
  /**
   * Check the cause of the UE.
   * If it is SYSTEM_FAILURE, perform an implicit detach.
+  * todo: Lionel --> this case could also be ignored.
   */
  if(relocation_cancel_response_pP->cause != REQUEST_ACCEPTED){
    OAILOG_ERROR(LOG_MME_APP, "RELOCATION_CANCEL_REPONSE for UE with mmeUeS1apId " MME_UE_S1AP_ID_FMT " is not accepted, instead %d. \n",
@@ -2105,7 +2108,7 @@ mme_app_handle_relocation_cancel_response(
    OAILOG_FUNC_OUT (LOG_MME_APP);
  }
  OAILOG_INFO(LOG_MME_APP, "RELOCATION_CANCEL_REPONSE was accepted at TARGET-MME side for UE with mmeUeS1apId " MME_UE_S1AP_ID_FMT ". "
-     "Accepting Handover Cancellation. \n", ue_context_p->mme_ue_s1ap_id);
+     "Canelling the Handover on the target source side. \n", ue_context_p->mme_ue_s1ap_id);
 
  // todo: when to accept these values from the target-MME side.
  /**

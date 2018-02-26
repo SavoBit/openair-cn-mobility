@@ -1424,61 +1424,40 @@ s1ap_mme_handle_handover_notification(const sctp_assoc_id_t assoc_id, const sctp
      * * * * as described in TS 36.413 [11].
      * * * * TODO
      */
-    OAILOG_ERROR(LOG_S1AP, "MME UE S1AP ID provided by source eNB doesn't point to any valid UE: " MME_UE_S1AP_ID_FMT "\n", enb_ue_s1ap_id);
-    // todo: what is the error code of HANDOVER_NOTIFY?
-//    s1ap_send_handover_preparation_failure(assoc_id, stream, mme_ue_s1ap_id, enb_ue_s1ap_id);
-
+    OAILOG_ERROR(LOG_S1AP, "MME UE S1AP ID provided by target eNB doesn't point to any valid UE: " MME_UE_S1AP_ID_FMT "\n", enb_ue_s1ap_id);
+    /**
+     * Wait for the S10 Relocation Timer to run up or trigger a cancel by the source side.
+     * Nothing extra done in this case.
+     */
     OAILOG_FUNC_RETURN (LOG_S1AP, RETURNok);
   }
- // No checking in the transparent container how many bearers --> leave it to the target MME
-    // todo: check existence and count of bearers.
+  /** Not changing any ue_reference properties. The MME_APP layer will eventually stop the S10_HANDOVER_RELOCATION TIMER. */
+  /** Get the TAI and the eCGI: Values that are sent with Attach Request. */
+  OCTET_STRING_TO_TAC (&handoverNotification_p->tai.tAC, tai.tac);
+  DevAssert (handoverNotification_p->tai.pLMNidentity.size == 3);
+  TBCD_TO_PLMN_T(&handoverNotification_p->tai.pLMNidentity, &tai.plmn);
+  DevAssert (handoverNotification_p->eutran_cgi.pLMNidentity.size == 3);
+  TBCD_TO_PLMN_T(&handoverNotification_p->eutran_cgi.pLMNidentity, &ecgi.plmn);
+  BIT_STRING_TO_CELL_IDENTITY (&handoverNotification_p->eutran_cgi.cell_ID, ecgi.cell_identity);
 
-    /** Not removing old s1ap UE context & not creating a new S1AP UE context (reference) --> todo: Remove later explicitly with UE Context Release. */
+  // Currently just use this message send the MBR to SAE-GW and inform the source MME
+  message_p = itti_alloc_new_message (TASK_S1AP, S1AP_HANDOVER_NOTIFY);
+  AssertFatal (message_p != NULL, "itti_alloc_new_message Failed");
+  memset ((void *)&message_p->ittiMsg.s1ap_handover_notify, 0, sizeof (itti_s1ap_handover_notify_t));
+  /*
+   * Bad, very bad cast...
+   */
+  S1AP_HANDOVER_NOTIFY (message_p).mme_ue_s1ap_id = ue_ref_p->mme_ue_s1ap_id;
+  S1AP_HANDOVER_NOTIFY (message_p).enb_ue_s1ap_id = ue_ref_p->enb_ue_s1ap_id;
+  S1AP_HANDOVER_NOTIFY (message_p).tai                    = tai;       /**< MME will not check if thats the correct target eNB. Just update the UE Context. */
+  S1AP_HANDOVER_NOTIFY (message_p).cgi                    = ecgi;
 
-    // todo: starting a timer?
-    // todo: checking the state
-      // if it is already in handover state, sending back preparation failure?
-      // if it is in idle state, sending back preparation failure?
-
-    /** Not changing any ue_reference properties. */
-
-    /*
-     * Increment the sctp stream for the eNB association.
-     * If the next sctp stream is >= instream negociated between eNB and MME, wrap to first stream.
-     * TODO: search for the first available stream instead.
-     */
-
-    /** Get the TAI and the eCGI: Values that are sent with Attach Request. */
-    OCTET_STRING_TO_TAC (&handoverNotification_p->tai.tAC, tai.tac);
-    DevAssert (handoverNotification_p->tai.pLMNidentity.size == 3);
-    TBCD_TO_PLMN_T(&handoverNotification_p->tai.pLMNidentity, &tai.plmn);
-    DevAssert (handoverNotification_p->eutran_cgi.pLMNidentity.size == 3);
-    TBCD_TO_PLMN_T(&handoverNotification_p->eutran_cgi.pLMNidentity, &ecgi.plmn);
-    BIT_STRING_TO_CELL_IDENTITY (&handoverNotification_p->eutran_cgi.cell_ID, ecgi.cell_identity);
-
-    // Currently just use this message send the MBR to SAE-GW and inform the source MME
-    message_p = itti_alloc_new_message (TASK_S1AP, S1AP_HANDOVER_NOTIFY);
-    AssertFatal (message_p != NULL, "itti_alloc_new_message Failed");
-    memset ((void *)&message_p->ittiMsg.s1ap_handover_notify, 0, sizeof (itti_s1ap_handover_notify_t));
-    /*
-     * Bad, very bad cast...
-     */
-    S1AP_HANDOVER_NOTIFY (message_p).mme_ue_s1ap_id = ue_ref_p->mme_ue_s1ap_id;
-    S1AP_HANDOVER_NOTIFY (message_p).enb_ue_s1ap_id = ue_ref_p->enb_ue_s1ap_id;
-    S1AP_HANDOVER_NOTIFY (message_p).tai                    = tai;       /**< MME will not check if thats the correct target eNB. Just update the UE Context. */
-    S1AP_HANDOVER_NOTIFY (message_p).cgi                    = ecgi;
-
-    MSC_LOG_TX_MESSAGE (MSC_S1AP_MME,
-                        MSC_MMEAPP_MME,
-                        NULL, 0,
-                        "0 S1AP_HANDOVER_NOTIFY mme_ue_s1ap_id " MME_UE_S1AP_ID_FMT,
-                        S1AP_HANDOVER_NOTIFY(message_p).mme_ue_s1ap_id);
+  MSC_LOG_TX_MESSAGE (MSC_S1AP_MME,
+      MSC_MMEAPP_MME,
+      NULL, 0,
+      "0 S1AP_HANDOVER_NOTIFY mme_ue_s1ap_id " MME_UE_S1AP_ID_FMT,
+      S1AP_HANDOVER_NOTIFY(message_p).mme_ue_s1ap_id);
   rc =  itti_send_msg_to_task (TASK_MME_APP, INSTANCE_DEFAULT, message_p);
-
-  /** Set the state to connected!. */
-  // todo: what if handover with 2 enbs at same mme?
-  ue_ref_p->s1_ue_state = S1AP_UE_CONNECTED;
-
   OAILOG_FUNC_RETURN (LOG_S1AP, RETURNok);
 }
 
@@ -1761,10 +1740,10 @@ s1ap_mme_handle_enb_status_transfer(const sctp_assoc_id_t assoc_id, const sctp_s
   MessageDef                               *message_p = NULL;
   int                                       rc = RETURNok;
 
- //Request IEs:
- //S1ap-ENB-UE-S1AP-ID
- //S1ap-MME-UE-S1AP-ID
- //S1ap-enb-StatusTransfer-TransparentContainer
+  //Request IEs:
+  //S1ap-ENB-UE-S1AP-ID
+  //S1ap-MME-UE-S1AP-ID
+  //S1ap-enb-StatusTransfer-TransparentContainer
 
   OAILOG_FUNC_IN (LOG_S1AP);
   enbStatusTransfer_p = &message->msg.s1ap_ENBStatusTransferIEs;
@@ -1773,12 +1752,12 @@ s1ap_mme_handle_enb_status_transfer(const sctp_assoc_id_t assoc_id, const sctp_s
   mme_ue_s1ap_id = enbStatusTransfer_p->mme_ue_s1ap_id;
   OAILOG_DEBUG (LOG_S1AP, "Enb Status Transfer received from source eNodeB for UE with eNB UE S1AP ID: " ENB_UE_S1AP_ID_FMT "\n", enb_ue_s1ap_id);
 
-  /** In the single-MME case as well, the MME_UE_S1AP_ID should provide the source eNB. */
+  /** In the single-MME case as well, the MME_UE_S1AP_ID should still provide the source eNB. */
   if ((ue_ref_p = s1ap_is_ue_mme_id_in_list (mme_ue_s1ap_id)) == NULL) {
     /*
      * The MME UE S1AP ID provided by eNB doesn't point to any valid UE.
      * Since the message is optional, just disregard the message.
-     * No need to remove the UE implicitly, and if it is a intra-MME HO, the handover completion timer will purge it anyway.
+     * No need to remove the UE implicitly, and if it is a intra-MME HO, the s10-relocation completion timer will purge it anyway.
      */
     OAILOG_ERROR( LOG_S1AP, "MME UE S1AP ID provided by eNB doesn't point to any valid UE: " MME_UE_S1AP_ID_FMT " for the ENB_STATUS_TRANFER message. \n", mme_ue_s1ap_id);
     OAILOG_FUNC_RETURN (LOG_S1AP, RETURNerror);

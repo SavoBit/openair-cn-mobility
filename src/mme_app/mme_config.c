@@ -145,6 +145,7 @@ static void mme_config_init (mme_config_t * config_pP)
   config_pP->relative_capacity = RELATIVE_CAPACITY;
   config_pP->mme_statistic_timer = MME_STATISTIC_TIMER_S;
   config_pP->mme_mobility_completion_timer = MME_MOBILITY_COMPLETION_TIMER_S;
+  config_pP->mme_s10_handover_completion_timer = MME_S10_HANDOVER_COMPLETION_TIMER_S;
   config_pP->mme_paging_timeout_timer = MME_PAGING_TIMEOUT_TIMER_S;
   config_pP->gummei.nb = 1;
   config_pP->gummei.gummei[0].mme_code = MMEC;
@@ -341,6 +342,10 @@ static int mme_config_parse_file (mme_config_t * config_pP)
 
     if ((config_setting_lookup_int (setting_mme, MME_CONFIG_STRING_MME_MOBILITY_COMPLETION_TIMER, &aint))) {
       config_pP->mme_mobility_completion_timer = (uint32_t) aint;
+    }
+
+    if ((config_setting_lookup_int (setting_mme, MME_CONFIG_STRING_MME_S10_HANDOVER_COMPLETION_TIMER, &aint))) {
+      config_pP->mme_s10_handover_completion_timer = (uint32_t) aint;
     }
 
     if ((config_setting_lookup_int (setting_mme, MME_CONFIG_STRING_MME_PAGING_TIMEOUT_TIMER, &aint))) {
@@ -831,6 +836,7 @@ static void mme_config_display (mme_config_t * config_pP)
   OAILOG_INFO (LOG_CONFIG, "- Relative capa ........................: %u\n", config_pP->relative_capacity);
   OAILOG_INFO (LOG_CONFIG, "- Statistics timer .....................: %u (seconds)\n\n", config_pP->mme_statistic_timer);
   OAILOG_INFO (LOG_CONFIG, "- MME Mobility Completion timer ........:%u (seconds)\n\n", config_pP->mme_mobility_completion_timer);
+  OAILOG_INFO (LOG_CONFIG, "- MME S10 Handover Completion timer ........:%u (seconds)\n\n", config_pP->mme_s10_handover_completion_timer);
   OAILOG_INFO (LOG_CONFIG, "- MME Paging Timeout timer .............:%u (seconds)\n\n", config_pP->mme_paging_timeout_timer);
   OAILOG_INFO (LOG_CONFIG, "- S1-MME:\n");
   OAILOG_INFO (LOG_CONFIG, "    port number ......: %d\n", config_pP->s1ap_config.port_number);
