@@ -131,11 +131,6 @@ void *mme_app_thread (
       }
       break;
 
-    case MME_APP_INITIAL_UE_MESSAGE_CHECK_DUPLICATE:{
-      mme_app_handle_initial_ue_message_check_duplicate (&MME_APP_INITIAL_UE_MESSAGE_CHECK_DUPLICATE (received_message_p));
-    }
-    break;
-
     case MME_APP_INITIAL_CONTEXT_SETUP_RSP:{
         mme_app_handle_initial_context_setup_rsp (&MME_APP_INITIAL_CONTEXT_SETUP_RSP (received_message_p));
       }

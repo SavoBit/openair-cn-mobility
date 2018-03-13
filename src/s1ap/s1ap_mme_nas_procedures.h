@@ -40,14 +40,6 @@ int s1ap_mme_handle_initial_ue_message(const sctp_assoc_id_t assocId,
                                        const sctp_stream_id_t stream,
                                        struct s1ap_message_s *message);
 
-/**
- * Message to process duplicate confirmation --> removal of the duplicate s1ap ue reference and continuing with the initial UE message.
- * todo: use signal saving instead..
- */
-int
-s1ap_mme_handle_initial_ue_message_duplicate_cnf (
-    const itti_mme_app_s1ap_initial_ue_message_duplicate_cnf_t * const initial_ue_message_duplicate_cnf_p);
-
 /** \brief Handle an Uplink NAS transport message.
  * Process the RRC transparent container and forward it to NAS entity.
  * \param assocId lower layer assoc id (SCTP)

@@ -29,12 +29,8 @@
 //WARNING: Do not include this header directly. Use intertask_interface.h instead.
 
 MESSAGE_DEF(MME_APP_INITIAL_UE_MESSAGE                   , MESSAGE_PRIORITY_MED, itti_mme_app_initial_ue_message_t  , mme_app_initial_ue_message)
-MESSAGE_DEF(MME_APP_INITIAL_UE_MESSAGE_CHECK_DUPLICATE   , MESSAGE_PRIORITY_MED, itti_mme_app_initial_ue_message_check_duplicate_t  , mme_app_initial_ue_message_check_duplicate)
 
 MESSAGE_DEF(MME_APP_CONNECTION_ESTABLISHMENT_CNF  , MESSAGE_PRIORITY_MED, itti_mme_app_connection_establishment_cnf_t  , mme_app_connection_establishment_cnf)
-
-// DUPLICATE CONFIRMATION (todo: if signal saving, we might not need this)
-MESSAGE_DEF(MME_APP_S1AP_INITIAL_UE_MESSAGE_DUPLICATE_CNF  , MESSAGE_PRIORITY_MED, itti_mme_app_s1ap_initial_ue_message_duplicate_cnf_t  , mme_app_s1ap_initial_ue_message_duplicate_cnf)
 
 MESSAGE_DEF(MME_APP_INITIAL_CONTEXT_SETUP_RSP     , MESSAGE_PRIORITY_MED, itti_mme_app_initial_context_setup_rsp_t  ,    mme_app_initial_context_setup_rsp)
 MESSAGE_DEF(MME_APP_PATH_SWITCH_REQ               , MESSAGE_PRIORITY_MED, itti_mme_app_path_switch_req_t    ,    mme_app_path_switch_req)

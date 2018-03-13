@@ -213,12 +213,6 @@ s1ap_mme_thread (
     }
     break;
     
-    // Messages to continue to initial UE establishment after duplicate check
-    case MME_APP_S1AP_INITIAL_UE_MESSAGE_DUPLICATE_CNF:{
-      s1ap_mme_handle_initial_ue_message_duplicate_cnf(&MME_APP_S1AP_INITIAL_UE_MESSAGE_DUPLICATE_CNF (received_message_p));
-    }
-    break;
-
     case S1AP_ENB_INITIATED_RESET_ACK:{
       s1ap_handle_enb_initiated_reset_ack (&S1AP_ENB_INITIATED_RESET_ACK (received_message_p));
     }

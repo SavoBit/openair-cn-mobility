@@ -103,8 +103,6 @@ void mme_app_handle_conn_est_cnf             (const itti_nas_conn_est_cnf_t * co
 
 void mme_app_handle_initial_ue_message       (itti_mme_app_initial_ue_message_t * const conn_est_ind_pP);
 
-void mme_app_handle_initial_ue_message_check_duplicate (itti_mme_app_initial_ue_message_check_duplicate_t * const initial_check_duplicate_pP);
-
 int mme_app_handle_create_sess_resp          (const itti_s11_create_session_response_t * const create_sess_resp_pP); //not const because we need to free internal stucts
 
 int mme_app_handle_modify_bearer_resp          (const itti_s11_modify_bearer_response_t * const modify_bearer_resp_pP);

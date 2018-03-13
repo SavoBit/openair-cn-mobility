@@ -1131,6 +1131,7 @@ s1ap_mme_handle_path_switch_request (
       MME_APP_PATH_SWITCH_REQ (message_p).enb_ue_s1ap_id = ue_ref_p->enb_ue_s1ap_id;
       MME_APP_PATH_SWITCH_REQ (message_p).sctp_assoc_id  = assoc_id;
       MME_APP_PATH_SWITCH_REQ (message_p).sctp_stream    = stream;
+      MME_APP_PATH_SWITCH_REQ (message_p).enb_id         = ue_ref_p->enb->enb_id;
       MME_APP_PATH_SWITCH_REQ (message_p).eps_bearer_id = eRABToBeSwitchedDlItemIEs_p->e_RABToBeSwitchedDLItem.e_RAB_ID;
       MME_APP_PATH_SWITCH_REQ (message_p).bearer_s1u_enb_fteid.ipv4 = 1;  // TO DO
       MME_APP_PATH_SWITCH_REQ (message_p).bearer_s1u_enb_fteid.ipv6 = 0;  // TO DO

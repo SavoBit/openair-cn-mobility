@@ -210,39 +210,12 @@ s1ap_mme_handle_initial_ue_message (
   if (ue_ref == NULL) {
     as_stmsi_t                              s_tmsi = {.mme_code = 0, .m_tmsi = INVALID_M_TMSI};
 
-//    OCTET_STRING_TO_TAC (&initialUEMessage_p->tai.tAC, tai.tac);
-//    DevAssert (initialUEMessage_p->tai.pLMNidentity.size == 3);
-//    TBCD_TO_PLMN_T(&initialUEMessage_p->tai.pLMNidentity, &tai.plmn);
     AssertFatal((initialUEMessage_p->nas_pdu.size < 1000), "Bad length for NAS message %lu", initialUEMessage_p->nas_pdu.size);
     bstring nas = blk2bstr(initialUEMessage_p->nas_pdu.buf, initialUEMessage_p->nas_pdu.size);
-
-    if (initialUEMessage_p->presenceMask & S1AP_INITIALUEMESSAGEIES_S_TMSI_PRESENT) {
-      OCTET_STRING_TO_MME_CODE(&initialUEMessage_p->s_tmsi.mMEC, s_tmsi.mme_code);
-      OCTET_STRING_TO_M_TMSI(&initialUEMessage_p->s_tmsi.m_TMSI, s_tmsi.m_tmsi);
-
-      OAILOG_DEBUG (LOG_S1AP, "INITIAL UE Message: Received mmeCode %u and S-TMSI %u from eNB. Not creating new S1AP UE description yet. "
-          "Checking for duplicates. Will continue after checking for duplicates is complete. \n", initialUEMessage_p->s_tmsi.mMEC, initialUEMessage_p->s_tmsi.m_TMSI);
-      enb_description_t *enb_ref = s1ap_is_enb_assoc_id_in_list (assoc_id);
-      DevAssert (enb_ref != NULL);
-      uint32_t enb_id = enb_ref->enb_id;
-
-
-      s1ap_mme_itti_mme_app_initial_ue_check_duplicate_message (assoc_id,
-          stream,
-          enb_id,
-          enb_ue_s1ap_id,
-          INVALID_MME_UE_S1AP_ID,
-          initialUEMessage_p->rrC_Establishment_Cause,
-          &tai,
-          &ecgi,
-          (initialUEMessage_p->presenceMask & S1AP_INITIALUEMESSAGEIES_S_TMSI_PRESENT) ? &s_tmsi:NULL,
-          (initialUEMessage_p->presenceMask & S1AP_INITIALUEMESSAGEIES_CSG_ID_PRESENT) ? &csg_id:NULL,
-          (initialUEMessage_p->presenceMask & S1AP_INITIALUEMESSAGEIES_GUMMEI_ID_PRESENT) ? &gummei:NULL,
-          nas);
-
-      OAILOG_FUNC_RETURN (LOG_S1AP, RETURNok);
-
-    }
+    /**
+     * Assuming that the original NAS message will be deallocated.
+     * Always create an eNB reference here. In the MME_APP we will check the S-TMSI.
+     */
     return s1ap_mme_process_new_initial_ue_message(assoc_id, stream,
         nas,
         &tai, &ecgi,
@@ -254,62 +227,6 @@ s1ap_mme_handle_initial_ue_message (
 } else {
   OAILOG_ERROR (LOG_S1AP, "S1AP:Initial UE Message- Duplicate ENB_UE_S1AP_ID. Ignoring the message, eNBUeS1APId:" ENB_UE_S1AP_ID_FMT "\n", enb_ue_s1ap_id);
 }
-}
-
-//------------------------------------------------------------------------------
-int
-s1ap_mme_handle_initial_ue_message_duplicate_cnf (
-    const itti_mme_app_s1ap_initial_ue_message_duplicate_cnf_t * const initial_ue_message_duplicate_cnf_p)
-
-{
-
-  ue_description_t                       *ue_ref = NULL;
-  enb_description_t                      *eNB_ref = NULL;
-  enb_ue_s1ap_id_t                        enb_ue_s1ap_id = 0;
-
-//  MSC_LOG_RX_MESSAGE (MSC_S1AP_MME, MSC_S1AP_ENB, NULL, 0, "0 initialUEMessage assoc_id %u stream %u with duplicate confirmation %d received " ENB_UE_S1AP_ID_FMT " "
-//          , initial_ue_message_duplicate_cnf_p->sctp_assoc_id, initial_ue_message_duplicate_cnf_p->stream_id, (enb_ue_s1ap_id_t)initialUEMessage_p->eNB_UE_S1AP_ID,
-//          initial_ue_message_duplicate_cnf_p->duplicate_detec);
-
-  OAILOG_FUNC_IN (LOG_S1AP);
-
-//  OAILOG_INFO (LOG_S1AP, "Received S1AP INITIAL_UE_MESSAGE eNB_UE_S1AP_ID WITH DUPLICATE CONFIRMATION: %d" ENB_UE_S1AP_ID_FMT "\n", (enb_ue_s1ap_id_t)initialUEMessage_p->eNB_UE_S1AP_ID,
-//      initial_ue_message_duplicate_cnf_p->duplicate_detec);
-
-  if ((eNB_ref = s1ap_is_enb_assoc_id_in_list (initial_ue_message_duplicate_cnf_p->sctp_assoc_id)) == NULL) {
-    OAILOG_ERROR (LOG_S1AP, "Unknown eNB on assoc_id %d\n", initial_ue_message_duplicate_cnf_p->sctp_assoc_id);
-    OAILOG_FUNC_RETURN (LOG_S1AP, RETURNerror);
-  }
-  // eNB UE S1AP ID is limited to 24 bits
-  if(initial_ue_message_duplicate_cnf_p->duplicate_detec){
-    OAILOG_INFO (LOG_S1AP, "Removing the duplicate S1AP UE REFERENCE for eNB_UE_S1AP_ID " ENB_UE_S1AP_ID_FMT "\n", initial_ue_message_duplicate_cnf_p->old_enb_ue_s1ap_id);
-
-    enb_ue_s1ap_id = (enb_ue_s1ap_id_t) (initial_ue_message_duplicate_cnf_p->old_enb_ue_s1ap_id & 0x00ffffff);
-    OAILOG_INFO (LOG_S1AP, "Removing old S1AP UE reference with eNB UE S1AP ID: " ENB_UE_S1AP_ID_FMT "\n", initial_ue_message_duplicate_cnf_p->old_enb_ue_s1ap_id);
-    ue_ref = s1ap_is_ue_enb_id_in_list (eNB_ref, enb_ue_s1ap_id);
-
-    if (ue_ref == NULL) {
-      OAILOG_ERROR (LOG_S1AP, "OLD UE Reference with eNB UE S1AP ID: " ENB_UE_S1AP_ID_FMT " not found \n", initial_ue_message_duplicate_cnf_p->old_enb_ue_s1ap_id);
-      OAILOG_FUNC_RETURN (LOG_S1AP, RETURNerror);
-    }else{
-      /** Try to remove the old s1ap UE context --> ue_reference. */
-      OAILOG_DEBUG (LOG_S1AP, "Removing old ue_reference before processing initial UE message further for enb UE S1AP ID: " ENB_UE_S1AP_ID_FMT "\n", initial_ue_message_duplicate_cnf_p->old_enb_ue_s1ap_id);
-      s1ap_remove_ue (ue_ref);
-    }
-  }else{
-    OAILOG_DEBUG (LOG_S1AP, "No old ue_reference found. Processing initial ue message furhter \n");
-  }
-  return s1ap_mme_process_new_initial_ue_message(initial_ue_message_duplicate_cnf_p->sctp_assoc_id,
-      initial_ue_message_duplicate_cnf_p->stream_id,
-      initial_ue_message_duplicate_cnf_p->nas,
-      &initial_ue_message_duplicate_cnf_p->tai,
-      &initial_ue_message_duplicate_cnf_p->cgi,
-      initial_ue_message_duplicate_cnf_p->as_cause,
-      &initial_ue_message_duplicate_cnf_p->opt_s_tmsi,
-      &initial_ue_message_duplicate_cnf_p->opt_csg_id,
-      &initial_ue_message_duplicate_cnf_p->opt_gummei,
-      ue_ref, eNB_ref,
-      initial_ue_message_duplicate_cnf_p->new_enb_ue_s1ap_id);
 }
 
 //------------------------------------------------------------------------------

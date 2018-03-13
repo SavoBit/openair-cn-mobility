@@ -717,8 +717,11 @@ mme_app_handle_initial_ue_message (
              * However if this key is valid, remove the key from the hashtable.
              */
 
-            OAILOG_ERROR (LOG_MME_APP, "MME_APP_INITAIL_UE_MESSAGE. ERROR***** enb_s1ap_id_key %ld has valid value.\n" ,ue_context_p->enb_s1ap_id_key);
-            hashtable_ts_remove (mme_app_desc.mme_ue_contexts.enb_ue_s1ap_id_ue_context_htbl, (const hash_key_t)ue_context_p->enb_s1ap_id_key, (void **)&id);
+            hashtable_rc_t result_deletion = hashtable_ts_remove (mme_app_desc.mme_ue_contexts.enb_ue_s1ap_id_ue_context_htbl, (const hash_key_t)ue_context_p->enb_s1ap_id_key, (void **)&id);
+            OAILOG_ERROR (LOG_MME_APP, "MME_APP_INITAIL_UE_MESSAGE. ERROR***** enb_s1ap_id_key %ld has valid value %ld. Result of deletion %d.\n" ,
+                ue_context_p->enb_s1ap_id_key,
+                ue_context_p->enb_ue_s1ap_id,
+                result_deletion);
             ue_context_p->enb_s1ap_id_key = INVALID_ENB_UE_S1AP_ID_KEY;
           }
           // Update MME UE context with new enb_ue_s1ap_id
@@ -798,145 +801,6 @@ mme_app_handle_initial_ue_message (
   MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME, MSC_NAS_MME, NULL, 0, "0 NAS_INITIAL_UE_MESSAGE");
   itti_send_msg_to_task (TASK_NAS_MME, INSTANCE_DEFAULT, message_p);
   OAILOG_FUNC_OUT (LOG_MME_APP);
-}
-
-//------------------------------------------------------------------------------
-void
-mme_app_handle_initial_ue_message_check_duplicate (
-  itti_mme_app_initial_ue_message_check_duplicate_t * const initial_check_duplicate_pP)
-{
-  struct ue_context_s                    *ue_context_p = NULL;
-  MessageDef                             *message_p = NULL;
-  bool                                    is_guti_valid = false;
-  emm_data_context_t                     *ue_nas_ctx = NULL;
-  enb_s1ap_id_key_t                       enb_s1ap_id_key = INVALID_ENB_UE_S1AP_ID_KEY;
-  void                                   *id = NULL;
-  OAILOG_FUNC_IN (LOG_MME_APP);
-  OAILOG_DEBUG (LOG_MME_APP, "Received MME_APP_INITIAL_UE_MESSAGE_CHECK_DUPLICATE from S1AP\n");
-
-  DevAssert(INVALID_MME_UE_S1AP_ID == initial_check_duplicate_pP->mme_ue_s1ap_id);
-
-  // Check if there is any existing UE context using S-TMSI/GUTI
-  if (initial_check_duplicate_pP->is_s_tmsi_valid)
-  {
-    OAILOG_DEBUG (LOG_MME_APP, "INITIAL UE Message (duplicate check): Valid and MMEC %u and S_TMSI %u received from eNB.\n",
-        initial_check_duplicate_pP->opt_s_tmsi.mme_code, initial_check_duplicate_pP->opt_s_tmsi.m_tmsi);
-    guti_t guti = {.gummei.plmn = {0}, .gummei.mme_gid = 0, .gummei.mme_code = 0, .m_tmsi = INVALID_M_TMSI};
-    is_guti_valid = mme_app_construct_guti(&(initial_check_duplicate_pP->tai.plmn),&(initial_check_duplicate_pP->opt_s_tmsi),&guti);
-
-    if (is_guti_valid)
-    {
-      ue_nas_ctx = emm_data_context_get_by_guti (&_emm_data, &guti);
-      if (ue_nas_ctx)
-      {
-        // Get the UE context using mme_ue_s1ap_id
-        ue_context_p =  mme_ue_context_exists_mme_ue_s1ap_id(&mme_app_desc.mme_ue_contexts,ue_nas_ctx->ue_id);
-        DevAssert(ue_context_p != NULL);
-        if ((ue_context_p != NULL) && (ue_context_p->mme_ue_s1ap_id == ue_nas_ctx->ue_id)) {
-          initial_check_duplicate_pP->mme_ue_s1ap_id = ue_nas_ctx->ue_id;
-          if (ue_context_p->enb_s1ap_id_key != INVALID_ENB_UE_S1AP_ID_KEY)
-          {
-            OAILOG_WARNING(LOG_MME_APP, "MME_APP_INITAIL_UE_MESSAGE_CHECK_DUPLICATE. DUPLICATE UE CONTEXT FOUND***** enb_s1ap_id_key %ld has valid value. Sending duplicate confirmation back for removal of S1AP UE reference. \n" ,ue_context_p->enb_s1ap_id_key);
-
-            message_p = itti_alloc_new_message (TASK_MME_APP, MME_APP_S1AP_INITIAL_UE_MESSAGE_DUPLICATE_CNF);
-            // do this because of same message types name but not same struct in different .h
-            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.mme_ue_s1ap_id  = ue_context_p->mme_ue_s1ap_id;
-            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.duplicate_detec = true;
-            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.old_enb_ue_s1ap_id  = ue_context_p->enb_ue_s1ap_id;
-            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.new_enb_ue_s1ap_id  = initial_check_duplicate_pP->new_enb_ue_s1ap_id;
-            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.sctp_assoc_id   = ue_context_p->sctp_assoc_id_key;
-            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.stream_id       = initial_check_duplicate_pP->stream_id;
-            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.tai             = initial_check_duplicate_pP->tai;
-            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.cgi             = initial_check_duplicate_pP->cgi;
-            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.opt_s_tmsi      = initial_check_duplicate_pP->opt_s_tmsi;
-            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.opt_csg_id      = initial_check_duplicate_pP->opt_csg_id;
-            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.opt_gummei      = initial_check_duplicate_pP->opt_gummei;
-            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.is_s_tmsi_valid = initial_check_duplicate_pP->is_s_tmsi_valid;
-            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.is_csg_id_valid = initial_check_duplicate_pP->is_csg_id_valid;
-            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.is_gummei_valid = initial_check_duplicate_pP->is_gummei_valid;
-            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.nas             = initial_check_duplicate_pP->nas;
-//            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.s1ap_InitialUEMessageIEs    = initial_check_duplicate_pP->s1ap_InitialUEMessageIEs;
-//            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.opt_s_tmsi      = initial_check_duplicate_pP->opt_s_tmsi;
-//            message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.is_s_tmsi_valid = true;
-
-            // Set the new key as invalid !!
-            ue_context_p->enb_s1ap_id_key = INVALID_ENB_UE_S1AP_ID_KEY;
-
-            MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME, MSC_S1AP_MME, NULL, 0, "0 MME_APP_S1AP_INITIAL_UE_MESSAGE_DUPLICATE_CNF");
-            itti_send_msg_to_task (TASK_S1AP, INSTANCE_DEFAULT, message_p);
-            OAILOG_FUNC_OUT (LOG_MME_APP);
-          }else{
-            OAILOG_ERROR(LOG_MME_APP, "MME_APP_INITAIL_UE_MESSAGE_CHECK_DUPLICATE. "
-              "UE CONTEXT FOUND BUT S1AP_UE_ENB_ID IS INVALID***** %ld. \n" ,ue_context_p->enb_s1ap_id_key);
-
-            message_p = itti_alloc_new_message (TASK_MME_APP, MME_APP_S1AP_INITIAL_UE_MESSAGE_DUPLICATE_CNF);
-                message_p = itti_alloc_new_message (TASK_MME_APP, MME_APP_S1AP_INITIAL_UE_MESSAGE_DUPLICATE_CNF);
-                // do this because of same message types name but not same struct in different .h
-                message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.mme_ue_s1ap_id  = ue_context_p->mme_ue_s1ap_id;
-                message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.duplicate_detec = false;
-                message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.old_enb_ue_s1ap_id  = INVALID_ENB_UE_S1AP_ID_KEY;
-                message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.new_enb_ue_s1ap_id  = initial_check_duplicate_pP->new_enb_ue_s1ap_id;
-                message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.sctp_assoc_id   = initial_check_duplicate_pP->sctp_assoc_id;
-                message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.stream_id       = initial_check_duplicate_pP->stream_id;
-                message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.tai             = initial_check_duplicate_pP->tai;
-                message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.cgi             = initial_check_duplicate_pP->cgi;
-                message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.opt_s_tmsi      = initial_check_duplicate_pP->opt_s_tmsi;
-                message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.opt_csg_id      = initial_check_duplicate_pP->opt_csg_id;
-                message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.opt_gummei      = initial_check_duplicate_pP->opt_gummei;
-                message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.is_s_tmsi_valid = initial_check_duplicate_pP->is_s_tmsi_valid;
-                message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.is_csg_id_valid = initial_check_duplicate_pP->is_csg_id_valid;
-                message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.is_gummei_valid = initial_check_duplicate_pP->is_gummei_valid;
-                message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.nas             = initial_check_duplicate_pP->nas;
-          //      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.opt_s_tmsi      = initial_check_duplicate_pP->opt_s_tmsi;
-          //      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.is_s_tmsi_valid = true;
-                MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME, MSC_S1AP_MME, NULL, 0, "0 MME_APP_S1AP_INITIAL_UE_MESSAGE_DUPLICATE_CNF");
-                itti_send_msg_to_task (TASK_S1AP, INSTANCE_DEFAULT, message_p);
-                OAILOG_FUNC_OUT (LOG_MME_APP);
-
-            OAILOG_FUNC_OUT (LOG_MME_APP);
-          }
-        } else {
-            OAILOG_ERROR(LOG_MME_APP, "MME_APP_INITAIL_UE_MESSAGE_CHECK_DUPLICATE: NO UE CONTEXT FOUND \n");
-            OAILOG_FUNC_OUT (LOG_MME_APP);
-        }
-      } else{
-      OAILOG_ERROR (LOG_MME_APP, "No UE context is found with MMEC %u and S_TMSI %u from UE (duplicate check) !!!! OOOOO"
-          " NOT PROCESSING MESSAGE FURTHER!.\n",
-          initial_check_duplicate_pP->opt_s_tmsi.mme_code, initial_check_duplicate_pP->opt_s_tmsi.m_tmsi);
-
-//      message_p = itti_alloc_new_message (TASK_MME_APP, MME_APP_S1AP_INITIAL_UE_MESSAGE_DUPLICATE_CNF);
-//      message_p = itti_alloc_new_message (TASK_MME_APP, MME_APP_S1AP_INITIAL_UE_MESSAGE_DUPLICATE_CNF);
-//      // do this because of same message types name but not same struct in different .h
-//      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.mme_ue_s1ap_id  = ue_context_p->mme_ue_s1ap_id;
-//      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.duplicate_detec = false;
-//      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.old_enb_ue_s1ap_id  = INVALID_ENB_UE_S1AP_ID_KEY;
-//      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.new_enb_ue_s1ap_id  = initial_check_duplicate_pP->new_enb_ue_s1ap_id;
-//      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.sctp_assoc_id   = initial_check_duplicate_pP->sctp_assoc_id;
-//      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.stream_id       = initial_check_duplicate_pP->stream_id;
-//      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.tai             = initial_check_duplicate_pP->tai;
-//      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.cgi             = initial_check_duplicate_pP->cgi;
-//      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.opt_s_tmsi      = initial_check_duplicate_pP->opt_s_tmsi;
-//      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.opt_csg_id      = initial_check_duplicate_pP->opt_csg_id;
-//      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.opt_gummei      = initial_check_duplicate_pP->opt_gummei;
-//      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.is_s_tmsi_valid = initial_check_duplicate_pP->is_s_tmsi_valid;
-//      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.is_csg_id_valid = initial_check_duplicate_pP->is_csg_id_valid;
-//      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.is_gummei_valid = initial_check_duplicate_pP->is_gummei_valid;
-//      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.nas             = initial_check_duplicate_pP->nas;
-////      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.opt_s_tmsi      = initial_check_duplicate_pP->opt_s_tmsi;
-////      message_p->ittiMsg.mme_app_s1ap_initial_ue_message_duplicate_cnf.is_s_tmsi_valid = true;
-//      MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME, MSC_S1AP_MME, NULL, 0, "0 MME_APP_S1AP_INITIAL_UE_MESSAGE_DUPLICATE_CNF");
-//      itti_send_msg_to_task (TASK_S1AP, INSTANCE_DEFAULT, message_p);
-      OAILOG_FUNC_OUT (LOG_MME_APP);
-      }
-    }else{
-      OAILOG_DEBUG (LOG_MME_APP, "No MME is configured with MMEC %u and S_TMSI %u from UE (duplicate check).\n",
-          initial_check_duplicate_pP->opt_s_tmsi.mme_code, initial_check_duplicate_pP->opt_s_tmsi.m_tmsi);
-      OAILOG_FUNC_OUT (LOG_MME_APP);
-    }
-  } else {
-    OAILOG_ERROR (LOG_MME_APP, "MME_APP_INITIAL_UE_MESSAGE_CHECK_DUPLICATE from S1AP,without S-TMSI. \n");
-    OAILOG_FUNC_OUT (LOG_MME_APP);
-  }
 }
 
 //------------------------------------------------------------------------------
@@ -1514,6 +1378,19 @@ mme_app_handle_path_switch_req(
     MSC_LOG_EVENT (MSC_MMEAPP_MME, "MME_APP_PATH_SWITCH_REQ Unknown ue %u", path_switch_req_pP->mme_ue_s1ap_id);
     OAILOG_FUNC_OUT (LOG_MME_APP);
   }
+  enb_s1ap_id_key_t                       enb_s1ap_id_key = INVALID_ENB_UE_S1AP_ID_KEY;
+
+  /** Update the ENB_ID_KEY. */
+  MME_APP_ENB_S1AP_ID_KEY(enb_s1ap_id_key, path_switch_req_pP->enb_id, path_switch_req_pP->enb_ue_s1ap_id);
+  // Update enb_s1ap_id_key in hashtable
+  mme_ue_context_update_coll_keys( &mme_app_desc.mme_ue_contexts,
+      ue_context_p,
+      enb_s1ap_id_key,
+      ue_context_p->mme_ue_s1ap_id,
+      ue_context_p->imsi,
+      ue_context_p->mme_s11_teid,
+      ue_context_p->local_mme_s10_teid,
+      &ue_context_p->guti);
 
   // Set the handover flag, check that no handover exists.
   ue_context_p->enb_ue_s1ap_id    = path_switch_req_pP->enb_ue_s1ap_id;
