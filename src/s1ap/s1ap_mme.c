@@ -175,6 +175,10 @@ s1ap_mme_thread (
       break;
 
     // Handover messages from MME_APP after validation or rejection from nas and S11/SAE-GW --> the respective handover method will be checked inside
+    case S1AP_PATH_SWITCH_REQUEST_FAILURE: {
+      s1ap_handle_path_switch_request_failure(&S1AP_PATH_SWITCH_REQUEST_FAILURE (received_message_p));
+    }
+    break;
     case S1AP_HANDOVER_PREPARATION_FAILURE: {
       s1ap_handle_handover_preparation_failure(&S1AP_HANDOVER_PREPARATION_FAILURE (received_message_p));
     }
@@ -184,8 +188,8 @@ s1ap_mme_thread (
     }
     break;
 
-    case S1AP_HANDOVER_CNF: {
-        s1ap_handle_handover_cnf(&S1AP_HANDOVER_CNF (received_message_p));
+    case S1AP_PATH_SWITCH_REQUEST_ACKNOWLEDGE: {
+      s1ap_handle_path_switch_req_ack(&S1AP_PATH_SWITCH_REQUEST_ACKNOWLEDGE (received_message_p));
     }
     break;
     case S1AP_HANDOVER_COMMAND: {

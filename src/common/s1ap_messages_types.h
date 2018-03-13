@@ -47,8 +47,7 @@
 #define S1AP_ENB_INITIATED_RESET_ACK(mSGpTR) (mSGpTR)->ittiMsg.s1ap_enb_initiated_reset_ack
 
 // handover messages from NAS to MME_APP to S1AP
-#define S1AP_HANDOVER_CNF(mSGpTR)                     (mSGpTR)->ittiMsg.s1ap_handover_cnf
-#define S1AP_HANDOVER_REJ(mSGpTR)                     (mSGpTR)->ittiMsg.s1ap_handover_rej
+#define S1AP_PATH_SWITCH_REQUEST_ACKNOWLEDGE(mSGpTR)  (mSGpTR)->ittiMsg.s1ap_path_switch_request_ack
 /** eNB/MME status transfer. */
 #define S1AP_ENB_STATUS_TRANSFER(mSGpTR)              (mSGpTR)->ittiMsg.s1ap_enb_status_transfer
 #define S1AP_MME_STATUS_TRANSFER(mSGpTR)              (mSGpTR)->ittiMsg.s1ap_mme_status_transfer
@@ -58,6 +57,8 @@
 /** Handover Required, Preparation Failure, Cancel (source eNB side). */
 #define S1AP_HANDOVER_REQUIRED(mSGpTR)                (mSGpTR)->ittiMsg.s1ap_handover_required
 #define S1AP_HANDOVER_PREPARATION_FAILURE(mSGpTR)     (mSGpTR)->ittiMsg.s1ap_handover_preparation_failure
+#define S1AP_PATH_SWITCH_REQUEST_FAILURE(mSGpTR)      (mSGpTR)->ittiMsg.s1ap_path_switch_request_failure
+
 #define S1AP_HANDOVER_CANCEL(mSGpTR)                  (mSGpTR)->ittiMsg.s1ap_handover_cancel
 #define S1AP_HANDOVER_CANCEL_ACKNOWLEDGE(mSGpTR)      (mSGpTR)->ittiMsg.s1ap_handover_cancel_acknowledge
 
@@ -225,9 +226,8 @@ typedef struct itti_s1ap_path_switch_req_s {
 //  ip_address_t            s_gw_address;
 } itti_s1ap_path_switch_req_t;
 
-/** Handover Confirmation and Request messages sent from MME_APP to S1AP layer. */
-// HANDOVER MESSAGE SENT FROM MME_APP to S1AP after processing and validating in NAS todo: reject
-typedef struct itti_s1ap_handover_cnf_s {
+/** Path Switch Request Acknowledgement sent from MME_APP to S1AP layer. */
+typedef struct itti_s1ap_path_switch_request_ack_s {
   ebi_t                   eps_bearer_id;
   FTeid_t                 bearer_s1u_sgw_fteid;
   mme_ue_s1ap_id_t        ue_id;            /* UE lower layer identifier   */
@@ -238,11 +238,7 @@ typedef struct itti_s1ap_handover_cnf_s {
 
   uint16_t                security_capabilities_encryption_algorithms;
   uint16_t                security_capabilities_integrity_algorithms;
-} itti_s1ap_handover_cnf_t;
-
-typedef struct itti_s1ap_handover_rej_s {
-  mme_ue_s1ap_id_t        ue_id;            /* UE lower layer identifier   */
-} itti_s1ap_handover_rej_t;
+} itti_s1ap_path_switch_request_ack_t;
 
 typedef struct itti_s1ap_handover_required_s {
   uint32_t                mme_ue_s1ap_id;
@@ -273,7 +269,6 @@ typedef struct itti_s1ap_handover_command_s {
 
   // todo: handover type will always be set as intra_lte in s1ap layer..
 
-//  itti_nas_handover_tau_cnf_t         nas_handover_tau_cnf; /**< Original message sent by NAS after validation. */
   // todo: add the enb_ue_s1ap_id and the mme_ue_s1ap_id.. No
 } itti_s1ap_handover_command_t;
 
@@ -340,6 +335,14 @@ typedef struct itti_s1ap_handover_preparation_failure_s {
   sctp_assoc_id_t         assoc_id;
   enum s1cause            cause;
 } itti_s1ap_handover_preparation_failure_t;
+
+/** Path Switch Request Failure. */
+typedef struct itti_s1ap_path_switch_request_failure_s {
+  mme_ue_s1ap_id_t        mme_ue_s1ap_id;
+  enb_ue_s1ap_id_t        enb_ue_s1ap_id:24;
+  sctp_assoc_id_t         assoc_id;
+  enum s1cause            cause;
+} itti_s1ap_path_switch_request_failure_t;
 
 /** Handover Cancel. */
 typedef struct itti_s1ap_handover_cancel_s {

@@ -57,14 +57,6 @@ typedef enum emmcn_primitive_s {
   _EMMCN_PDN_CONNECTIVITY_RES, // LG
   _EMMCN_PDN_CONNECTIVITY_FAIL,// LG
 
-  // handover related
-  _EMMCN_HO_BEARER_MODIFICATION_RES,
-  _EMMCN_HO_BEARER_MODIFICATION_FAIL,
-  _EMMCN_HO_SESSION_ESTABLISHMENT_RES,
-  _EMMCN_HO_SESSION_ESTABLISHMENT_FAIL,
-
-  _EMMCN_HO_FORWARD_RELOCATION_REQ,
-
   _EMMCN_IMPLICIT_DETACH_UE,
   _EMMCN_SMC_PROC_FAIL,
   _EMMCN_END
@@ -123,11 +115,6 @@ typedef itti_nas_pdn_connectivity_fail_t emm_cn_pdn_fail_t;
 /** NAS UE context response. */
 typedef itti_nas_ue_context_rsp_t  emm_cn_context_res_t;
 
-// todo: add the new typedef to EMM_CN only if the MBR request came from EMM and not S1AP
-typedef itti_nas_ho_bearer_modification_rsp_t     emm_cn_ho_bearer_mod_res_t;
-typedef itti_nas_ho_bearer_modification_fail_t    emm_cn_ho_bearer_mod_fail_t;
-typedef itti_nas_ho_forward_relocation_req_t   emm_cn_ho_forward_relocation_req_t;
-
 typedef struct emm_cn_deregister_ue_s {
   uint32_t ue_id;
 } emm_cn_deregister_ue_t;
@@ -156,11 +143,6 @@ typedef struct emm_mme_ul_s {
     emm_cn_deregister_ue_t    deregister;
     emm_cn_pdn_res_t         *emm_cn_pdn_res;
     emm_cn_pdn_fail_t        *emm_cn_pdn_fail;
-
-    /** Handover Related Messages. */
-    emm_cn_ho_bearer_mod_res_t          *emm_cn_ho_bearer_mod_res;
-    emm_cn_ho_bearer_mod_fail_t         *emm_cn_ho_bearer_mod_fail;
-    emm_cn_ho_forward_relocation_req_t  *emm_cn_ho_forward_relocation_req; /**< S10 Forward Relocation Request Handover message. */
 
     emm_cn_implicit_detach_ue_t   emm_cn_implicit_detach;
     emm_cn_smc_fail_t        *smc_fail;

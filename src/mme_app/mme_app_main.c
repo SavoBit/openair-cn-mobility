@@ -115,11 +115,6 @@ void *mme_app_thread (
       }
       break;
 
-    case NAS_HO_FORWARD_RELOCATION_FAIL: {
-      mme_app_handle_nas_ho_forward_relocation_fail(&received_message_p->ittiMsg.nas_ho_forward_relocation_fail);
-    }
-      break;
-
     case NAS_DETACH_REQ: {
         mme_app_handle_detach_req(&received_message_p->ittiMsg.nas_detach_req);
       }
@@ -129,16 +124,6 @@ void *mme_app_thread (
         mme_app_handle_conn_est_cnf (&NAS_CONNECTION_ESTABLISHMENT_CNF (received_message_p));
       }
       break;
-    //Handover messaging (NAS -> MME_APP --> S11 // PART 2 --> After Handover has been accepted by the nas layer, and NH/NCC have been calculated)
-    case NAS_HANDOVER_TAU_CNF:{
-        mme_app_handle_handover_tau_cnf (&NAS_HANDOVER_TAU_CNF (received_message_p));
-      }
-      break;
-
-    case NAS_HANDOVER_TAU_REJ:{
-      mme_app_handle_handover_tau_rej (&NAS_HANDOVER_TAU_REJ (received_message_p));
-    }
-    break;
 
     // From S1AP Initiating Message/EMM Attach Request
     case MME_APP_INITIAL_UE_MESSAGE:{

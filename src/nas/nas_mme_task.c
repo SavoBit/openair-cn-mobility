@@ -109,22 +109,6 @@ static void *nas_intertask_interface (void *args_p)
       }
       break;
 
-    case NAS_HO_BEARER_MODIFICATION_RSP: {
-        nas_proc_ho_bearer_modification_res(&NAS_HO_BEARER_MODIFICATION_RSP (received_message_p));
-      }
-      break;
-
-    case NAS_HO_BEARER_MODIFICATION_FAIL: {
-        nas_proc_ho_bearer_modification_fail (&NAS_HO_BEARER_MODIFICATION_FAIL (received_message_p));
-      }
-      break;
-
-      /** Establishing a new EMM/NAS context with the receival of the S10 FORWARD_RELOCATION_REQUEST message. */
-    case NAS_HO_FORWARD_RELOCATION_REQ: {
-      nas_proc_ho_forward_relocation_request(&NAS_HO_FORWARD_RELOCATION_REQ (received_message_p));
-    }
-    break;
-
     case TIMER_HAS_EXPIRED:{
         /*
          * Call the NAS timer api

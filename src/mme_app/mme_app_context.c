@@ -54,9 +54,9 @@ static void _mme_app_send_s10_context_response_err(teid_t mme_source_s10_teid, u
 
 /* EMM state machine handlers */
 static const mme_app_ue_callback_t          _mme_ue_callbacks[UE_CONTEXT_STATE_MAX] = {
-  NULL,
+  EmmCbS1apDeregistered,
   EmmCbS1apRegistered,
-  EmmCbS1apHandoverTau,
+  NULL,
 };
 
 
@@ -142,6 +142,10 @@ void mme_app_ue_context_free_content (ue_context_t * const ue_context_p)
   }
   if (ue_context_p->ue_radio_capabilities) {
     free_wrapper((void**) &(ue_context_p->ue_radio_capabilities));
+  }
+  /** Free the pending MM_EPS_UE_CONTEXT. */
+  if (ue_context_p->pending_mm_ue_eps_context) {
+    free_wrapper((void**) &(ue_context_p->pending_mm_ue_eps_context));
   }
 
   ue_context_p->ue_radio_cap_length = 0;
@@ -1193,27 +1197,7 @@ void mme_ue_context_update_ue_emm_state (
     // Update Stats
     update_mme_app_stats_attached_ue_add();
 
-  } else if ((ue_context_p->mm_state == UE_HANDOVER_TAU) && (new_mm_state == UE_REGISTERED))
-  {
-    
-    /** Call the new callback function for new registration. */
-    // todo: use the old_state
-    if(_mme_ue_callbacks[ue_context_p->mm_state]){
-      OAILOG_DEBUG(LOG_MME_APP, "Calling the UE callback function in MME_APP mme_ue_s1ap_ue_id "MME_UE_S1AP_ID_FMT " for state %d \n", mme_ue_s1ap_id, ue_context_p->mm_state);
-      _mme_ue_callbacks[ue_context_p->mm_state](mme_ue_s1ap_id);
-      OAILOG_DEBUG(LOG_MME_APP, "Successfully executed UE callback function in MME_APP mme_ue_s1ap_ue_id "MME_UE_S1AP_ID_FMT " for state %d \n", mme_ue_s1ap_id, ue_context_p->mm_state);
-    }
-
-    /** Update to the new state. Will use the handover_information element as flag. */
-    ue_context_p->mm_state = new_mm_state;
-
-    OAILOG_DEBUG(LOG_MME_APP, "UE with mme_ue_s1ap_ue_id "MME_UE_S1AP_ID_FMT " entering REGISTERED state from HANDOVER state. \n");
-
-    // Update Stats --> also for handover!! (todo: new statistics for handover UEs?)
-    update_mme_app_stats_attached_ue_add();
-
-  }
-  else if ((ue_context_p->mm_state == UE_REGISTERED) && (new_mm_state == UE_UNREGISTERED))
+  } if ((ue_context_p->mm_state == UE_REGISTERED) && (new_mm_state == UE_UNREGISTERED))
   {
 
     /** Call the new callback function for deregistration. */
@@ -1307,7 +1291,6 @@ _mme_app_handle_s1ap_ue_context_release (const mme_ue_s1ap_id_t mme_ue_s1ap_id,
 }
 
 //-------------------------------------------------------------------------
-static
 int mme_app_set_pdn_connections(struct mme_ue_eps_pdn_connections_s * pdn_connections, struct ue_context_s * ue_context_p){
   int                           rc = RETURNok;
 
@@ -1363,7 +1346,6 @@ int mme_app_set_pdn_connections(struct mme_ue_eps_pdn_connections_s * pdn_connec
 }
 
 //----------------------------------------------------------------------------------------------------------
-static
 int mme_app_set_ue_eps_mm_context(mm_context_eps_t * ue_eps_mme_context_p, struct ue_context_s *ue_context_p, emm_data_context_t *ue_nas_ctx) {
 
   int                           rc = RETURNok;
@@ -1413,8 +1395,6 @@ int mme_app_set_ue_eps_mm_context(mm_context_eps_t * ue_eps_mme_context_p, struc
   OAILOG_FUNC_RETURN (LOG_MME_APP, rc);
 }
 
-
-static
 void mme_app_handle_pending_pdn_connectivity_information(ue_context_t *ue_context_p, pdn_connection_t * pdn_conn_pP){
   OAILOG_FUNC_IN (LOG_MME_APP);
 
@@ -1429,15 +1409,15 @@ void mme_app_handle_pending_pdn_connectivity_information(ue_context_t *ue_contex
   DevAssert (ue_context_p->pending_pdn_connectivity_req_apn);
 
   // copy
-  if (ue_context_p->pending_pdn_connectivity_req_pdn_addr) {
-    bdestroy (ue_context_p->pending_pdn_connectivity_req_pdn_addr);
-  }
   ue_context_p->pending_pdn_connectivity_req_pdn_type = pdn_conn_pP->pdn_type; /**< Set PDN type. */
   /** Decouple the pdn_addr. */
   /** Copy the value into the UE context. */
   memset (ue_context_p->paa.ipv4_address, 0, 4);
   // memcpy (ue_context_p->paa.ipv4_address, pdn_conn_pP->ip_address.address.v4, 4);
-  // todo: deallocating the current one?
+
+  if (ue_context_p->pending_pdn_connectivity_req_pdn_addr) {
+    bdestroy (ue_context_p->pending_pdn_connectivity_req_pdn_addr);
+  }
   ue_context_p->pending_pdn_connectivity_req_pdn_addr = blk2bstr(pdn_conn_pP->ip_address.address.v4, 4);
 
   // todo: need to erase the IPv4 ?! pdn_conn_pP->pdn_addr = NULL;

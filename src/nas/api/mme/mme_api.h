@@ -74,7 +74,6 @@ typedef enum mme_api_ip_version_e {
 typedef enum {
   UE_UNREGISTERED = 0,
   UE_REGISTERED,
-  UE_HANDOVER_TAU,
   UE_CONTEXT_STATE_MAX
 } mm_state_t;
 

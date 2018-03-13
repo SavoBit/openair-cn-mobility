@@ -64,16 +64,6 @@
 #define NAS_CONNECTION_ESTABLISHMENT_CNF(mSGpTR)    (mSGpTR)->ittiMsg.nas_conn_est_cnf
 
 #define NAS_BEARER_PARAM(mSGpTR)                    (mSGpTR)->ittiMsg.nas_bearer_param
-// Handover related signaling sent by MME_APP to NAS for handover processing after MBR
-#define NAS_HO_BEARER_MODIFICATION_RSP(mSGpTR)      (mSGpTR)->ittiMsg.nas_ho_bearer_modification_rsp
-#define NAS_HO_BEARER_MODIFICATION_FAIL(mSGpTR)     (mSGpTR)->ittiMsg.nas_ho_bearer_modification_fail
-
-// Handover related signaling sent by NAS to MME_APP after handover/tau processing and kEnb derivation in NAS layer
-#define NAS_HANDOVER_TAU_CNF(mSGpTR)                (mSGpTR)->ittiMsg.nas_handover_tau_cnf
-#define NAS_HANDOVER_TAU_REJ(mSGpTR)                (mSGpTR)->ittiMsg.nas_handover_tau_rej
-/** Handling Forward Relocation Request. */
-#define NAS_HO_FORWARD_RELOCATION_REQ(mSGpTR)       (mSGpTR)->ittiMsg.nas_ho_forward_relocation_req
-#define NAS_HO_FORWARD_RELOCATION_FAIL(mSGpTR)      (mSGpTR)->ittiMsg.nas_ho_forward_relocation_fail
 
 /** NAS Context Request/Response. */
 #define NAS_UE_CONTEXT_REQ(mSGpTR)                  (mSGpTR)->ittiMsg.nas_ue_context_req
@@ -270,114 +260,6 @@ typedef struct itti_nas_pdn_disconnect_rsp_s {
   unsigned int            pdn_default_ebi;
 } itti_nas_pdn_disconnect_rsp_t;
 
-typedef struct itti_nas_ho_bearer_modification_rsp_s {
-  int                     pti;   // nas ref  Identity of the procedure transaction executed to activate the PDN connection entry
-//  network_qos_t           qos;
-//  protocol_configuration_options_t pco;
-  bstring                 apn;
-  bstring                 pdn_addr;
-  int                     pdn_type;
-  void                   *proc_data;
-  int                     request_type;
-  pdn_conn_rsp_cause_t    cause;
-
-  mme_ue_s1ap_id_t        ue_id;
-
-  /* Key eNB */
-  //uint8_t                 kenb[32];
-
-//  ambr_t                  ambr;
-//  ambr_t                  apn_ambr;
-
-  /* EPS bearer ID */
-//  unsigned                ebi:4;
-
-  /* QoS */
-//  qci_t                   qci;
-//  priority_level_t        prio_level;
-//  pre_emp_vulnerability_t pre_emp_vulnerability;
-//  pre_emp_capability_t    pre_emp_capability;
-//  nas_handover_tau_cnf_t nas;
-
-  /* S-GW TEID for user-plane */
-  teid_t                  sgw_s1u_teid;
-  /* S-GW IP address for User-Plane */
-  ip_address_t            sgw_s1u_address;
-} itti_nas_ho_bearer_modification_rsp_t;
-
-typedef struct itti_nas_ho_bearer_modification_fail_s {
-  mme_ue_s1ap_id_t        ue_id;
-  int                     pti;
-  pdn_conn_rsp_cause_t    cause; // todo: of bearer modification
-} itti_nas_ho_bearer_modification_fail_t;
-
-/**
- * S10 triggered Handover UE Context establishment.
- * Contains the PDN_Connection Information element and the MM UE Context.
- * todo: handover_target_information?!
- */
-typedef struct itti_nas_ho_forward_relocation_req_s {
-
-  /** MM UE Context: Containing the necessary security information. */
-//  int                     pti;   // nas ref  Identity of the procedure transaction executed to activate the PDN connection entry
-
-  /** IMSI. */ // todo :new GUTI after handover
-  uint64_t                imsi;
-  imsi_t                  _imsi;
-  imei_t                  _imei;
-  mme_ue_s1ap_id_t        ue_id;
-
-  tai_t                   target_tai;
-
-//  ambr_t                  apn_ambr;   /**< APN-AMBR for this PDN. */
-//  // todo: qos information for multiple pdn --> array?
-//  /* EPS bearer Information. Currently only default bearer considered. */
-//  // todo: multiple bearer!
-//  unsigned                ebi:4;
-//  /* QoS */
-//  qci_t                   bearer_qos; /**< QCI value of the default bearer. */
-////  priority_level_t        prio_level;
-////  pre_emp_vulnerability_t pre_emp_vulnerability;
-////  pre_emp_capability_t    pre_emp_capability;
-  // todo: PDN Connection Element
-  //  pdn_connection_t        pdn_connection; /**< todo: contains the requested qos!. How to clear with HSS? It always assumed same HSS. */
-//    bstring                 apn;
-//    bstring                 pdn_addr; /**< IP Address. */
-//    int                     pdn_type;
-
-
-  mm_context_eps_t          mm_ue_eps_context;
-//  /** Used Encryption and Integrity algorithms. */
-//  uint8_t                   nas_int_alg:3;
-//  uint8_t                   nas_cipher_alg:4;
-//  /** NAS DL and UL counts. */
-//  count_t                   nas_dl_count;
-//  count_t                   nas_ul_count;
-//  /* K_ASME */
-//  uint8_t                   kasme[32];
-//  /* NH */
-//  uint8_t                   nh[32];
-//  uint8_t                   ncc;
-//  ksi_t                     ksi;
-//  ue_network_capability_t   ue_network_cap;
-//  ms_network_capability_t   ms_network_cap; // todo: implement!
-//  // todo: used and subscribed ambr values (currently 0 is sent to the PGW) (what are they exactly? where are they used? over all pdn's?)
-//  //  ambr_t                  used_ambr;
-//  //  ambr_t                  subscribed_ambr;
-
-  // network_qos_t           qos;
-
-//  void                   *proc_data;
-//  int                     request_type;
-//  pdn_conn_rsp_cause_t    cause;
-
-//  access_restriction_t    access_restriction;
-  /* todo: old S-GW TEID CP and UP FTEID ? */
-//  teid_t                  sgw_s1u_teid;
-//  /* S-GW IP address for User-Plane */
-//  ip_address_t            sgw_s1u_address;
-}itti_nas_ho_forward_relocation_req_t;
-
 typedef struct itti_nas_ho_forward_reloc_fail_s {
   mme_ue_s1ap_id_t        ue_id;
 
@@ -420,24 +302,6 @@ typedef struct itti_nas_conn_est_cnf_s {
 typedef struct itti_nas_conn_rel_ind_s {
 
 } itti_nas_conn_rel_ind_t;
-
-// handover related confirmation rejection message sent by NAS to MME_APP
-typedef struct itti_nas_handover_tau_cnf_s {
-  mme_ue_s1ap_id_t        ue_id;            /* UE lower layer identifier   */
-  nas_error_code_t        err_code;         /* Transaction status          */
-
-  uint8_t                 nh_conj[32];      /* nh */
-  uint8_t                 ncc:3;            /* 3 bit ncc */
-
-  uint32_t                ul_nas_count;
-  uint16_t                encryption_algorithm_capabilities;
-  uint16_t                integrity_algorithm_capabilities;
-} itti_nas_handover_tau_cnf_t;
-
-typedef struct itti_nas_handover_tau_rej_s {
-  mme_ue_s1ap_id_t        ue_id;            /* UE lower layer identifier   */
-  nas_error_code_t        err_code;         /* Transaction status          */
-} itti_nas_handover_tau_rej_t;
 
 typedef struct itti_nas_info_transfer_s {
   mme_ue_s1ap_id_t  ue_id;          /* UE lower layer identifier        */

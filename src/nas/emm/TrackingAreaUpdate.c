@@ -659,9 +659,61 @@ emm_proc_tracking_area_update_request (
      */
     OAILOG_DEBUG (LOG_NAS_EMM, "EMM-PROC- Sending a S10 context request for UE with ue_id=" MME_UE_S1AP_ID_FMT " to old MME. \n", ue_id);
     ue_context_p->pending_tau_epsUpdateType = msg->epsupdatetype;
-    rc = nas_itti_ue_context_req(ue_id, emm_ctx->_imsi64, true, new_tai, last_visited_registered_tai);
-    OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
-  }else if(ue_context_p->subscription_known == SUBSCRIPTION_UNKNOWN) { /**< Means, that the MM UE context is received from the sourc MME already due HO (and only due HO). */
+
+    /** Check if there is some pending MM_EPS_CONTEXT information existing. */
+    if(ue_context_p->pending_mm_ue_eps_context){
+      OAILOG_DEBUG (LOG_NAS_EMM, "EMM-PROC- Pending MM_EPS_CONTEXT information is existing. "
+          "Continuing with it for ue_id=" MME_UE_S1AP_ID_FMT ". No asking the old MME. \n", ue_id);
+      /**
+       * Set the identity values (IMSI) valid and present.
+       * Assuming IMSI is always returned with S10 Context Response and the IMSI hastable registration method validates the received IMSI.
+       */
+      clear_imsi(&emm_ctx->_imsi);
+      emm_ctx->_imsi.u.num.digit1 = ue_context_p->pending_pdn_connectivity_req_imsi[0];
+      emm_ctx->_imsi.u.num.digit2 = ue_context_p->pending_pdn_connectivity_req_imsi[1];
+      emm_ctx->_imsi.u.num.digit3 = ue_context_p->pending_pdn_connectivity_req_imsi[2];
+      emm_ctx->_imsi.u.num.digit4 = ue_context_p->pending_pdn_connectivity_req_imsi[3];
+      emm_ctx->_imsi.u.num.digit5 = ue_context_p->pending_pdn_connectivity_req_imsi[4];
+      emm_ctx->_imsi.u.num.digit6 = ue_context_p->pending_pdn_connectivity_req_imsi[5];
+      emm_ctx->_imsi.u.num.digit7 = ue_context_p->pending_pdn_connectivity_req_imsi[6];
+      emm_ctx->_imsi.u.num.digit8 = ue_context_p->pending_pdn_connectivity_req_imsi[7];
+      emm_ctx->_imsi.u.num.digit9 = ue_context_p->pending_pdn_connectivity_req_imsi[8];
+      emm_ctx->_imsi.u.num.digit10 = ue_context_p->pending_pdn_connectivity_req_imsi[9];
+      emm_ctx->_imsi.u.num.digit11 = ue_context_p->pending_pdn_connectivity_req_imsi[10];
+      emm_ctx->_imsi.u.num.digit12 = ue_context_p->pending_pdn_connectivity_req_imsi[11];
+      emm_ctx->_imsi.u.num.digit13 = ue_context_p->pending_pdn_connectivity_req_imsi[12];
+      emm_ctx->_imsi.u.num.digit14 = ue_context_p->pending_pdn_connectivity_req_imsi[13];
+      emm_ctx->_imsi.u.num.digit15 = ue_context_p->pending_pdn_connectivity_req_imsi[14];
+      emm_ctx->_imsi.u.num.parity = ODD_PARITY; /**< todo: hardcoded ODD!. */
+      emm_ctx_set_valid_imsi(emm_ctx, &emm_ctx->_imsi, ue_context_p->imsi);
+      rc = emm_data_context_upsert_imsi(&_emm_data, emm_ctx); /**< Register the IMSI in the hash table. */
+      if (rc != RETURNok) {
+        OAILOG_ERROR(LOG_NAS_EMM, "EMM-PROC  - " "Error inserting EMM_DATA_CONTEXT for mmeUeS1apId " MME_UE_S1AP_ID_FMT " "
+            "for the RECEIVED IMSI " IMSI_64_FMT ". \n", emm_ctx->ue_id, ue_context_p->imsi);
+        /** Sending TAU or Attach Reject back, which will purge the EMM/MME_APP UE contexts. */
+        if(emm_ctx_is_specific_procedure(emm_ctx, EMM_CTXT_SPEC_PROC_TAU)){
+          rc = emm_proc_tracking_area_update_reject(emm_ctx->ue_id, SYSTEM_FAILURE);
+          OAILOG_FUNC_RETURN (LOG_NAS_EMM, RETURNerror);
+        }else if (emm_ctx_is_specific_procedure(emm_ctx, EMM_CTXT_SPEC_PROC_ATTACH)){
+          rc = emm_proc_attach_reject(emm_ctx->ue_id, SYSTEM_FAILURE);
+          OAILOG_FUNC_RETURN (LOG_NAS_EMM, RETURNerror);
+        }
+        OAILOG_FUNC_RETURN (LOG_NAS_EMM, RETURNerror);
+      }
+      /**
+       * Update the security context & security vectors of the UE independent of TAU/Attach here (set fields valid/present).
+       * Then inform the MME_APP that the context was successfully authenticated. Trigger a CSR.
+       */
+      emm_ctx_update_from_mm_eps_context(emm_ctx, &ue_context_p->pending_mm_ue_eps_context);
+      OAILOG_INFO(LOG_NAS_EMM, "EMM-PROC  - " "Successfully updated the EMM context from the received MM_EPS_Context from the MME for UE with imsi: " IMSI_64_FMT ". \n", emm_ctx->_imsi64);
+      /** Continue with the subscription information. */
+    }else{
+      rc = nas_itti_ue_context_req(ue_id, emm_ctx->_imsi64, true, new_tai, last_visited_registered_tai);
+      OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
+    }
+  }
+  /** Check if any S6a Subscription information exist, if not pull them from the HSS. */
+  if(ue_context_p->subscription_known == SUBSCRIPTION_UNKNOWN) { /**< Means, that the MM UE context is received from the sourc MME already due HO (and only due HO). */
     OAILOG_WARNING (LOG_NAS_EMM, "EMM-PROC- THE UE with ue_id=" MME_UE_S1AP_ID_FMT ", does not have a subscription profile set. Requesting a new subscription profile. \n",
         ue_id, EMM_CAUSE_IE_NOT_IMPLEMENTED);
     /** Save the EPS update type. */

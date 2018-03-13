@@ -672,54 +672,6 @@ nas_proc_pdn_connectivity_fail (
 
 //------------------------------------------------------------------------------
 int
-nas_proc_ho_bearer_modification_res (
-   emm_cn_ho_bearer_mod_res_t * emm_cn_ho_bearer_mod_res)
-{
-  int                                     rc = RETURNerror;
-  emm_sap_t                               emm_sap = {0};
-
-  OAILOG_FUNC_IN (LOG_NAS_EMM);
-  MSC_LOG_TX_MESSAGE (MSC_NAS_MME, MSC_NAS_EMM_MME, NULL, 0, "0 EMMCN_HO_BEARER_MODIFICATION_RES");
-  emm_sap.primitive = EMMCN_HO_BEARER_MODIFICATION_RES;
-  emm_sap.u.emm_cn.u.emm_cn_pdn_res = emm_cn_ho_bearer_mod_res;
-  rc = emm_sap_send (&emm_sap);
-  OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
-}
-
-//------------------------------------------------------------------------------
-int
-nas_proc_ho_bearer_modification_fail (
-    emm_cn_ho_bearer_mod_fail_t * emm_cn_ho_bearer_mod_fail)
-{
-  int                                     rc = RETURNerror;
-  emm_sap_t                               emm_sap = {0};
-
-  OAILOG_FUNC_IN (LOG_NAS_EMM);
-  MSC_LOG_TX_MESSAGE (MSC_NAS_MME, MSC_NAS_EMM_MME, NULL, 0, "0 EMMCN_HO_BEARER_MODIFICATION_FAIL. \n");
-  emm_sap.primitive = EMMCN_HO_BEARER_MODIFICATION_FAIL;
-  emm_sap.u.emm_cn.u.emm_cn_ho_bearer_mod_fail = emm_cn_ho_bearer_mod_fail;
-  rc = emm_sap_send (&emm_sap);
-  OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
-}
-
-//------------------------------------------------------------------------------
-int
-nas_proc_ho_forward_relocation_request( /**< Creating a new UE context. */
-    emm_cn_ho_forward_relocation_req_t * emm_cn_ho_forward_relocation_req)
-{
-  int                                     rc = RETURNerror;
-  emm_sap_t                               emm_sap = {0};
-
-  OAILOG_FUNC_IN (LOG_NAS_EMM);
-  MSC_LOG_TX_MESSAGE (MSC_NAS_MME, MSC_NAS_EMM_MME, NULL, 0, "0 EMMCN_HO_FORWARD_RELOCATION_REQUEST. \n");
-  emm_sap.primitive = EMMCN_HO_FORWARD_RELOCATION_REQ;
-  emm_sap.u.emm_cn.u.emm_cn_ho_forward_relocation_req = emm_cn_ho_forward_relocation_req;
-  rc = emm_sap_send (&emm_sap);
-  OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
-}
-
-//------------------------------------------------------------------------------
-int
 nas_proc_smc_fail (
   emm_cn_smc_fail_t * emm_cn_smc_fail)
 {

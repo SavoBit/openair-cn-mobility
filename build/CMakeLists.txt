@@ -724,7 +724,6 @@ set(libnas_mme_emm_OBJS
   ${NAS_SRC}emm/emm_main.c
   ${NAS_SRC}emm/EmmStatusHdl.c
   ${NAS_SRC}emm/Identification.c
-  ${NAS_SRC}emm/Handover.c
   ${NAS_SRC}emm/LowerLayer.c
   ${NAS_SRC}emm/SecurityModeControl.c
   ${NAS_SRC}emm/ServiceRequestHdl.c

@@ -433,6 +433,10 @@ int emm_data_context_update_security_parameters(const mme_ue_s1ap_id_t ue_id,
     uint16_t *encryption_algorithm_capabilities,
     uint16_t *integrity_algorithm_capabilities);
 
+void emm_data_context_get_security_parameters(const mme_ue_s1ap_id_t ue_id,
+    uint16_t *encryption_algorithm_capabilities,
+    uint16_t *integrity_algorithm_capabilities);
+
 int  emm_data_context_add(emm_data_t *emm_data, struct emm_data_context_s *elm) __attribute__ ((nonnull)) ;
 int  emm_data_context_add_guti (emm_data_t * emm_data, struct emm_data_context_s *elm) __attribute__ ((nonnull)) ;
 int  emm_data_context_add_old_guti (emm_data_t * emm_data, struct emm_data_context_s *elm) __attribute__ ((nonnull)) ;

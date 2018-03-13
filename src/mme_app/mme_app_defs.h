@@ -101,11 +101,6 @@ void mme_app_handle_detach_req (const itti_nas_detach_req_t * const detach_req_p
 
 void mme_app_handle_conn_est_cnf             (const itti_nas_conn_est_cnf_t * const nas_conn_est_cnf_pP);
 
-// Handover messaging
-void mme_app_handle_handover_tau_cnf    (  const itti_nas_handover_tau_cnf_t * const nas_handover_tau_cnf_pP);
-
-void mme_app_handle_handover_tau_rej (   const itti_nas_handover_tau_rej_t * const nas_handover_tau_rej_pP);
-
 void mme_app_handle_initial_ue_message       (itti_mme_app_initial_ue_message_t * const conn_est_ind_pP);
 
 void mme_app_handle_initial_ue_message_check_duplicate (itti_mme_app_initial_ue_message_check_duplicate_t * const initial_check_duplicate_pP);
@@ -163,12 +158,8 @@ void mme_app_handle_handover_required( const itti_s1ap_handover_required_t * con
 
 void mme_app_handle_handover_cancel( const itti_s1ap_handover_cancel_t * const handover_cancel_pP );
 
-/** Handling S10 Messages.
- * todo: handle errors..
- */
+/** Handling S10 Messages. */
 void mme_app_handle_forward_relocation_request( const itti_s10_forward_relocation_request_t * const forward_relocation_request_pP );
-
-void mme_app_handle_nas_ho_forward_relocation_fail( const itti_nas_ho_forward_reloc_fail_t * const forward_relocation_fail_pP );
 
 void mme_app_handle_forward_relocation_response(    const itti_s10_forward_relocation_response_t* const forward_relocation_response_pP );
 

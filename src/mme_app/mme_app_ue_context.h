@@ -74,8 +74,6 @@ int                                     EmmCbS1apDeregistered(
   const mme_ue_s1ap_id_t ueId);
 int                                     EmmCbS1apRegistered(
   const mme_ue_s1ap_id_t ueId);
-int                                     EmmCbS1apHandoverTau(
-  const mme_ue_s1ap_id_t ueId);
 //
 ///* EMM state machine handlers */
 //static const mme_app_ue_callback_t          _mme_ue_callbacks[UE_CONTEXT_STATE_MAX] = {
@@ -271,8 +269,13 @@ typedef struct ue_context_s {
   void                  *pending_s10_response_trxn;       ///< Transaction identifier;
   enb_ue_s1ap_id_t       pending_handover_enb_ue_s1ap_id; /**< eNB-UE-S1AP-Id of the target-ENB if it is a single MME s1AP handover. */
 
+  /** The pending MM_CONTEXT information. */
+  mm_context_eps_t      *pending_mm_ue_eps_context;
+
   ebi_t                  default_bearer_id;
   
+  bool                   pending_x2_handover; /**< Temporary flag, clear with Lionel how to integrate the X2 of B-COM. */
+
   uint8_t                num_bearers;
   bearer_context_t     **eps_bearers; // todo: better bearer list structure..
 

@@ -114,10 +114,6 @@ Description Defines the messages supported by the Access Stratum sublayer
 #define AS_RAB_RELEASE_REQ      (AS_RAB_RELEASE | AS_REQUEST)
 #define AS_RAB_RELEASE_IND      (AS_RAB_RELEASE | AS_INDICATION)
 
-// Handover messaging
-#define AS_NAS_HANDOVER_TAU        0x0A
-#define AS_NAS_HANDOVER_TAU_CNF    (AS_NAS_HANDOVER_TAU | AS_CONFIRM)
-
 /* NAS Cause */
 typedef enum nas_cause_s {
   NAS_CAUSE_IMSI_UNKNOWN_IN_HSS                           = EMM_CAUSE_IMSI_UNKNOWN_IN_HSS,

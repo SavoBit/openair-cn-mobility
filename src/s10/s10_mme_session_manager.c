@@ -71,7 +71,7 @@ s10_mme_forward_relocation_request (
   rc = nwGtpv2cMsgNew (*stack_p, NW_TRUE, NW_GTP_FORWARD_RELOCATION_REQ, req_p->teid, 0, &(ulp_req.hMsg));
   ulp_req.apiInfo.initialReqInfo.peerIp     = req_p->peer_ip;
   ulp_req.apiInfo.initialReqInfo.teidLocal  = req_p->s10_source_mme_teid.teid;
-  ulp_req.apiInfo.initialReqInfo.hUlpTunnel = 0;
+  ulp_req.apiInfo.initialReqInfo.hUlpTunnel = 0; /** Will create a local tunnel with type INIT_REQ. */
   ulp_req.apiInfo.initialReqInfo.hTunnel    = 0;
   /*
    * Add recovery if contacting the peer for the first time

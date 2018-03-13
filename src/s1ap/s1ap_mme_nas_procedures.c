@@ -721,8 +721,8 @@ s1ap_handle_conn_est_cnf (
 
 //------------------------------------------------------------------------------
 void
-s1ap_handle_handover_cnf (
-  const itti_s1ap_handover_cnf_t * const handover_cnf_pP)
+s1ap_handle_path_switch_req_ack(
+  const itti_s1ap_path_switch_request_ack_t * const path_switch_req_ack_pP)
 {
   /*
    * We received modify bearer response from S-GW on S11 interface abstraction.
@@ -732,20 +732,18 @@ s1ap_handle_handover_cnf (
   uint8_t                                *buffer_p = NULL;
   uint32_t                                length = 0;
   ue_description_t                       *ue_ref = NULL;
-//  S1ap_InitialContextSetupRequestIEs_t   *initialContextSetupRequest_p = NULL;
-  S1ap_PathSwitchRequestAcknowledgeIEs_t   *pathSwitchRequestAcknowledge_p = NULL;
+  S1ap_PathSwitchRequestAcknowledgeIEs_t *pathSwitchRequestAcknowledge_p = NULL;
 
-//  S1ap_E_RABToBeSetupItemCtxtSUReq_t      e_RABToBeSetup = {0}; // yes, alloc on stack
-  S1ap_E_RABToBeSwitchedULItem_t      e_RABToBeSwitchedUl = {0}; // yes, alloc on stack
+  S1ap_E_RABToBeSwitchedULItem_t          e_RABToBeSwitchedUl = {0}; // yes, alloc on stack
   S1ap_NAS_PDU_t                          nas_pdu = {0}; // yes, alloc on stack
   s1ap_message                            message = {0}; // yes, alloc on stack
 
   OAILOG_FUNC_IN (LOG_S1AP);
-  DevAssert (handover_cnf_pP != NULL);
+  DevAssert (path_switch_req_ack_pP != NULL);
 
-   ue_ref = s1ap_is_ue_mme_id_in_list (handover_cnf_pP->ue_id);
+   ue_ref = s1ap_is_ue_mme_id_in_list (path_switch_req_ack_pP->ue_id);
   if (!ue_ref) {
-    OAILOG_ERROR (LOG_S1AP, "This mme ue s1ap id (" MME_UE_S1AP_ID_FMT ") is not attached to any UE context\n", handover_cnf_pP->ue_id);
+    OAILOG_ERROR (LOG_S1AP, "This mme ue s1ap id (" MME_UE_S1AP_ID_FMT ") is not attached to any UE context\n", path_switch_req_ack_pP->ue_id);
     // There are some race conditions were NAS T3450 timer is stopped and removed at same time
     OAILOG_FUNC_OUT (LOG_S1AP);
   }
@@ -794,23 +792,23 @@ s1ap_handle_handover_cnf (
    * Set the GTP-TEID. This is the S1-U S-GW TEID
    */
   e_RABToBeSwitchedUl.e_RAB_ID = 5; // todo: get ebi
-  INT32_TO_OCTET_STRING (handover_cnf_pP->bearer_s1u_sgw_fteid.teid, &e_RABToBeSwitchedUl.gTP_TEID);
+  INT32_TO_OCTET_STRING (path_switch_req_ack_pP->bearer_s1u_sgw_fteid.teid, &e_RABToBeSwitchedUl.gTP_TEID);
 
   /*
    * S-GW IP address(es) for user-plane
    */
-  if (handover_cnf_pP->bearer_s1u_sgw_fteid.ipv4) {
+  if (path_switch_req_ack_pP->bearer_s1u_sgw_fteid.ipv4) {
     e_RABToBeSwitchedUl.transportLayerAddress.buf = calloc (4, sizeof (uint8_t));
     /*
      * Only IPv4 supported
      */
-    memcpy (e_RABToBeSwitchedUl.transportLayerAddress.buf, &handover_cnf_pP->bearer_s1u_sgw_fteid.ipv4_address, 4);
+    memcpy (e_RABToBeSwitchedUl.transportLayerAddress.buf, &path_switch_req_ack_pP->bearer_s1u_sgw_fteid.ipv4_address, 4);
     offset += 4;
     e_RABToBeSwitchedUl.transportLayerAddress.size = 4;
     e_RABToBeSwitchedUl.transportLayerAddress.bits_unused = 0;
   }
 
-  if (handover_cnf_pP->bearer_s1u_sgw_fteid.ipv6) {
+  if (path_switch_req_ack_pP->bearer_s1u_sgw_fteid.ipv6) {
     if (offset == 0) {
       /*
        * Both IPv4 and IPv6 provided
@@ -829,7 +827,7 @@ s1ap_handle_handover_cnf (
       e_RABToBeSwitchedUl.transportLayerAddress.buf = realloc (e_RABToBeSwitchedUl.transportLayerAddress.buf, (16 + offset) * sizeof (uint8_t));
     }
 
-    memcpy (&e_RABToBeSwitchedUl.transportLayerAddress.buf[offset], handover_cnf_pP->bearer_s1u_sgw_fteid.ipv6_address, 16);
+    memcpy (&e_RABToBeSwitchedUl.transportLayerAddress.buf[offset], path_switch_req_ack_pP->bearer_s1u_sgw_fteid.ipv6_address, 16);
     e_RABToBeSwitchedUl.transportLayerAddress.size = 16 + offset;
     e_RABToBeSwitchedUl.transportLayerAddress.bits_unused = 0;
   }
@@ -840,9 +838,9 @@ s1ap_handle_handover_cnf (
   ASN_SEQUENCE_ADD (&pathSwitchRequestAcknowledge_p->e_RABToBeSwitchedULList, &e_RABToBeSwitchedUl);
 
   // todo: check if key exists :)
-  pathSwitchRequestAcknowledge_p->securityContext.nextHopChainingCount = handover_cnf_pP->ncc;
+  pathSwitchRequestAcknowledge_p->securityContext.nextHopChainingCount = path_switch_req_ack_pP->ncc;
   pathSwitchRequestAcknowledge_p->securityContext.nextHopParameter.buf  = calloc (32, sizeof(uint8_t));
-  memcpy (pathSwitchRequestAcknowledge_p->securityContext.nextHopParameter.buf, handover_cnf_pP->nh, 32);
+  memcpy (pathSwitchRequestAcknowledge_p->securityContext.nextHopParameter.buf, path_switch_req_ack_pP->nh, 32);
   pathSwitchRequestAcknowledge_p->securityContext.nextHopParameter.size = 32;
 
 
@@ -880,7 +878,7 @@ s1ap_handle_handover_cnf (
   free(buffer_p);
   s1ap_mme_itti_send_sctp_request (&b, ue_ref->enb->sctp_assoc_id, ue_ref->sctp_stream_send, ue_ref->mme_ue_s1ap_id);
 
-  /** Set the old state. */
+  /** Set the new state as connected. */
   ue_ref->s1_ue_state = S1AP_UE_CONNECTED;
 
   OAILOG_FUNC_OUT (LOG_S1AP);
@@ -938,6 +936,61 @@ int s1ap_handover_preparation_failure (
    */
   OAILOG_FUNC_RETURN (LOG_S1AP, rc);
 }
+
+
+int s1ap_handle_path_switch_request_failure (
+    const itti_s1ap_path_switch_request_failure_t *path_switch_request_failure_pP)
+{
+  DevAssert(path_switch_request_failure_pP);
+  return s1ap_path_switch_request_failure (path_switch_request_failure_pP->assoc_id, path_switch_request_failure_pP->mme_ue_s1ap_id, path_switch_request_failure_pP->enb_ue_s1ap_id, path_switch_request_failure_pP->cause);
+}
+
+int s1ap_path_switch_request_failure (
+    const sctp_assoc_id_t assoc_id,
+    const mme_ue_s1ap_id_t mme_ue_s1ap_id,
+    const enb_ue_s1ap_id_t enb_ue_s1ap_id,
+    const S1ap_Cause_PR cause_type)
+{
+  int                                     enc_rval = 0;
+  S1ap_PathSwitchRequestFailureIEs_t     *pathSwitchRequestFailure_p = NULL;
+  s1ap_message                            message = { 0 };
+  uint8_t                                *buffer = NULL;
+  uint32_t                                length = 0;
+  int                                     rc = RETURNok;
+
+  /*
+   * Mandatory IEs:
+   * S1ap-MME-UE-S1AP-ID
+   * S1ap-ENB-UE-S1AP-ID
+   * S1ap-Cause
+   */
+
+  OAILOG_FUNC_IN (LOG_S1AP);
+
+  pathSwitchRequestFailure_p = &message.msg.s1ap_PathSwitchRequestFailureIEs;
+  s1ap_mme_set_cause(&pathSwitchRequestFailure_p->cause, cause_type, 4);
+  pathSwitchRequestFailure_p->eNB_UE_S1AP_ID = enb_ue_s1ap_id;
+  pathSwitchRequestFailure_p->mme_ue_s1ap_id = mme_ue_s1ap_id;
+
+  message.procedureCode = S1ap_ProcedureCode_id_PathSwitchRequest;
+  message.direction = S1AP_PDU_PR_unsuccessfulOutcome;
+  enc_rval = s1ap_mme_encode_pdu (&message, &buffer, &length);
+
+  // Failed to encode
+  if (enc_rval < 0) {
+    DevMessage ("Failed to encode path switch request failure message\n");
+  }
+
+  bstring b = blk2bstr(buffer, length);
+  free(buffer);
+  rc = s1ap_mme_itti_send_sctp_request (&b, assoc_id, 0, INVALID_MME_UE_S1AP_ID);
+  /**
+   * No need to free it, since it is stacked and nothing is allocated.
+   * S1AP UE Reference will stay as it is. If removed, it needs to be removed with a separate NAS_IMPLICIT_DETACH.
+   */
+  OAILOG_FUNC_RETURN (LOG_S1AP, rc);
+}
+
 
 void
 s1ap_handle_handover_request (
@@ -1468,315 +1521,6 @@ s1ap_handle_paging( const itti_s1ap_paging_t * const s1ap_paging_pP){
   //  ue_ref->s1_ue_state = S1AP_UE_CONNECTED;
   OAILOG_FUNC_OUT (LOG_S1AP);
 }
-
-//------------------------------------------------------------------------------
-//void
-//s1ap_handle_bearer_modification_res (
-//  const itti_mme_app_bearer_modification_rsp_t * const bearer_modification_res_pP)
-//{
-//  /*
-//   * We received modify bearer response from S-GW on S11 interface abstraction.
-//   * It could be a handover case where we need to respond with the path switch reply to eNB.
-//   */
-//  ue_description_t                       *ue_ref = NULL;
-//
-//  S1ap_NAS_PDU_t                          nas_pdu = {0}; // yes, alloc on stack
-//
-//  OAILOG_FUNC_IN (LOG_S1AP);
-//  DevAssert (bearer_modification_res_pP != NULL);
-//
-//  ue_ref = s1ap_is_ue_mme_id_in_list (bearer_modification_res_pP->ue_id);
-//  if (!ue_ref) {
-//    OAILOG_ERROR (LOG_S1AP, "This mme ue s1ap id (" MME_UE_S1AP_ID_FMT ") is not attached to any UE context\n", handover_cnf_pP->nas_handover_tau_cnf.ue_id);
-//    // There are some race conditions were NAS T3450 timer is stopped and removed at same time
-//    OAILOG_FUNC_OUT (LOG_S1AP);
-//  }
-//
-//  /*
-//   * Start the outcome response timer.
-//   * * * * When time is reached, MME consider that procedure outcome has failed.
-//   */
-//  //     timer_setup(mme_config.s1ap_config.outcome_drop_timer_sec, 0, TASK_S1AP, INSTANCE_DEFAULT,
-//  //                 TIMER_ONE_SHOT,
-//  //                 NULL,
-//  //                 &ue_ref->outcome_response_timer_id);
-//  /*
-//   * Insert the timer in the MAP of mme_ue_s1ap_id <-> timer_id
-//   */
-//  //     s1ap_timer_insert(ue_ref->mme_ue_s1ap_id, ue_ref->outcome_response_timer_id);
-//  // todo: PSR if the state is handover, else just complete the message!
-//
-//  // todo: differentiate between X2 and S1AP handover here..
-//
-//  if (S1AP_UE_CONNECTED == ue_ref->s1_ue_state) {
-//    OAILOG_INFO(LOG_S1AP, "Received BEARER_MODIFICATION_RSP while UE in state S1AP_UE_CONNECTED\n");
-//    MSC_LOG_RX_DISCARDED_MESSAGE (MSC_S1AP_MME,
-//                           MSC_S1AP_ENB,
-//                           NULL, 0,
-//                           "0 uplinkNASTransport/%s mme_ue_s1ap_id " MME_UE_S1AP_ID_FMT " enb_ue_s1ap_id " ENB_UE_S1AP_ID_FMT " nas len %u",
-//                           s1ap_direction2String[message->direction],
-//                           (mme_ue_s1ap_id_t)uplinkNASTransport_p->mme_ue_s1ap_id,
-//                           (enb_ue_s1ap_id_t)uplinkNASTransport_p->eNB_UE_S1AP_ID,
-//                           uplinkNASTransport_p->nas_pdu.size);
-//
-//    OAILOG_FUNC_RETURN (LOG_S1AP, RETURNok);
-//  } else if (S1AP_UE_HANDOVER == ue_ref->s1_ue_state) {
-//    OAILOG_INFO (LOG_S1AP, "Received BEARER_MODIFICATION_RSP while UE in state S1AP_UE_HANDOVER\n");
-//
-//    /** Find a function to prepare and send handover message back. */
-//    mme_s1ap_handle_x2_handover(bearer_modification_res_pP->ue_id);
-//
-//    OAILOG_FUNC_RETURN (LOG_S1AP, RETURNok);
-//  } else {
-//    OAILOG_ERROR(LOG_S1AP, "Received BEARER_MODIFICATION_RSP while UE is neither in state S1AP_UE_CONNECTED nor S1AP_UE_HANDOVER\n");
-//    MSC_LOG_RX_DISCARDED_MESSAGE (MSC_S1AP_MME,
-//                             MSC_S1AP_ENB,
-//                             NULL, 0,
-//                             "0 uplinkNASTransport/%s mme_ue_s1ap_id " MME_UE_S1AP_ID_FMT " enb_ue_s1ap_id " ENB_UE_S1AP_ID_FMT " nas len %u",
-//                             s1ap_direction2String[message->direction],
-//                             (mme_ue_s1ap_id_t)uplinkNASTransport_p->mme_ue_s1ap_id,
-//                             (enb_ue_s1ap_id_t)uplinkNASTransport_p->eNB_UE_S1AP_ID,
-//                             uplinkNASTransport_p->nas_pdu.size);
-//
-//    OAILOG_FUNC_RETURN (LOG_S1AP, RETURNerror);
-//  }
-//}
-//
-//void
-//s1ap_handle_bearer_modification_fail (
-//  const itti_mme_app_bearer_modification_fail_t * const bearer_modification_fail_pP)
-//{
-//
-//  // todo: abort the handover
-//  /*
-//   * We received modify bearer response from S-GW on S11 interface abstraction.
-//   * It could be a handover case where we need to respond with the path switch reply to eNB.
-//   */
-//  uint                                    offset = 0;
-//  uint8_t                                *buffer_p = NULL;
-//  uint32_t                                length = 0;
-//  ue_description_t                       *ue_ref = NULL;
-//
-//  S1ap_E_RABToBeSwitchedULItem_t      e_RABToBeSwitchedUl = {0}; // yes, alloc on stack
-//  S1ap_NAS_PDU_t                          nas_pdu = {0}; // yes, alloc on stack
-//
-//  OAILOG_FUNC_IN (LOG_S1AP);
-//  DevAssert (bearer_modification_fail_pP != NULL);
-//
-//  ue_ref = s1ap_is_ue_mme_id_in_list (bearer_modification_fail_pP->ue_id);
-//  if (!ue_ref) {
-//    OAILOG_ERROR (LOG_S1AP, "This mme ue s1ap id (" MME_UE_S1AP_ID_FMT ") is not attached to any UE context\n", handover_cnf_pP->nas_handover_tau_cnf.ue_id);
-//    // There are some race conditions were NAS T3450 timer is stopped and removed at same time
-//    OAILOG_FUNC_OUT (LOG_S1AP);
-//  }
-//
-//  /*
-//   * Start the outcome response timer.
-//   * * * * When time is reached, MME consider that procedure outcome has failed.
-//   */
-//  //     timer_setup(mme_config.s1ap_config.outcome_drop_timer_sec, 0, TASK_S1AP, INSTANCE_DEFAULT,
-//  //                 TIMER_ONE_SHOT,
-//  //                 NULL,
-//  //                 &ue_ref->outcome_response_timer_id);
-//  /*
-//   * Insert the timer in the MAP of mme_ue_s1ap_id <-> timer_id
-//   */
-//  //     s1ap_timer_insert(ue_ref->mme_ue_s1ap_id, ue_ref->outcome_response_timer_id);
-//  // todo: PSR if the state is handover, else just complete the message!
-//
-//  // todo: differentiate between X2 and S1AP handover here..
-//
-// // todo: abort handover procedure.. ignore if rest, check how other failure methods are implemented
-//  OAILOG_FUNC_RETURN (LOG_S1AP, RETURNok);
-//}
-//
-////void mme_s1ap_handle_x2_handover(const itti_mme_app_bearer_modification_rsp_t * const bearer_modification_rsp_pP){
-////
-////  uint                                     offset = 0;
-////  uint8_t                                  *buffer_p = NULL;
-////  uint32_t                                 length = 0;
-////  S1ap_PathSwitchRequestAcknowledgeIEs_t   *pathSwitchRequestAcknowledge_p = NULL;
-////  s1ap_message                             message = {0}; // yes, alloc on stack
-////  ue_description_t                         *ue_ref = NULL;
-////
-////  S1ap_E_RABToBeSwitchedULItem_t        e_RABToBeSwitchedUl = {0}; // yes, alloc on stack
-////
-////  ue_ref = s1ap_is_ue_mme_id_in_list (bearer_modification_rsp_pP->ue_id);
-////  if (!ue_ref) {
-////    OAILOG_ERROR (LOG_S1AP, "This mme ue s1ap id (" MME_UE_S1AP_ID_FMT ") is not attached to any UE context\n", handover_cnf_pP->nas_handover_tau_cnf.ue_id);
-////    // There are some race conditions were NAS T3450 timer is stopped and removed at same time
-////    OAILOG_FUNC_OUT (LOG_S1AP);
-////  }
-////  message.procedureCode = S1ap_ProcedureCode_id_PathSwitchRequest;
-////  message.direction = S1AP_PDU_PR_successfulOutcome;
-////  pathSwitchRequestAcknowledge_p = &message.msg.s1ap_PathSwitchRequestAcknowledgeIEs;
-////  pathSwitchRequestAcknowledge_p->mme_ue_s1ap_id = (unsigned long)ue_ref->mme_ue_s1ap_id;
-////  pathSwitchRequestAcknowledge_p->eNB_UE_S1AP_ID = (unsigned long)ue_ref->enb_ue_s1ap_id;
-////
-//////  /*
-//////   * Only add capability information if it's not empty.
-//////   */
-//////  if (conn_est_cnf_pP->ue_radio_cap_length) {
-//////    OAILOG_DEBUG (LOG_S1AP, "UE radio capability found, adding to message\n");
-//////    initialContextSetupRequest_p->presenceMask |=
-//////      S1AP_INITIALCONTEXTSETUPREQUESTIES_UERADIOCAPABILITY_PRESENT;
-//////    OCTET_STRING_fromBuf(&initialContextSetupRequest_p->ueRadioCapability,
-//////                        (const char*) conn_est_cnf_pP->ue_radio_capabilities,
-//////                         conn_est_cnf_pP->ue_radio_cap_length);
-//////    free_wrapper((void**) &(conn_est_cnf_pP->ue_radio_capabilities));
-//////  }
-////
-//////  /*
-//////   * uEaggregateMaximumBitrateDL and uEaggregateMaximumBitrateUL expressed in term of bits/sec
-//////   */
-//////  asn_uint642INTEGER (&initialContextSetupRequest_p->uEaggregateMaximumBitrate.uEaggregateMaximumBitRateDL, conn_est_cnf_pP->ambr.br_dl);
-//////  asn_uint642INTEGER (&initialContextSetupRequest_p->uEaggregateMaximumBitrate.uEaggregateMaximumBitRateUL, conn_est_cnf_pP->ambr.br_ul);
-//////  e_RABToBeSetup.e_RAB_ID = conn_est_cnf_pP->eps_bearer_id;     //5;
-////
-////  /*
-////   * Set the GTP-TEID. This is the S1-U S-GW TEID
-////   */
-////  INT32_TO_OCTET_STRING (bearer_modification_rsp_pP->bearer_s1u_sgw_fteid.teid, &e_RABToBeSwitchedUl.gTP_TEID);
-////
-////  /*
-////   * S-GW IP address(es) for user-plane
-////   */
-////  if (bearer_modification_rsp_pP->bearer_s1u_sgw_fteid.ipv4) {
-////    e_RABToBeSwitchedUl.transportLayerAddress.buf = calloc (4, sizeof (uint8_t));
-////    /*
-////     * Only IPv4 supported
-////     */
-////    memcpy (e_RABToBeSwitchedUl.transportLayerAddress.buf, &bearer_modification_rsp_pP->bearer_s1u_sgw_fteid.ipv4_address, 4);
-////    offset += 4;
-////    e_RABToBeSwitchedUl.transportLayerAddress.size = 4;
-////    e_RABToBeSwitchedUl.transportLayerAddress.bits_unused = 0;
-////  }
-////
-////  if (bearer_modification_rsp_pP->bearer_s1u_sgw_fteid.ipv6) {
-////    if (offset == 0) {
-////      /*
-////       * Both IPv4 and IPv6 provided
-////       */
-////      /*
-////       * TODO: check memory allocation
-////       */
-////      e_RABToBeSwitchedUl.transportLayerAddress.buf = calloc (16, sizeof (uint8_t));
-////    } else {
-////      /*
-////       * Only IPv6 supported
-////       */
-////      /*
-////       * TODO: check memory allocation
-////       */
-////      e_RABToBeSwitchedUl.transportLayerAddress.buf = realloc (e_RABToBeSwitchedUl.transportLayerAddress.buf, (16 + offset) * sizeof (uint8_t));
-////    }
-////
-////    memcpy (&e_RABToBeSwitchedUl.transportLayerAddress.buf[offset], bearer_modification_rsp_pP->bearer_s1u_sgw_fteid.ipv6_address, 16);
-////    e_RABToBeSwitchedUl.transportLayerAddress.size = 16 + offset;
-////    e_RABToBeSwitchedUl.transportLayerAddress.bits_unused = 0;
-////  }
-////
-//////  ASN_SEQUENCE_ADD (&initialContextSetupRequest_p->e_RABToBeSetupListCtxtSUReq, &e_RABToBeSetup);
-////  ASN_SEQUENCE_ADD (&pathSwitchRequestAcknowledge_p->e_RABToBeSwitchedULList, &e_RABToBeSwitchedUl);
-////  pathSwitchRequestAcknowledge_p->securityContext.nextHopChainingCount= 10; // todo:  fix !ueSecurityCapabilities.encryptionAlgorithms.buf = (uint8_t *) & conn_est_cnf_pP->security_capabilities_encryption_algorithms;
-////  pathSwitchRequestAcknowledge_p->securityContext.nextHopParameter.buf  = calloc (32, sizeof(uint8_t));
-//////  memcpy (pathSwitchRequestAcknowledge_p->securityContext.nextHopParameter.buf, conn_est_cnf_pP->kenb, 32);
-////  pathSwitchRequestAcknowledge_p->securityContext.nextHopParameter.size = 32;
-////
-////
-//////pathSwitchRequestAcknowledge_p = &message.msg.s1ap_PathSwitchRequestAcknowledgeIEs;
-//////S1ap_SecurityKey_t *secKey_p = &pathSwitchRequestAcknowledge_p->securityContext.nextHopParameter;
-////
-////
-//////  OAILOG_DEBUG (LOG_S1AP, "security_capabilities_encryption_algorithms 0x%04X\n", conn_est_cnf_pP->security_capabilities_encryption_algorithms);
-//////  OAILOG_DEBUG (LOG_S1AP, "security_capabilities_integrity_algorithms 0x%04X\n", conn_est_cnf_pP->security_capabilities_integrity_algorithms);
-////
-//////  if (conn_est_cnf_pP->kenb) {
-//////    initialContextSetupRequest_p->securityKey.buf = calloc (32, sizeof(uint8_t));
-//////    memcpy (initialContextSetupRequest_p->securityKey.buf, conn_est_cnf_pP->kenb, 32);
-//////    initialContextSetupRequest_p->securityKey.size = 32;
-//////  } else {
-//////    OAILOG_DEBUG (LOG_S1AP, "No kenb\n");
-//////    initialContextSetupRequest_p->securityKey.buf = NULL;
-//////    initialContextSetupRequest_p->securityKey.size = 0;
-//////  }
-////
-////  pathSwitchRequestAcknowledge_p->securityContext.nextHopParameter.bits_unused = 0;
-////
-////  if (s1ap_mme_encode_pdu (&message, &buffer_p, &length) < 0) {
-////    // TODO: handle something
-////    DevMessage ("Failed to encode path switch acknowledge message\n");
-////  }
-////
-////  OAILOG_NOTICE (LOG_S1AP, "Send S1AP_PATH_SWITCH_ACKNOWLEDGE message MME_UE_S1AP_ID = " MME_UE_S1AP_ID_FMT " eNB_UE_S1AP_ID = " ENB_UE_S1AP_ID_FMT "\n",
-////              (mme_ue_s1ap_id_t)pathSwitchRequestAcknowledge_p->mme_ue_s1ap_id, (enb_ue_s1ap_id_t)pathSwitchRequestAcknowledge_p->eNB_UE_S1AP_ID);
-////  MSC_LOG_TX_MESSAGE (MSC_S1AP_MME,
-////                      MSC_S1AP_ENB,
-////                      NULL, 0,
-////                      "0 PathSwitchAcknowledge/successfullOutcome mme_ue_s1ap_id " MME_UE_S1AP_ID_FMT " enb_ue_s1ap_id " ENB_UE_S1AP_ID_FMT " nas length %u",
-////                      (mme_ue_s1ap_id_t)pathSwitchRequestAcknowledge_p->mme_ue_s1ap_id,
-////                      (enb_ue_s1ap_id_t)pathSwitchRequestAcknowledge_p->eNB_UE_S1AP_ID, nas_pdu.size);
-////  bstring b = blk2bstr(buffer_p, length);
-////  free(buffer_p);
-////  s1ap_mme_itti_send_sctp_request (&b, ue_ref->enb->sctp_assoc_id, ue_ref->sctp_stream_send, ue_ref->mme_ue_s1ap_id);
-////  OAILOG_FUNC_OUT (LOG_S1AP);
-////}
-
-//void
-//s1ap_handle_handover_rej (
-//  const itti_s1ap_handover_rej_t * const handover_rej_pP)
-//{
-//  /*
-//   * We received handover reject message from MME_APP//NAS layer.
-//   */
-//  uint                                    offset = 0;
-//  uint8_t                                *buffer_p = NULL;
-//  uint32_t                                length = 0;
-//  ue_description_t                       *ue_ref = NULL;
-////  S1ap_InitialContextSetupRequestIEs_t   *initialContextSetupRequest_p = NULL;
-//  S1ap_PathSwitchRequestAcknowledgeIEs_t   *pathSwitchRequestAcknowledge_p = NULL;
-//S1ap_HandoverPreparationFailureIEs_t       *
-////  S1ap_E_RABToBeSetupItemCtxtSUReq_t      e_RABToBeSetup = {0}; // yes, alloc on stack
-//  S1ap_E_RABToBeSwitchedULItem_t      e_RABToBeSwitchedUl = {0}; // yes, alloc on stack
-//  S1ap_NAS_PDU_t                          nas_pdu = {0}; // yes, alloc on stack
-//  s1ap_message                            message = {0}; // yes, alloc on stack
-//
-//  OAILOG_FUNC_IN (LOG_S1AP);
-//  DevAssert (handover_rej_pP != NULL);
-//  /** Set the old state. */
-//  // todo: state in error handling
-//
-//  ue_ref = s1ap_is_ue_mme_id_in_list (handover_rej_pP->ue_id);
-//  if (!ue_ref) {
-//    OAILOG_ERROR (LOG_S1AP, "This mme ue s1ap id (" MME_UE_S1AP_ID_FMT ") is not attached to any UE context\n", handover_rej_pP->ue_id);
-//    // There are some race conditions were NAS T3450 timer is stopped and removed at same time
-//    OAILOG_FUNC_OUT (LOG_S1AP);
-//  }
-//  ue_ref->s1_ue_state = S1AP_UE_INVALID_STATE;
-//
-//  /*
-//   * Start the outcome response timer.
-//   * * * * When time is reached, MME consider that procedure outcome has failed.
-//   */
-//  //     timer_setup(mme_config.s1ap_config.outcome_drop_timer_sec, 0, TASK_S1AP, INSTANCE_DEFAULT,
-//  //                 TIMER_ONE_SHOT,
-//  //                 NULL,
-//  //                 &ue_ref->outcome_response_timer_id);
-//  /*
-//   * Insert the timer in the MAP of mme_ue_s1ap_id <-> timer_id
-//   */
-//  //     s1ap_timer_insert(ue_ref->mme_ue_s1ap_id, ue_ref->outcome_response_timer_id);
-//  // todo: PSR if the state is handover, else just complete the message!
-//  // todo: send a path switch failure!
-//  message.procedureCode = S1ap_ProcedureCode_id_PathSwitchRequest;
-//  message.direction = S1AP_PDU_PR_unsuccessfulOutcome;
-////  pathSwitchRequestAcknowledge_p = &message.msg.s1ap_PathSwitchRequestAcknowledgeIEs;
-////  pathSwitchRequestAcknowledge_p->mme_ue_s1ap_id = (unsigned long)ue_ref->mme_ue_s1ap_id;
-////  pathSwitchRequestAcknowledge_p->eNB_UE_S1AP_ID = (unsigned long)ue_ref->enb_ue_s1ap_id;
-//
-//  // todo: send path switch failure! --> use same function as s1ap_mme_handle.c!
-//    OAILOG_FUNC_OUT (LOG_S1AP);
-//}
 
 //------------------------------------------------------------------------------
 void
