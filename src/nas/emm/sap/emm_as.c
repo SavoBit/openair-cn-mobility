@@ -1225,6 +1225,8 @@ static int _emm_as_data_req (const emm_as_data_t * msg, dl_info_transfer_req_t *
             OAILOG_DEBUG (LOG_NAS_EMM, "UE with IMSI " IMSI_64_FMT " and valid GUTI " GUTI_FMT " will enter ECM_IDLE mode after TAU_COMPLETE (not EMM_REGISTERED yet). \n",
                 emm_ctx->_imsi64, GUTI_ARG(&emm_ctx->_guti));
           }
+          as_msg->err_code = AS_SUCCESS;
+
         }
       } else {
         as_msg->err_code = AS_SUCCESS;

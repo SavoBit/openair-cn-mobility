@@ -558,6 +558,7 @@ emm_proc_attach_request (
     } else {
       emm_ctx_clear_lvr_tai(new_emm_ctx);
     }
+    emm_ctx_mark_specific_procedure(new_emm_ctx, EMM_CTXT_SPEC_PROC_ATTACH); /**< Just marking and not setting timer (will be set later with TAU_ACCEPT). */
 
     /*
      * Update the EMM context with the current attach procedure parameters

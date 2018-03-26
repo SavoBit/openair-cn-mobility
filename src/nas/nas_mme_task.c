@@ -128,7 +128,7 @@ static void *nas_intertask_interface (void *args_p)
       break;
 
     case NAS_UE_CONTEXT_RSP: {
-      nas_proc_ue_context_rsp(NAS_UE_CONTEXT_RSP(received_message_p));
+      nas_proc_ue_context_rsp(&NAS_UE_CONTEXT_RSP(received_message_p));
     }
     break;
 

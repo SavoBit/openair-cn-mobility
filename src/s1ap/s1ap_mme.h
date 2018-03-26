@@ -230,4 +230,13 @@ void s1ap_remove_ue(ue_description_t *ue_ref);
  **/
 void s1ap_remove_enb(enb_description_t *enb_ref);
 
+/**
+ * Add a bearer context to the list.
+ */
+bool
+s1ap_add_bearer_context_to_list (__attribute__((unused))const hash_key_t keyP,
+               void * const bearer_ctx_void,
+               void *parameterP_bearer_list,
+               void __attribute__((unused)) **unused_resultP);
+
 #endif /* FILE_S1AP_MME_SEEN */

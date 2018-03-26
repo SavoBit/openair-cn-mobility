@@ -276,8 +276,11 @@ typedef struct ue_context_s {
   
   bool                   pending_x2_handover; /**< Temporary flag, clear with Lionel how to integrate the X2 of B-COM. */
 
-  uint8_t                num_bearers;
-  bearer_context_t     **eps_bearers; // todo: better bearer list structure..
+#define MAX_NUM_BEARERS_UE    11 /**< Maximum number of bearers. */
+
+  uint32_t nb_ue_bearer_ctxs; ///< Number of bearer context of the UE (over all sessions)
+  hash_table_ts_t  bearer_ctxs; // contains bearer_contexts, key is ebi;
+
 
   // Mobile Reachability Timer-Start when UE moves to idle state. Stop when UE moves to connected state
   struct mme_app_timer_t       mobile_reachability_timer; 
@@ -436,6 +439,10 @@ void mme_remove_ue_context(mme_ue_context_t * const mme_ue_context,
  * @returns Pointer to the new structure, NULL if allocation failed
  **/
 ue_context_t *mme_create_new_ue_context(void);
+
+bearer_context_t*
+mme_app_is_bearer_context_in_list (
+  const mme_ue_s1ap_id_t mme_ue_s1ap_id, const ebi_t ebi);
 
 /** \brief Dump the UE contexts present in the tree
  **/

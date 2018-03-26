@@ -445,11 +445,11 @@ mme_api_check_tai_ngh_existing (
 
   for(int i = 0; i < MAX_NGH_MMES; i++ ) {
     if(TAIS_ARE_EQUAL(_emm_data.conf.nghMme[i].ngh_mme_tai, *originating_tai)){
-      OAILOG_DEBUG (LOG_MME_APP, "The originating (previous) TAI " TAI_FMT " is configured as an S10 MME neighbor. \n", *originating_tai);
+      OAILOG_DEBUG (LOG_MME_APP, "The originating (previous) TAI is configured as an S10 MME neighbor: " TAI_FMT". \n", *originating_tai);
       return true;
     }
   }
-  OAILOG_DEBUG (LOG_MME_APP, "The originating (previous) TAI " TAI_FMT " is NOT configured as an S10 MME neighbor. \n ", *originating_tai);
+  OAILOG_DEBUG (LOG_MME_APP, "The originating (previous) TAI is NOT configured as an S10 MME neighbor: " TAI_FMT ". \n ", *originating_tai);
   return false;
 }
 

@@ -45,6 +45,7 @@ mme_app_send_delete_session_request (
   struct ue_context_s                    *ue_context_p)
 {
   MessageDef                             *message_p = NULL;
+  OAILOG_FUNC_IN (LOG_MME_APP);
 
   message_p = itti_alloc_new_message (TASK_MME_APP, S11_DELETE_SESSION_REQUEST);
   AssertFatal (message_p , "itti_alloc_new_message Failed");

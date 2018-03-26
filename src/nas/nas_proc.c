@@ -598,7 +598,7 @@ nas_proc_update_location_res(
   emm_sap.primitive = EMMCN_UPDATE_LOCATION_RES;
   emm_sap.u.emm_cn.u.update_loc_res = &emm_cn_update_loc_res;
   rc = emm_sap_send (&emm_sap);
-     OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
+  OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
 }
 
 //------------------------------------------------------------------------------

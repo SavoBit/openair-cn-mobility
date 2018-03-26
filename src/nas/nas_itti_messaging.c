@@ -302,9 +302,7 @@ void nas_itti_pdn_connectivity_req(
 //------------------------------------------------------------------------------
 void nas_itti_ue_context_req(
   const uint32_t        ue_idP,
-  const imsi64_t        imsi64_P,
   const guti_t        * const guti_p,
-  const bool            is_initial_reqP,
   tai_t         * const new_taiP,
   tai_t         * const last_visited_taiP,
   Complete_Request_Message_Type_t request_type,
@@ -342,7 +340,7 @@ void nas_itti_ue_context_req(
 
   // todo: serving network from visited plmn?
   MSC_LOG_TX_MESSAGE (MSC_NAS_MME, MSC_S10_MME, NULL, 0, "0 NAS_UE_CONTEXT_REQ GUTI "GUTI_FMT" originating tai " TAI_FMT "! \n", *guti_p, *last_visited_taiP);
-  itti_send_msg_to_task (TASK_S10, INSTANCE_DEFAULT, message_p);
+  itti_send_msg_to_task (TASK_MME_APP, INSTANCE_DEFAULT, message_p);
 
   /** No NAS S10 context response timer needs to be started. It will be started in the GTPv2c stack. */
   OAILOG_FUNC_OUT(LOG_NAS);

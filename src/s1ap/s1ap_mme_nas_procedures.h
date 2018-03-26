@@ -102,4 +102,7 @@ void
 s1ap_handle_mme_ue_id_notification (
   const itti_mme_app_s1ap_mme_ue_id_notification_t * const notification_p);
 
+int s1ap_generate_bearer_context_to_setup(
+    bearer_context_t * bearer_ctx_p, S1ap_E_RABToBeSetupItemHOReq_t         * e_RABToBeSetupHO);
+
 #endif /* FILE_S1AP_MME_NAS_PROCEDURES_SEEN */

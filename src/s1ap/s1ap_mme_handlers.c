@@ -1570,10 +1570,6 @@ s1ap_mme_handle_handover_resource_allocation_response(const sctp_assoc_id_t asso
   // todo: searching ue_reference just by enb_ue_s1ap id or mme_ue_s1ap_id ?
   ue_ref_p->mme_ue_s1ap_id = handoverRequestAcknowledge_p->mme_ue_s1ap_id; /**< In contrary to X2, it can be set. */
 
-  OAILOG_DEBUG(LOG_S1AP, "UE_DESCRIPTION REFERENCE @ NEW HANDOVER_REQUEST ACKNOWLEDGE %x \n", ue_ref_p);
-  OAILOG_DEBUG(LOG_S1AP, "UE_DESCRIPTION REFERENCE @ NEW HANDOVER_REQUEST ACKNOWLEDGE %p \n", ue_ref_p);
-  OAILOG_DEBUG(LOG_S1AP, "SET ENB_UE_S1AP_ID (0)   @ NEW HANDOVER_REQUEST ACKNOWLEDGE %d \n", ue_ref_p->enb_ue_s1ap_id);
-
   // todo: UE_REFERENCE
   ue_ref_p->s1ap_ue_context_rel_timer.id  = S1AP_TIMER_INACTIVE_ID;
   ue_ref_p->s1ap_ue_context_rel_timer.sec = S1AP_UE_CONTEXT_REL_COMP_TIMER;
@@ -1609,22 +1605,21 @@ s1ap_mme_handle_handover_resource_allocation_response(const sctp_assoc_id_t asso
    */
   message_p = itti_alloc_new_message (TASK_S1AP, S1AP_HANDOVER_REQUEST_ACKNOWLEDGE);
   AssertFatal (message_p != NULL, "itti_alloc_new_message Failed");
-  itti_s1ap_handover_request_acknowledge_t *handover_request_acknowledge_p = &message_p->ittiMsg.s1ap_handover_request_acknowledge;
-  memset ((void *)&message_p->ittiMsg.s1ap_handover_request_acknowledge, 0, sizeof (itti_s1ap_handover_request_t));
+  memset ((void *)&message_p->ittiMsg.s1ap_handover_request_acknowledge, 0, sizeof (itti_s1ap_handover_request_acknowledge_t));
   /*
    * Bad, very bad cast...
    */
   eRABAdmittedItemIEs_p = (S1ap_E_RABAdmittedItemIEs_t *)
     handoverRequestAcknowledge_p->e_RABAdmittedList.s1ap_E_RABAdmittedItem.array[0];
 
-  handover_request_acknowledge_p->mme_ue_s1ap_id = ue_ref_p->mme_ue_s1ap_id;
-  handover_request_acknowledge_p->enb_ue_s1ap_id = ue_ref_p->enb_ue_s1ap_id;
-  handover_request_acknowledge_p->eps_bearer_id = eRABAdmittedItemIEs_p->e_RABAdmittedItem.e_RAB_ID;
-  handover_request_acknowledge_p->bearer_s1u_enb_fteid.ipv4 = 1;  // TO DO
-  handover_request_acknowledge_p->bearer_s1u_enb_fteid.ipv6 = 0;  // TO DO
-  handover_request_acknowledge_p->bearer_s1u_enb_fteid.interface_type = S1_U_ENODEB_GTP_U;
-  handover_request_acknowledge_p->bearer_s1u_enb_fteid.teid = htonl ( *((uint32_t *) eRABAdmittedItemIEs_p->e_RABAdmittedItem.gTP_TEID.buf));
-  handover_request_acknowledge_p->bearer_s1u_enb_fteid.ipv4_address = htonl (*((uint32_t *)eRABAdmittedItemIEs_p->e_RABAdmittedItem.transportLayerAddress.buf));
+  S1AP_HANDOVER_REQUEST_ACKNOWLEDGE (message_p).mme_ue_s1ap_id = ue_ref_p->mme_ue_s1ap_id;
+  S1AP_HANDOVER_REQUEST_ACKNOWLEDGE (message_p).enb_ue_s1ap_id = ue_ref_p->enb_ue_s1ap_id;
+  S1AP_HANDOVER_REQUEST_ACKNOWLEDGE (message_p).eps_bearer_id = eRABAdmittedItemIEs_p->e_RABAdmittedItem.e_RAB_ID;
+  S1AP_HANDOVER_REQUEST_ACKNOWLEDGE (message_p).bearer_s1u_enb_fteid.ipv4 = 1;  // TO DO
+  S1AP_HANDOVER_REQUEST_ACKNOWLEDGE (message_p).bearer_s1u_enb_fteid.ipv6 = 0;  // TO DO
+  S1AP_HANDOVER_REQUEST_ACKNOWLEDGE (message_p).bearer_s1u_enb_fteid.interface_type = S1_U_ENODEB_GTP_U;
+  S1AP_HANDOVER_REQUEST_ACKNOWLEDGE (message_p).bearer_s1u_enb_fteid.teid = htonl ( *((uint32_t *) eRABAdmittedItemIEs_p->e_RABAdmittedItem.gTP_TEID.buf));
+  S1AP_HANDOVER_REQUEST_ACKNOWLEDGE (message_p).bearer_s1u_enb_fteid.ipv4_address = htonl (*((uint32_t *)eRABAdmittedItemIEs_p->e_RABAdmittedItem.transportLayerAddress.buf));
 
   /**
    * Set the transparent container as a bstring.
@@ -1632,10 +1627,13 @@ s1ap_mme_handle_handover_resource_allocation_response(const sctp_assoc_id_t asso
    * is assumed to remove the OCTET_STRING.
    * todo: ask Lionel if thats correct? what is context only?
    */
-  handover_request_acknowledge_p->target_to_source_eutran_container = blk2bstr(handoverRequestAcknowledge_p->target_ToSource_TransparentContainer.buf,
+  S1AP_HANDOVER_REQUEST_ACKNOWLEDGE (message_p).target_to_source_eutran_container = blk2bstr((void*)handoverRequestAcknowledge_p->target_ToSource_TransparentContainer.buf,
       handoverRequestAcknowledge_p->target_ToSource_TransparentContainer.size);
   // todo @ Lionel: do we need to run this method? Message deallocated later?
   // free_wrapper((void**) &(handover_request_acknowledge_pP->transparent_container.buf));
+
+  ue_ref_p->s1_ue_state = S1AP_UE_CONNECTED;
+
 
   /** Not checking if the Target-to-Source Transparent container exists. */
   MSC_LOG_TX_MESSAGE (MSC_S1AP_MME,

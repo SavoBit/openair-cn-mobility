@@ -98,13 +98,17 @@ typedef struct handover_data_s {
 static const char                      *_emm_cn_primitive_str[] = {
   "EMM_CN_AUTHENTICATION_PARAM_RES",
   "EMM_CN_AUTHENTICATION_PARAM_FAIL",
+  "EMMCN_CONTEXT_RES",
+  "EMMCN_CONTEXT_FAIL",
+  "EMMCN_UPDATE_LOCATION_RES",
+  "EMMCN_UPDATE_LOCATION_FAIL",
   "EMM_CN_DEREGISTER_UE",
   "EMM_CN_PDN_CONNECTIVITY_RES",
   "EMM_CN_PDN_CONNECTIVITY_FAIL",
+  "EMM_CN_PDN_CONNECTIVITY_UPDATE_PENDING",
   "EMMCN_IMPLICIT_DETACH_UE",
   "EMMCN_SMC_PROC_FAIL",
 };
-
 
 //------------------------------------------------------------------------------
 static int _emm_cn_authentication_res (const emm_cn_auth_res_t * msg)
@@ -239,7 +243,7 @@ int _emm_cn_update_location_res(const emm_cn_update_loc_res_t * msg)
   }else if (emm_ctx_is_specific_procedure(emm_ctx, EMM_CTXT_SPEC_PROC_ATTACH)){
     OAILOG_INFO(LOG_MME_APP, "UE with imsi " IMSI_64_FMT ", has received ULR in ATTACH Procedure. "
         "Triggering Session Establishment in SAE-GW.. \n", emm_ctx->_imsi64);
-    rc =  mme_api_send_update_location_request(emm_ctx->ue_id);
+    rc =  mme_api_send_s11_create_session_req(emm_ctx->ue_id);
     OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
   }else {
     DevMessage("UE context for ue_id " + emm_ctx->ue_id " if not in TAU procedure, should not get the UL message. \n");
@@ -614,12 +618,16 @@ static int _emm_cn_context_res (const emm_cn_context_res_t * msg)
     OAILOG_ERROR (LOG_NAS_EMM, "EMM-PROC  - " "Failed to find UE associated to id " MME_UE_S1AP_ID_FMT "...\n", msg->ue_id);
     OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
   }
-
   /**
    * Set the identity values (IMSI) valid and present.
    * Assuming IMSI is always returned with S10 Context Response and the IMSI hastable registration method validates the received IMSI.
    */
-  emm_ctx_set_valid_imsi(emm_ctx, &msg->imsi, msg->imsi);
+  /**
+   * Set the identity values (IMSI) valid and present.
+   * Assuming IMSI is always returned with S10 Context Response and the IMSI hastable registration method validates the received IMSI.
+   */
+  clear_imsi(&emm_ctx->_imsi);
+  emm_ctx_set_valid_imsi(emm_ctx, &msg->_imsi, msg->imsi);
   rc = emm_data_context_upsert_imsi(&_emm_data, emm_ctx); /**< Register the IMSI in the hash table. */
   if (rc != RETURNok) {
     OAILOG_ERROR(LOG_NAS_EMM, "EMM-PROC  - " "Error inserting EMM_DATA_CONTEXT for mmeUeS1apId " MME_UE_S1AP_ID_FMT " "
@@ -654,8 +662,6 @@ static int _emm_cn_context_res (const emm_cn_context_res_t * msg)
    * NO (default) apn_configuration is present (or expected) since ULA is not sent yet to HSS.
    */
   rc =  mme_app_send_s11_create_session_req_from_handover_tau(emm_ctx->ue_id);
-  OAILOG_FUNC_RETURN (LOG_MME_APP, rc);
-
   /** Leave the UE in EMM_DEREGISTERED state until TAU_ACCEPT. */
   OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
 }
@@ -748,7 +754,11 @@ int emm_cn_send (const emm_cn_t * msg)
   case EMMCN_PDN_CONNECTIVITY_FAIL:
     rc = _emm_cn_pdn_connectivity_fail (msg->u.emm_cn_pdn_fail);
     break;
-  
+
+  case EMMCN_PDN_CONNECTIVITY_UPDATE_PENDING:
+    rc = _emm_cn_pdn_connectivity_fail (msg->u.emm_cn_pdn_fail);
+    break;
+
   case EMMCN_IMPLICIT_DETACH_UE:
     rc = _emm_cn_implicit_detach_ue (msg->u.emm_cn_implicit_detach.ue_id);
     break;

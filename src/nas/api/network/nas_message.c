@@ -1037,6 +1037,8 @@ static int _nas_message_decrypt (
   case SECURITY_HEADER_TYPE_SERVICE_REQUEST:
   case SECURITY_HEADER_TYPE_INTEGRITY_PROTECTED:
   case SECURITY_HEADER_TYPE_INTEGRITY_PROTECTED_NEW:
+    // Todo: clear and remove this case!
+  case SECURITY_HEADER_TYPE_INTEGRITY_PROTECTED_CYPHERED:
     OAILOG_DEBUG (LOG_NAS, "No decryption of message length %lu according to security header type 0x%02x\n", length, security_header_type);
     memcpy (dest, src, length);
     DECODE_U8 (dest, *(uint8_t *) (&header), size);
@@ -1044,7 +1046,8 @@ static int _nas_message_decrypt (
     //LOG_FUNC_RETURN (LOG_NAS, length);
     break;
 
-  case SECURITY_HEADER_TYPE_INTEGRITY_PROTECTED_CYPHERED:
+    // todo: check if after handover the MAC header can be ciphered! if so, we need to establish the NAS with Handover!
+//  case SECURITY_HEADER_TYPE_INTEGRITY_PROTECTED_CYPHERED:
   case SECURITY_HEADER_TYPE_INTEGRITY_PROTECTED_CYPHERED_NEW:
     if ( emm_security_context) {
       switch (emm_security_context->selected_algorithms.encryption) {

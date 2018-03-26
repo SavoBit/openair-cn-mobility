@@ -667,6 +667,32 @@ s1ap_remove_ue (
   }
 }
 
+bool
+s1ap_add_bearer_context_to_list (__attribute__((unused))const hash_key_t keyP,
+               void * const bearer_ctx_void,
+               void *parameterP_bearer_list,
+               void __attribute__((unused)) **unused_resultP)
+{
+  const bearer_context_t * const bearer_ctxt_p = (const bearer_context_t *)bearer_ctx_void;
+  if (bearer_ctxt_p == NULL) {
+    return false;
+  }
+
+  const S1ap_E_RABToBeSetupListHOReqIEs_t * const e_RABToBeSetupListHOReq_p = (const S1ap_E_RABToBeSetupListHOReqIEs_t *)parameterP_bearer_list;
+  if (e_RABToBeSetupListHOReq_p == NULL) {
+    return false;
+  }
+  S1ap_E_RABToBeSetupItemHOReq_t          e_RABToBeSetupHO = {0}; // yes, alloc on stack
+
+  if(s1ap_generate_bearer_context_to_setup(bearer_ctxt_p, &e_RABToBeSetupHO) != RETURNok){
+    OAILOG_ERROR(LOG_S1AP, "Error adding bearer context with ebi %d to list of bearers to setup.\n", bearer_ctxt_p->ebi);
+    return false;
+  }
+  /** Add the E-RAB bearer to the message. */
+  ASN_SEQUENCE_ADD (e_RABToBeSetupListHOReq_p, &e_RABToBeSetupHO);
+  return true;
+}
+
 //------------------------------------------------------------------------------
 void
 s1ap_remove_enb (

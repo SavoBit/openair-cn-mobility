@@ -59,9 +59,7 @@ void nas_itti_pdn_connectivity_req(
 
 void nas_itti_ue_context_req(
   const uint32_t        ue_idP,
-  const imsi64_t        imsi64_P,
   const guti_t        * const guti_p,
-  const bool            is_initial_reqP,
   tai_t         * const new_taiP,
   tai_t         * const last_visited_taiP,
   Complete_Request_Message_Type_t request_type,

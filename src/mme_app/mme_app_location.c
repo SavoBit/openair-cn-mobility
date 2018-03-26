@@ -159,9 +159,6 @@ mme_app_handle_s6a_update_location_ans (
   /**
    * Check if the UE is already registered or not. The UE may have been handovered / performed TAU.
    */
-  OAILOG_INFO(LOG_MME_APP, "UE with imsi " IMSI_64_FMT ", is already registered. We will not establish session in SAE-GW. "
-      "Informing the NAS layer about the updated subscription information. \n", imsi);
-  // todo: check the failure case.. TAU reject in that case!!
   /**
    * This method should return the subscription information to the NAS layer via an ITTI signal.
    * Todo: Making this method synchronized, would prevent some necessary flags (tau_active, etc.. (since no timer)).

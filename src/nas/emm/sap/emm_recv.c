@@ -655,9 +655,8 @@ emm_recv_tracking_area_update_request (
   rc = emm_proc_tracking_area_update_request(ue_id, msg, emm_cause,
       originating_tai, /**< Originating TAC and originating PLMN_ID (ECGI), received from the Initial S1AP UE Context Request. */
       p_last_visited_registered_tai, /**< TAC and PLMN from the NAS message. */
-      gea, (gea >= (MS_NETWORK_CAPABILITY_GEA1 >> 1)), /**< GPRS & GPRS present. */
-      p_old_guti, /**< Send the decoded old GUTI. */
-      decode_status, nas_msg);
+      p_old_guti, gea, (gea >= (MS_NETWORK_CAPABILITY_GEA1 >> 1)), /**< GPRS & GPRS present. */
+      decode_status, nas_msg); /**< Send the decoded old GUTI. */
 
   OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
 }

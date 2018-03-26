@@ -274,7 +274,7 @@ typedef struct itti_s1ap_handover_command_s {
 
 typedef struct bearer_ctx_to_be_setup_list_s {
   uint8_t n_bearers;
-  bearer_context_t **bearer_ctx;
+  void* bearer_ctxs;
 }bearer_ctx_to_be_setup_list_t;
 
 
