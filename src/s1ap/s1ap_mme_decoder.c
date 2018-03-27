@@ -79,7 +79,6 @@ s1ap_mme_decode_initiating (
 
     /** S1AP Handover. */
     case S1ap_ProcedureCode_id_HandoverPreparation: {
-      OAILOG_INFO (LOG_S1AP, "! RECEIVED_HANDOVER_PREPARATION! \n");
       ret = s1ap_decode_s1ap_handoverrequiredies(&message->msg.s1ap_HandoverRequiredIEs, &initiating_p->value);
       s1ap_xer_print_s1ap_handoverrequired(s1ap_xer__print2sp, message_string, message);
       *message_id = S1AP_HANDOVER_REQUIRED_LOG;
@@ -92,14 +91,12 @@ s1ap_mme_decode_initiating (
     }
     break;
     case S1ap_ProcedureCode_id_eNBStatusTransfer: {
-      OAILOG_INFO (LOG_S1AP, "! RECEIVED_ENB_STATUS_TRANSFER! \n");
       ret = s1ap_decode_s1ap_enbstatustransferies(&message->msg.s1ap_ENBStatusTransferIEs, &initiating_p->value);
       s1ap_xer_print_s1ap_enbstatustransfer(s1ap_xer__print2sp, message_string, message);
       *message_id = S1AP_ENB_STATUS_TRANSFER_LOG;
     }
     break;
     case S1ap_ProcedureCode_id_HandoverNotification: {
-      OAILOG_INFO (LOG_S1AP, "! RECEIVED_HANDOVER_NOTIFY! \n");
       ret = s1ap_decode_s1ap_handovernotifyies(&message->msg.s1ap_HandoverNotifyIEs, &initiating_p->value);
       s1ap_xer_print_s1ap_handovernotify(s1ap_xer__print2sp, message_string, message);
       *message_id = S1AP_HANDOVER_NOTIFY_LOG;

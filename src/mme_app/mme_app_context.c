@@ -118,9 +118,12 @@ void mme_app_ue_context_free_content (ue_context_t * const ue_context_p)
   // char                   pending_pdn_connectivity_req_imsi[16];
   // uint8_t                pending_pdn_connectivity_req_imsi_length;
   DevAssert(ue_context_p != NULL);
-  bdestroy(ue_context_p->pending_pdn_connectivity_req_apn);
-  bdestroy(ue_context_p->pending_pdn_connectivity_req_pdn_addr);
-  bdestroy(ue_context_p->pending_s1ap_source_to_target_handover_container);
+  if(ue_context_p->pending_pdn_connectivity_req_apn)
+    bdestroy(ue_context_p->pending_pdn_connectivity_req_apn);
+  if(ue_context_p->pending_pdn_connectivity_req_pdn_addr)
+    bdestroy(ue_context_p->pending_pdn_connectivity_req_pdn_addr);
+  if(ue_context_p->pending_s1ap_source_to_target_handover_container)
+    bdestroy(ue_context_p->pending_s1ap_source_to_target_handover_container);
   // todo: remove all the bearer_contexts
 
   // Stop Mobile reachability timer,if running 

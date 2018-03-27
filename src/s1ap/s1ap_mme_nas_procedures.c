@@ -1223,13 +1223,18 @@ s1ap_handle_mme_status_transfer( const itti_s1ap_status_transfer_t * const s1ap_
    * Find the UE-Reference based on the enb_ue_s1ap_id.
    * We did not register the mme_ue_s1ap_id, yet.
    */
-  ue_ref = s1ap_is_enb_ue_s1ap_id_in_list_per_enb(s1ap_status_transfer_pP->enb_id, s1ap_status_transfer_pP->enb_ue_s1ap_id);
+  ue_ref = s1ap_is_enb_ue_s1ap_id_in_list_per_enb(s1ap_status_transfer_pP->enb_ue_s1ap_id, s1ap_status_transfer_pP->enb_id);
   if (!ue_ref) {
     /** Set the source_assoc_id!! */
-    OAILOG_ERROR (LOG_S1AP, " NO UE_CONTEXT could be found to send MME Status Transfer UE with enb ue s1ap id (" ENB_UE_S1AP_ID_FMT "). "
-        "UE contexts are assumed to be cleaned up via timer. \n",
-        s1ap_status_transfer_pP->enb_ue_s1ap_id);
-    OAILOG_FUNC_OUT (LOG_S1AP);
+    OAILOG_WARNING(LOG_S1AP, " NO UE_CONTEXT could be found to send MME Status Transfer UE with enb ue s1ap id (" ENB_UE_S1AP_ID_FMT ") and eNB-ID %d. UE contexts are assumed to be cleaned up via timer or handover notify already happened. Checking with ueId " MME_UE_S1AP_ID_FMT ". \n",
+        s1ap_status_transfer_pP->enb_ue_s1ap_id, s1ap_status_transfer_pP->enb_id, s1ap_status_transfer_pP->mme_ue_s1ap_id);
+
+    ue_ref = s1ap_is_ue_mme_id_in_list(s1ap_status_transfer_pP->mme_ue_s1ap_id);
+    if(!ue_ref){
+      OAILOG_ERROR(LOG_S1AP, " Could not find S1AP UE context also with MME_UE_S1AP_ID " MME_UE_S1AP_ID_FMT " to send MME_STATUS_TRANSFER. \n", s1ap_status_transfer_pP->mme_ue_s1ap_id);
+      OAILOG_FUNC_OUT (LOG_S1AP);
+    }
+    OAILOG_WARNING(LOG_S1AP, " FOUND S1AP UE context with MME_UE_S1AP_ID " MME_UE_S1AP_ID_FMT " to send MME_STATUS_TRANSFER (assuming HO_NOTIFY already happened). \n", s1ap_status_transfer_pP->mme_ue_s1ap_id);
   }
   /** Create the MME S1AP Statut Transfer message. */
   message.procedureCode = S1ap_ProcedureCode_id_MMEStatusTransfer;

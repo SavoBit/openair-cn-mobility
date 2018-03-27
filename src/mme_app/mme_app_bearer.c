@@ -1438,7 +1438,7 @@ mme_app_send_downlink_data_notification_acknowledge(SGWCause_t cause, teid_t sae
   downlink_data_notification_ack_p->teid = saegw_s11_teid; // todo: ue_context_pP->mme_s10_teid;
   /** No Local TEID exists yet.. no local S10 tunnel is allocated. */
   // todo: currently only just a single MME is allowed.
-  downlink_data_notification_ack_p->peer_ip = mme_config.ipv4.s10;
+  downlink_data_notification_ack_p->peer_ip = mme_config.ipv4.sgw_s11;
 
   downlink_data_notification_ack_p->cause = cause;
   downlink_data_notification_ack_p->trxn  = trxn;
@@ -1759,9 +1759,6 @@ mme_app_handle_handover_required(
       forward_relocation_request_p->s10_source_mme_teid.teid,       // set with forward_relocation_request!
       &ue_context_p->guti);
 
-  /** Set the new S10 TEID as the local S10 teid. */
-  ue_context_p->local_mme_s10_teid = forward_relocation_request_p->s10_source_mme_teid.teid;
-
   /** Set the SGW_S11_FTEID the same as in S11. */
   OAI_GCC_DIAG_OFF(pointer-to-int-cast);
   forward_relocation_request_p->s11_sgw_teid.teid = ue_context_p->sgw_s11_teid;
@@ -1812,9 +1809,6 @@ mme_app_handle_handover_required(
     // todo: does it set the size parameter?
   }
   /** Will be deallocated later after S10 message is encoded. */
-
-  OAILOG_INFO(LOG_MME_APP, "Allocated Handover Target Information correctly for UE with IMSI " IMSI_64_FMT " at source MME. \n", ue_context_p->imsi);
-
   /** Send the Forward Relocation Message to S11. */
   MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME,  MSC_S10_MME ,
       NULL, 0, "0 NAS_UE_RELOCATION_REQ for UE %d \n", handover_required_pP->mme_ue_s1ap_id);
@@ -2223,11 +2217,6 @@ mme_app_handle_forward_relocation_request(
      ue_context_p->local_mme_s10_teid,
      &ue_context_p->guti);
 
-
- if ((ue_context_p1 = mme_ue_context_exists_imsi (&mme_app_desc.mme_ue_contexts, imsi)) == NULL) {
-   OAILOG_ERROR (LOG_MME_APP, "That's embarrassing as we don't know this IMSI\n");
-   OAILOG_FUNC_RETURN (LOG_MME_APP, RETURNerror);
- }
  /**
   * No message needs to be sent to the NAS layer.
   * Directly continuing with the S11 Create Session Request.
@@ -2771,7 +2760,10 @@ mme_app_handle_forward_access_context_notification(
      * therefore removing the transaction?
      */
     /** Not performing an implicit detach. The handover timeout should erase the context (incl. the S10 Tunnel Endpoint, which we don't erase here in the error case). */
-    OAILOG_DEBUG (LOG_MME_APP, "We didn't find this teid in list of UE: %08x\n", forward_access_context_notification_pP->teid);
+    OAILOG_ERROR(LOG_MME_APP, "We didn't find this teid in list of UE: %08x\n", forward_access_context_notification_pP->teid);
+    bdestroy(forward_access_context_notification_pP->eutran_container.container_value);
+    OAILOG_FUNC_OUT (LOG_MME_APP);
+
   }
   MSC_LOG_RX_MESSAGE (MSC_MMEAPP_MME, MSC_S10_MME, NULL, 0, "0 S10_FORWARD_ACCESS_CONTEXT_NOTIFICATION local S10 teid " TEID_FMT " IMSI " IMSI_64_FMT " ",
       forward_access_context_notification_pP->teid, ue_context_p->imsi);
@@ -2791,12 +2783,15 @@ mme_app_handle_forward_access_context_notification(
         "Sending reject back and performing an implicit detach. \n",
         ue_context_p->imsi, ue_context_p->mme_ue_s1ap_id);
     s10_mme_forward_access_context_acknowledge_p->cause =  SYSTEM_FAILURE;
+    bdestroy(forward_access_context_notification_pP->eutran_container.container_value);
     itti_send_msg_to_task (TASK_S10, INSTANCE_DEFAULT, message_p);
     /** Sending 2 ITTI messages back to back to perform an implicit detach on the target-MME side. */
     OAILOG_FUNC_OUT (LOG_MME_APP);
   }
   s10_mme_forward_access_context_acknowledge_p->cause = REQUEST_ACCEPTED;
   MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME, MSC_S10_MME, NULL, 0, "MME_APP Sending S10 FORWARD_ACCESS_CONTEXT_ACKNOWLEDGE.");
+  itti_send_msg_to_task (TASK_S10, INSTANCE_DEFAULT, message_p);
+
   /** Send a S1AP MME Status Transfer Message the target eNodeB. */
   mme_app_send_s1ap_mme_status_transfer(ue_context_p->mme_ue_s1ap_id, ue_context_p->enb_ue_s1ap_id, ue_context_p->pending_handover_enb_id, forward_access_context_notification_pP->eutran_container.container_value);
   /**
@@ -2812,7 +2807,6 @@ mme_app_handle_forward_access_context_notification(
 
   OAILOG_INFO(LOG_MME_APP, "Sending S1AP MME Status transfer to the target eNodeB for UE "
       "with enb_ue_s1ap_id: %d, mme_ue_s1ap_id. %d. \n", ue_context_p->pending_handover_enb_ue_s1ap_id, ue_context_p->mme_ue_s1ap_id);
-  itti_send_msg_to_task (TASK_S1AP, INSTANCE_DEFAULT, message_p);
   OAILOG_FUNC_OUT (LOG_MME_APP);
 }
 
@@ -2957,9 +2951,6 @@ mme_app_handle_handover_request_acknowledge(
      ue_context_p->mme_s11_teid,       // mme_s11_teid is new
      forward_relocation_response_p->s10_target_mme_teid.teid,       // set with forward_relocation_response!
      &ue_context_p->guti);            /**< No guti exists
-  /** Set the new S10 TEID as the local S10 teid. */
- ue_context_p->local_mme_s10_teid = forward_relocation_response_p->s10_target_mme_teid.teid;
-
  /** Set S10 F-Cause. */
  forward_relocation_response_p->f_cause.fcause_type      = FCAUSE_S1AP;
  forward_relocation_response_p->f_cause.fcause_s1ap_type = FCAUSE_S1AP_RNL;
@@ -2977,7 +2968,6 @@ mme_app_handle_handover_request_acknowledge(
   * No changes in the contexts, flags, timers, etc.. needed.
   */
  itti_send_msg_to_task (TASK_S10, INSTANCE_DEFAULT, message_p);
-
  OAILOG_FUNC_OUT (LOG_MME_APP);
 }
 
@@ -3079,23 +3069,26 @@ mme_app_handle_enb_status_transfer(
    bdestroy(s1ap_status_transfer_pP->bearerStatusTransferList_buffer);
    OAILOG_FUNC_OUT (LOG_MME_APP);
  }
- /**
-  * Depending on the UE state, we either forward the message to the target-MME or send it directly to the target-ENB.
-  */
- if(ue_context_p->mm_state == UE_REGISTERED){
-   /**
-    * Send the MME_STATUS_TRANSFER message without any changes to the context, states, timers and flags.
-    */
-   OAILOG_INFO(LOG_MME_APP, "Sending MME_UE_STATUS_TRANSFER for UE MME context with IMSI " IMSI_64_FMT " and mmeS1apUeId " MME_UE_S1AP_ID_FMT " to the target-eNB in the same MME. \n",
-       ue_context_p->imsi, s1ap_status_transfer_pP->mme_ue_s1ap_id);
-   /**
-    * Set the ENB of the pending target-eNB.
-    * Even if the HANDOVER_NOTIFY messaged is received simultaneously, the pending enb_ue_s1ap_id field should stay.
-    * We do not check that the target-eNB exists. We did not modify any contexts.
-    */
-   mme_app_send_s1ap_mme_status_transfer(ue_context_p->mme_ue_s1ap_id, ue_context_p->pending_handover_enb_ue_s1ap_id, ue_context_p->e_utran_cgi.cell_identity.enb_id, s1ap_status_transfer_pP->bearerStatusTransferList_buffer);
-   OAILOG_FUNC_OUT (LOG_MME_APP);
+ /** Check if the destination eNodeB is attached at the same or another MME. */
+ if (mme_app_check_ta_local(&ue_context_p->pending_handover_target_tai.plmn, ue_context_p->pending_handover_target_tai.tac)) {
+   /** Check if the eNB with the given eNB-ID is served. */
+   if(s1ap_is_enb_id_in_list(ue_context_p->pending_handover_enb_id) != NULL){
+     OAILOG_DEBUG (LOG_MME_APP, "Target ENB_ID %d of target TAI " TAI_FMT " is served by current MME. \n", ue_context_p->pending_handover_enb_id, ue_context_p->pending_handover_target_tai);
+     /**
+      * Set the ENB of the pending target-eNB.
+      * Even if the HANDOVER_NOTIFY messaged is received simultaneously, the pending enb_ue_s1ap_id field should stay.
+      * We do not check that the target-eNB exists. We did not modify any contexts.
+      */
+     mme_app_send_s1ap_mme_status_transfer(ue_context_p->mme_ue_s1ap_id, ue_context_p->pending_handover_enb_ue_s1ap_id, ue_context_p->e_utran_cgi.cell_identity.enb_id, s1ap_status_transfer_pP->bearerStatusTransferList_buffer);
+     OAILOG_FUNC_OUT (LOG_MME_APP);
+   }else{
+     /** The target eNB-ID is not served by this MME. */
+     OAILOG_DEBUG (LOG_MME_APP, "Target ENB_ID %d of target TAI " TAI_FMT " is NOT served by current MME. \n", ue_context_p->pending_handover_enb_id, ue_context_p->pending_handover_target_tai);
+     bdestroy(s1ap_status_transfer_pP->bearerStatusTransferList_buffer);
+     OAILOG_FUNC_OUT (LOG_MME_APP);
+   }
  }
+ OAILOG_DEBUG (LOG_MME_APP, "Target ENB_ID %d of target TAI " TAI_FMT " is served by neighboring MME. \n", ue_context_p->pending_handover_enb_id, ue_context_p->pending_handover_target_tai);
  /* UE is DEREGISTERED. Assuming that it came from S10 inter-MME handover. Forwarding the eNB status information to the target-MME via Forward Access Context Notification. */
  message_p = itti_alloc_new_message (TASK_MME_APP, S10_FORWARD_ACCESS_CONTEXT_NOTIFICATION);
  DevAssert (message_p != NULL);
@@ -3104,7 +3097,7 @@ mme_app_handle_enb_status_transfer(
  /** Set the target S10 TEID. */
  forward_access_context_notification_p->teid       = ue_context_p->remote_mme_s10_teid; /**< Only a single target-MME TEID can exist at a time. */
  forward_access_context_notification_p->local_teid = ue_context_p->local_mme_s10_teid; /**< Only a single target-MME TEID can exist at a time. */
- forward_access_context_notification_p->peer_ip    = mme_config.ipv4.s10;
+ forward_access_context_notification_p->peer_ip    = mme_config.nghMme.nghMme[0].ipAddr;
  /** Set the E-UTRAN container. */
  forward_access_context_notification_p->eutran_container.container_type = 3;
  forward_access_context_notification_p->eutran_container.container_value = s1ap_status_transfer_pP->bearerStatusTransferList_buffer;
@@ -3152,8 +3145,10 @@ mme_app_handle_s1ap_handover_notify(
   */
 
  /** Set the values to the old source enb as pending (enb_id, enb_ue_s1ap_id). */
- ue_context_p->pending_handover_enb_id = ue_context_p->e_utran_cgi.cell_identity.enb_id;
- ue_context_p->pending_handover_enb_ue_s1ap_id = ue_context_p->enb_ue_s1ap_id;
+ if(ue_context_p->mm_state == UE_REGISTERED && (ue_context_p->e_utran_cgi.cell_identity.enb_id != 0)){
+   ue_context_p->pending_handover_enb_id = ue_context_p->e_utran_cgi.cell_identity.enb_id;
+   ue_context_p->pending_handover_enb_ue_s1ap_id = ue_context_p->enb_ue_s1ap_id;
+ }
  /**
   * When Handover Notify is received, we update the eNB associations (SCTP, enb_ue_s1ap_id, enb_id,..). The main eNB is the new ENB now.
   * ToDo: If this has an error with 2 eNBs, we need to remove the first eNB first (and send the UE Context Release Command only with MME_UE_S1AP_ID).
