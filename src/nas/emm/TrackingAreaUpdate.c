@@ -1326,26 +1326,28 @@ _emm_tracking_area_update_accept (
        * S1 context release procedure for the UE if new GUTI is not sent in TAU accept message. Note - At present implicit GUTI
        * reallocation is not supported and hence GUTI is not sent in TAU accept message.
        */
-
-
-
+    data->active_flag = false;
     if(ue_context_p->ecm_state != ECM_CONNECTED){
-      /**
-       * Notify EMM-AS SAP that Tracking Area Update Accept message together with an Activate
-       * Default EPS Bearer Context Request message has to be sent to the UE.
-       *
-       * When the "Active flag" is not set in the TAU Request message and the Tracking Area Update was not initiated
-       * in ECM-CONNECTED state, the new MME releases the signaling connection with UE, according to clause 5.3.5.
-       */
-      emm_sap.primitive = EMMAS_ESTABLISH_CNF;
-      /**
+       /**
        * Check the active flag. If false, set a notification to release the bearers after TAU_ACCEPT/COMPLETE (depending on the EMM state).
        */
       if(!data->active_flag){
         ue_context_p->pending_bearer_deactivation = true; /**< No matter if we send GUTI and wait for TAU_COMPLETE or not. */
+        emm_sap.primitive = EMMAS_DATA_REQ;
+      }else{
+        /**
+         * Notify EMM-AS SAP that Tracking Area Update Accept message together with an Activate
+         * Default EPS Bearer Context Request message has to be sent to the UE.
+         *
+         * When the "Active flag" is not set in the TAU Request message and the Tracking Area Update was not initiated
+         * in ECM-CONNECTED state, the new MME releases the signaling connection with UE, according to clause 5.3.5.
+         */
+        emm_sap.primitive = EMMAS_ESTABLISH_CNF;
+        ue_context_p->pending_bearer_deactivation = false; /**< No matter if we send GUTI and wait for TAU_COMPLETE or not. */
       }
     }else{
       emm_sap.primitive = EMMAS_DATA_REQ;
+      ue_context_p->pending_bearer_deactivation = false; /**< No matter if we send GUTI and wait for TAU_COMPLETE or not. */
     }
     /** Set the rest as data. */
     emm_sap.u.emm_as.u.data.ue_id = emm_ctx->ue_id; /**< These should also set for data. */
