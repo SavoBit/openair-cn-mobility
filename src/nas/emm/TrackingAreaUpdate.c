@@ -1326,7 +1326,6 @@ _emm_tracking_area_update_accept (
        * S1 context release procedure for the UE if new GUTI is not sent in TAU accept message. Note - At present implicit GUTI
        * reallocation is not supported and hence GUTI is not sent in TAU accept message.
        */
-    data->active_flag = false;
     if(ue_context_p->ecm_state != ECM_CONNECTED){
        /**
        * Check the active flag. If false, set a notification to release the bearers after TAU_ACCEPT/COMPLETE (depending on the EMM state).
