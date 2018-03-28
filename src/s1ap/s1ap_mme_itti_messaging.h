@@ -53,7 +53,8 @@ static inline void s1ap_mme_itti_mme_app_initial_ue_message(
   const uint32_t          enb_id,
   const enb_ue_s1ap_id_t  enb_ue_s1ap_id,
   const mme_ue_s1ap_id_t  mme_ue_s1ap_id,
-  bstring                 nas,
+  const uint8_t * const   nas_msg,
+  const size_t            nas_msg_length,
   const tai_t      const* tai,
   const ecgi_t     const* cgi,
   const long              rrc_cause,
@@ -67,6 +68,7 @@ static inline void s1ap_mme_itti_mme_app_initial_ue_message(
   MessageDef  *message_p = NULL;
 
   OAILOG_FUNC_IN (LOG_S1AP);
+  AssertFatal((nas_msg_length < 1000), "Bad length for NAS message %lu", nas_msg_length);
   message_p = itti_alloc_new_message(TASK_S1AP, MME_APP_INITIAL_UE_MESSAGE);
 
   MME_APP_INITIAL_UE_MESSAGE(message_p).sctp_assoc_id          = assoc_id;
@@ -74,7 +76,7 @@ static inline void s1ap_mme_itti_mme_app_initial_ue_message(
   MME_APP_INITIAL_UE_MESSAGE(message_p).enb_ue_s1ap_id         = enb_ue_s1ap_id;
   MME_APP_INITIAL_UE_MESSAGE(message_p).mme_ue_s1ap_id         = mme_ue_s1ap_id;
 
-  MME_APP_INITIAL_UE_MESSAGE(message_p).nas                    = nas;
+  MME_APP_INITIAL_UE_MESSAGE(message_p).nas                    = blk2bstr(nas_msg, nas_msg_length);
 
   MME_APP_INITIAL_UE_MESSAGE(message_p).tai                    = *tai;
   MME_APP_INITIAL_UE_MESSAGE(message_p).cgi                    = *cgi;
@@ -122,6 +124,7 @@ static inline void s1ap_mme_itti_mme_app_initial_ue_message(
   itti_send_msg_to_task(TASK_MME_APP, INSTANCE_DEFAULT, message_p);
   OAILOG_FUNC_OUT (LOG_S1AP);
 }
+
 
 #if ORIGINAL_CODE
 static inline void s1ap_mme_itti_nas_establish_ind(

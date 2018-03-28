@@ -329,7 +329,6 @@ typedef struct itti_s10_context_response_s{
   ///< MME/SGSN, but not used as an identifier
   ///<     - if UE is emergency attached but IMSI is not authenticated.
   ///< The IMSI shall be included in the message on the S2b interface.
-  mm_context_eps_t                ue_eps_mm_context;   ///< EPS MM Context
 
   mme_ue_eps_pdn_connections_t    pdn_connections;
   ///< MME/SGSN UE EPS PDN Connections
@@ -345,7 +344,7 @@ typedef struct itti_s10_context_response_s{
   char*                    source_sgw_fqdn;
   ///< Old Source SGW FQDN
 
-  mm_context_eps_t         mm_context;
+  mm_context_eps_t         ue_eps_mm_context;
   // todo: indication
 
   // recovery_t(restart counter) recovery;      ///< This IE shall be included if contacting the peer for the first
@@ -354,7 +353,7 @@ typedef struct itti_s10_context_response_s{
   // Private Extension Private Extension        ///< optional
 
   /* S11 stack specific parameter. Not used in standalone epc mode */
-  void                         *trxn;                      ///< Transaction identifier
+  void*                           trxn;                      ///< Transaction identifier (received) or the transaction itself (when sent)
 
   uint32_t                        peer_ip;             ///< MME ipv4 address for S-GW or S-GW ipv4 address for MME
   uint16_t                        peer_port;           ///< MME port for S-GW or S-GW port for MME
@@ -383,7 +382,7 @@ typedef struct itti_s10_context_acknowledge_s {
   /* S11 stack specific parameter. Not used in standalone epc mode */
   uint32_t                      peer_ip;        ///< MME ipv4 address for S-GW or S-GW ipv4 address for MME
   uint16_t                      peer_port;      ///< MME port for S-GW or S-GW port for MME
-  void                         *trxn;           ///< Transaction identifier
+  uint32_t                      trxnId;           ///< Transaction identifier
 } itti_s10_context_acknowledge_t;
 
 //-----------------------------------------------------------------------------

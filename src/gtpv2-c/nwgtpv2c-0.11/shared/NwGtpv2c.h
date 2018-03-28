@@ -240,6 +240,8 @@ typedef struct {
 
   NW_OUT   NwGtpv2cTunnelHandleT        hTunnel;        /**< Returned only in case flags is set to
                                                              NW_GTPV2C_ULP_API_FLAG_CREATE_LOCAL_TUNNEL */
+  NW_IN    uint32_t                     peerIp;
+  NW_IN    uint32_t                     peerPort;
 } NwGtpv2cTriggeredAckInfoT;
 
 /**
@@ -281,7 +283,7 @@ typedef struct {
 
 typedef struct {
   NW_IN    NwGtpv2cErrorT               error;
-  NW_IN    NwGtpv2cUlpTrxnHandleT       hUlpTrxn;
+  NW_IN    uint32_t                     hUlpTrxnId;
   NW_IN    NwGtpv2cUlpTunnelHandleT     hUlpTunnel;
   NW_IN    NwGtpv2cMsgTypeT             msgType;
 } NwGtpv2cTriggeredRspIndInfoT;
@@ -331,7 +333,7 @@ typedef struct {
   union {
     NwGtpv2cInitialReqInfoT             initialReqInfo;
     NwGtpv2cTriggeredRspInfoT           triggeredRspInfo;
-    NwGtpv2cTriggeredRspInfoT           triggeredAckInfo;
+    NwGtpv2cTriggeredAckInfoT           triggeredAckInfo;
 //    NwGtpv2cTriggeredReqInfoT           triggeredReqInfo;
     NwGtpv2cInitialReqIndInfoT          initialReqIndInfo;
     NwGtpv2cTriggeredRspIndInfoT        triggeredRspIndInfo;

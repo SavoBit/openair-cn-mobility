@@ -679,20 +679,18 @@ extern                                  "C" {
     @return NW_OK on success.
    */
   static
-  NwRcT                            nwGtpv2cHandleUlpTriggeredAck (NW_IN NwGtpv2cStackT * thiz, NW_IN NwGtpv2cUlpApiT * pUlpRsp) {
+  NwRcT                            nwGtpv2cHandleUlpTriggeredAck (NW_IN NwGtpv2cStackT * thiz, NW_IN NwGtpv2cUlpApiT * pUlpAck) {
     NwRcT                                   rc = NW_FAILURE;
-    NwGtpv2cTrxnT                          *pReqTrxn = NULL;
 
     OAILOG_FUNC_IN (LOG_GTPV2C);
-    pReqTrxn = (NwGtpv2cTrxnT *) pUlpRsp->apiInfo.triggeredAckInfo.hTrxn;
-    NW_ASSERT (pReqTrxn != NULL);
 
-    if (((NwGtpv2cMsgT *) pUlpRsp->hMsg)->seqNum == 0)
-      ((NwGtpv2cMsgT *) pUlpRsp->hMsg)->seqNum = pReqTrxn->seqNum;
+    if (((NwGtpv2cMsgT *) pUlpAck->hMsg)->seqNum == 0){
+      OAILOG_ERROR(LOG_GTPV2C, "The sequence number of a triggered ACK has to be set (!0) \n");
+      OAILOG_FUNC_RETURN( LOG_GTPV2C, RETURNerror);
+    }
 
-    OAILOG_DEBUG (LOG_GTPV2C, "Sending a triggered ACK message over seq '0x%x'\n", pReqTrxn->seqNum);
-    rc = nwGtpv2cCreateAndSendMsg (thiz, pReqTrxn->seqNum, pReqTrxn->peerIp, pReqTrxn->peerPort, (NwGtpv2cMsgT *) pUlpRsp->hMsg);
-    pReqTrxn->pMsg = (NwGtpv2cMsgT *) pUlpRsp->hMsg;
+    OAILOG_DEBUG (LOG_GTPV2C, "Sending a triggered ACK message over seq '0x%x'\n", ((NwGtpv2cMsgT *) pUlpAck->hMsg)->seqNum );
+    rc = nwGtpv2cCreateAndSendMsg (thiz, ((NwGtpv2cMsgT *) pUlpAck->hMsg)->seqNum , pUlpAck->apiInfo.triggeredAckInfo.peerIp, pUlpAck->apiInfo.triggeredAckInfo.peerPort, (NwGtpv2cMsgT *) pUlpAck->hMsg);
     /** Don't start a timer. */
 
     OAILOG_FUNC_RETURN( LOG_GTPV2C, rc);
@@ -791,7 +789,7 @@ extern                                  "C" {
   static NwRcT                            nwGtpv2cSendTriggeredRspIndToUlp (
   NW_IN NwGtpv2cStackT * thiz,
   NW_IN NwGtpv2cErrorT * pError,
-  NW_IN uint32_t hUlpTrxn,
+  NW_IN uint32_t hUlpTrxnId,
   NW_IN uint32_t hUlpTunnel,
   NW_IN uint32_t msgType,
   NW_IN NwGtpv2cMsgHandleT hMsg) {
@@ -802,7 +800,7 @@ extern                                  "C" {
     ulpApi.hMsg = hMsg;
     ulpApi.apiType = NW_GTPV2C_ULP_API_TRIGGERED_RSP_IND;
     ulpApi.apiInfo.triggeredRspIndInfo.msgType = msgType;
-    ulpApi.apiInfo.triggeredRspIndInfo.hUlpTrxn = hUlpTrxn;
+    ulpApi.apiInfo.triggeredRspIndInfo.hUlpTrxnId = hUlpTrxnId;
     ulpApi.apiInfo.triggeredRspIndInfo.hUlpTunnel = hUlpTunnel;
     ulpApi.apiInfo.triggeredRspIndInfo.error = *pError;
     rc = thiz->ulp.ulpReqCallback (thiz->ulp.hUlp, &ulpApi);
@@ -985,18 +983,13 @@ NW_IN uint32_t peerIp) {
       rc = nwGtpv2cMsgFromBufferNew ((NwGtpv2cStackHandleT) thiz, msgBuf, msgBufLen, &(hMsg));
       NW_ASSERT (thiz->pGtpv2cMsgIeParseInfo[msgType]);
 
-      if(msgType == NW_GTP_FORWARD_ACCESS_CONTEXT_ACK){
-        test=2;
-      }else if(msgType == NW_GTP_FORWARD_RELOCATION_RSP){
-        test=3;
-      }
       rc = nwGtpv2cMsgIeParse (thiz->pGtpv2cMsgIeParseInfo[msgType], hMsg, &error);
 
       if (rc != NW_OK) {
         OAILOG_WARNING (LOG_GTPV2C,  "Malformed message received on TEID %u from peer 0x%x. Notifying ULP.\n", ntohl ((*((uint32_t *) (msgBuf + 4)))), htonl (peerIp));
       }
 
-      rc = nwGtpv2cSendTriggeredRspIndToUlp (thiz, &error, hUlpTrxn, hUlpTunnel, msgType, hMsg);
+      rc = nwGtpv2cSendTriggeredRspIndToUlp (thiz, &error, keyTrxn.seqNum, hUlpTunnel, msgType, hMsg);
     } else {
       OAILOG_WARNING (LOG_GTPV2C,  "Response message without a matching outstanding request received! Discarding.\n");
       rc = NW_OK;

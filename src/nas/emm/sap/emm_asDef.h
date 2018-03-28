@@ -165,6 +165,12 @@ typedef struct emm_as_establish_s {
   bool                   switch_off;                  /* true if the UE is switched off    */
   uint8_t                type;                        /* Network attach/detach type        */
 
+  uint8_t                nas_info;                    /* Type of initial NAS information to transfer   */
+  bstring                nas_msg;                     /* NAS message to be transfered within
+                                                        * initial NAS information message   */
+
+  uint8_t                eps_update_result;           /* TAU EPS update result   */
+
   uint8_t                rrc_cause;                   /* Connection establishment cause    */
   uint8_t                rrc_type;                    /* Associated call type          */
   ksi_t                  ksi;                         /* NAS key set identifier        */
@@ -178,12 +184,7 @@ typedef struct emm_as_establish_s {
 #define EMM_AS_NAS_INFO_SR      0x04                  /* Service Request       */
 #define EMM_AS_NAS_INFO_EXTSR   0x05                  /* Extended Service Request  */
 #define EMM_AS_NAS_INFO_NONE    0xFF                  /* No Nas Message  */
-  uint8_t                nas_info;                    /* Type of initial NAS information to transfer   */
-  bstring                nas_msg;                     /* NAS message to be transfered within
-                                                       * initial NAS information message   */
-
-  uint8_t                eps_update_result;           /* TAU EPS update result   */
-  uint32_t              *t3412;                       /* GPRS T3412 timer   */
+ uint32_t              *t3412;                       /* GPRS T3412 timer   */
   uint16_t              *eps_bearer_context_status;   /* TAU EPS bearer context status   */
   void                  *location_area_identification;/* TAU Location area identification */
   //void                *ms_identity;                 /* TAU 8.2.26.7   MS identity This IE may be included to assign or unassign a new TMSI to a UE during a combined TA/LA update. */

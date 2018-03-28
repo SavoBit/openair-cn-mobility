@@ -173,22 +173,25 @@ s10_guti_ie_get (
   DevAssert (guti );
 
   /** Convert to TBCD and add to GUTI. */
-  guti->gummei.plmn.mcc_digit2 = (ieValue[0] & 0xf0) >> 4;
-  guti->gummei.plmn.mcc_digit1 = (ieValue[0]  & 0x0f);
-  guti->gummei.plmn.mnc_digit3 = (ieValue[1]  & 0xf0) >> 4;
-  guti->gummei.plmn.mcc_digit3 = (ieValue[1]  & 0x0f);
-  guti->gummei.plmn.mnc_digit2 = (ieValue[2] & 0xf0) >> 4;
-  guti->gummei.plmn.mnc_digit1 = (ieValue[2]  & 0x0f);
-
+  guti->gummei.plmn.mcc_digit2 = (*ieValue & 0xf0) >> 4;
+  guti->gummei.plmn.mcc_digit1 = (*ieValue & 0x0f);
+  ieValue++;
+  guti->gummei.plmn.mnc_digit3 = (*ieValue  & 0xf0) >> 4;
+  guti->gummei.plmn.mcc_digit3 = (*ieValue  & 0x0f);
+  ieValue++;
+  guti->gummei.plmn.mnc_digit2 = (*ieValue & 0xf0) >> 4;
+  guti->gummei.plmn.mnc_digit1 = (*ieValue  & 0x0f);
+  ieValue++;
   /** Set the MME Group Id. */
-  guti->gummei.mme_gid = (*((uint16_t*)(ieValue[3])));
+  guti->gummei.mme_gid = ntohs((*((uint16_t*)(ieValue))));
+  ieValue+=2;
 
   /** Set the MME Code . */
-  guti->gummei.mme_code = ieValue[5];
-
+  guti->gummei.mme_code = *ieValue;
+  ieValue++;
   /** Set the M-TMSI. */
-  guti->m_tmsi =  (*((uint32_t*)(ieValue[6])));
-
+  guti->m_tmsi =  ntohl((*((uint32_t*)(ieValue))));
+  ieValue+=4;
   return NW_OK;
 }
 

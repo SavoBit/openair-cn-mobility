@@ -687,18 +687,18 @@ emm_send_tracking_area_update_accept (
   // Optional - GUTI
   if (msg->new_guti) {
     size += EPS_MOBILE_IDENTITY_MAXIMUM_LENGTH;
-    emm_msg->presencemask |= ATTACH_ACCEPT_GUTI_PRESENT;
+    emm_msg->presencemask |= TRACKING_AREA_UPDATE_ACCEPT_GUTI_PRESENT;
     emm_msg->guti.guti.typeofidentity = EPS_MOBILE_IDENTITY_GUTI;
     emm_msg->guti.guti.oddeven = EPS_MOBILE_IDENTITY_EVEN;
-    emm_msg->guti.guti.mmegroupid = msg->guti->gummei.mme_gid;
-    emm_msg->guti.guti.mmecode = msg->guti->gummei.mme_code;
-    emm_msg->guti.guti.mtmsi = msg->guti->m_tmsi;
-    emm_msg->guti.guti.mccdigit1 = msg->guti->gummei.plmn.mcc_digit1;
-    emm_msg->guti.guti.mccdigit2 = msg->guti->gummei.plmn.mcc_digit2;
-    emm_msg->guti.guti.mccdigit3 = msg->guti->gummei.plmn.mcc_digit3;
-    emm_msg->guti.guti.mncdigit1 = msg->guti->gummei.plmn.mnc_digit1;
-    emm_msg->guti.guti.mncdigit2 = msg->guti->gummei.plmn.mnc_digit2;
-    emm_msg->guti.guti.mncdigit3 = msg->guti->gummei.plmn.mnc_digit3;
+    emm_msg->guti.guti.mmegroupid = msg->new_guti->gummei.mme_gid;
+    emm_msg->guti.guti.mmecode = msg->new_guti->gummei.mme_code;
+    emm_msg->guti.guti.mtmsi = msg->new_guti->m_tmsi;
+    emm_msg->guti.guti.mccdigit1 = msg->new_guti->gummei.plmn.mcc_digit1;
+    emm_msg->guti.guti.mccdigit2 = msg->new_guti->gummei.plmn.mcc_digit2;
+    emm_msg->guti.guti.mccdigit3 = msg->new_guti->gummei.plmn.mcc_digit3;
+    emm_msg->guti.guti.mncdigit1 = msg->new_guti->gummei.plmn.mnc_digit1;
+    emm_msg->guti.guti.mncdigit2 = msg->new_guti->gummei.plmn.mnc_digit2;
+    emm_msg->guti.guti.mncdigit3 = msg->new_guti->gummei.plmn.mnc_digit3;
     OAILOG_INFO (LOG_NAS_EMM, "EMMAS-SAP - size += " "EPS_MOBILE_IDENTITY_MAXIMUM_LENGTH(%d)  (%d)\n", EPS_MOBILE_IDENTITY_MAXIMUM_LENGTH, size);
   }
   /* Optional - TAI list

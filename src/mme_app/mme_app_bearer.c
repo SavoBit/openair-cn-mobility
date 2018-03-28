@@ -102,7 +102,9 @@ mme_app_send_s11_release_access_bearers_req (
   release_access_bearers_request_p->list_of_rabs.num_ebi = 1;
   release_access_bearers_request_p->list_of_rabs.ebis[0] = ue_context_pP->default_bearer_id;
   release_access_bearers_request_p->originating_node = NODE_TYPE_MME;
-
+  mme_config_read_lock (&mme_config);
+  release_access_bearers_request_p->peer_ip = mme_config.ipv4.sgw_s11;
+  mme_config_unlock (&mme_config);
 
   MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME, MSC_S11_MME, NULL, 0, "0 S11_RELEASE_ACCESS_BEARERS_REQUEST teid %u ebi %u",
       release_access_bearers_request_p->teid, release_access_bearers_request_p->list_of_rabs.ebis[0]);
@@ -468,7 +470,7 @@ mme_app_send_s11_create_session_req_from_handover_tau (
         OAILOG_FUNC_RETURN (LOG_MME_APP, RETURNerror);
       }
   }else{
-    OAILOG_ERROR(LOG_MME_APP, "No bearer context exists for UE " MME_UE_S1AP_ID_FMT". Continuing with CSReq. \n", ue_context_p->mme_ue_s1ap_id);
+    OAILOG_INFO(LOG_MME_APP, "No bearer context exists for UE " MME_UE_S1AP_ID_FMT". Continuing with CSReq. \n", ue_context_p->mme_ue_s1ap_id);
   }
 
 
@@ -616,14 +618,15 @@ mme_app_send_s11_create_session_req_from_handover_tau (
     session_request_p->serving_network.mnc[1] = ue_context_p->pending_handover_target_tai.plmn.mnc_digit2;
     session_request_p->serving_network.mnc[2] = ue_context_p->pending_handover_target_tai.plmn.mnc_digit3;
     session_request_p->selection_mode = MS_O_N_P_APN_S_V;
-    MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME, MSC_S11_MME, NULL, 0,
-        "0 S11_CREATE_SESSION_REQUEST imsi " IMSI_64_FMT, ue_context_p->imsi);
-    rc = itti_send_msg_to_task (TASK_S11, INSTANCE_DEFAULT, message_p);
-    OAILOG_FUNC_RETURN (LOG_MME_APP, rc);
   }
   else{
     /// TODO: IMPLEMENT THIS FOR TAU?
   }
+  MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME, MSC_S11_MME, NULL, 0,
+       "0 S11_CREATE_SESSION_REQUEST imsi " IMSI_64_FMT, ue_context_p->imsi);
+  rc = itti_send_msg_to_task (TASK_S11, INSTANCE_DEFAULT, message_p);
+  OAILOG_FUNC_RETURN (LOG_MME_APP, rc);
+
 }
 
 //------------------------------------------------------------------------------
@@ -1202,6 +1205,7 @@ mme_app_handle_create_sess_resp (
       switch (create_sess_resp_pP->paa.pdn_type) {
       case IPv4:
         nas_pdn_connectivity_rsp->pdn_addr = blk2bstr(create_sess_resp_pP->paa.ipv4_address, 4);
+        memcpy(ue_context_p->paa.ipv4_address, create_sess_resp_pP->paa.ipv4_address, 4);
         DevAssert (nas_pdn_connectivity_rsp->pdn_addr);
         break;
 
@@ -1333,6 +1337,7 @@ mme_app_handle_modify_bearer_resp (
     OAILOG_FUNC_RETURN (LOG_MME_APP, RETURNok);
   }
   current_bearer_p =  mme_app_is_bearer_context_in_list(ue_context_p->mme_ue_s1ap_id, ue_context_p->default_bearer_id);
+  // todo: set the downlink teid?
   /** If it is an X2 Handover, send a path switch response back. */
   if(ue_context_p->pending_x2_handover){
     OAILOG_INFO(LOG_MME_APP, "Sending an S1AP Path Switch Request Acknowledge for for UE with ueId: " MME_UE_S1AP_ID_FMT ". \n", ue_context_p->mme_ue_s1ap_id);
@@ -2303,42 +2308,48 @@ int EmmCbS1apRegistered(mme_ue_s1ap_id_t ueId){
     mme_app_itti_ue_context_release (ue_context_p, ue_context_p->ue_context_rel_cause);
   }else{
     /** No pending bearer deactivation. Check if there is a pending downlink bearer and send the DL-GTP Tunnel Information to the SAE-GW. */
-    message_p = itti_alloc_new_message (TASK_MME_APP, S11_MODIFY_BEARER_REQUEST);
-    AssertFatal (message_p , "itti_alloc_new_message Failed");
-    itti_s11_modify_bearer_request_t *s11_modify_bearer_request = &message_p->ittiMsg.s11_modify_bearer_request;
-    memset ((void *)s11_modify_bearer_request, 0, sizeof (itti_s11_modify_bearer_request_t));
-    s11_modify_bearer_request->peer_ip = mme_config.ipv4.sgw_s11;
-    s11_modify_bearer_request->teid = ue_context_p->sgw_s11_teid;
-    s11_modify_bearer_request->local_teid = ue_context_p->mme_s11_teid;
-    /*
-     * Delay Value in integer multiples of 50 millisecs, or zero
-     */
-    // todo: multiple bearers!
-    s11_modify_bearer_request->delay_dl_packet_notif_req = 0;  // TO DO
-    s11_modify_bearer_request->bearer_contexts_to_be_modified.bearer_contexts[0].eps_bearer_id = ue_context_p->pending_s1u_downlink_bearer_ebi;
-    memcpy (&s11_modify_bearer_request->bearer_contexts_to_be_modified.bearer_contexts[0].s1_eNB_fteid,
-        &ue_context_p->pending_s1u_downlink_bearer,
-        sizeof (ue_context_p->pending_s1u_downlink_bearer));
-    s11_modify_bearer_request->bearer_contexts_to_be_modified.num_bearer_context = 1;
+    if(ue_context_p->pending_s1u_downlink_bearer.teid != (teid_t)0){
+      message_p = itti_alloc_new_message (TASK_MME_APP, S11_MODIFY_BEARER_REQUEST);
+         AssertFatal (message_p , "itti_alloc_new_message Failed");
+         itti_s11_modify_bearer_request_t *s11_modify_bearer_request = &message_p->ittiMsg.s11_modify_bearer_request;
+         memset ((void *)s11_modify_bearer_request, 0, sizeof (itti_s11_modify_bearer_request_t));
+         s11_modify_bearer_request->peer_ip = mme_config.ipv4.sgw_s11;
+         s11_modify_bearer_request->teid = ue_context_p->sgw_s11_teid;
+         s11_modify_bearer_request->local_teid = ue_context_p->mme_s11_teid;
+         /*
+          * Delay Value in integer multiples of 50 millisecs, or zero
+          */
+         // todo: multiple bearers!
+         s11_modify_bearer_request->delay_dl_packet_notif_req = 0;  // TO DO
+         s11_modify_bearer_request->bearer_contexts_to_be_modified.bearer_contexts[0].eps_bearer_id = ue_context_p->pending_s1u_downlink_bearer_ebi;
+         memcpy (&s11_modify_bearer_request->bearer_contexts_to_be_modified.bearer_contexts[0].s1_eNB_fteid,
+             &ue_context_p->pending_s1u_downlink_bearer,
+             sizeof (ue_context_p->pending_s1u_downlink_bearer));
+         s11_modify_bearer_request->bearer_contexts_to_be_modified.num_bearer_context = 1;
 
-    s11_modify_bearer_request->bearer_contexts_to_be_removed.num_bearer_context = 0;
+         s11_modify_bearer_request->bearer_contexts_to_be_removed.num_bearer_context = 0;
 
-    s11_modify_bearer_request->mme_fq_csid.node_id_type = GLOBAL_UNICAST_IPv4; // TO DO
-    s11_modify_bearer_request->mme_fq_csid.csid = 0;   // TO DO ...
-    memset(&s11_modify_bearer_request->indication_flags, 0, sizeof(s11_modify_bearer_request->indication_flags));   // TO DO
-    s11_modify_bearer_request->rat_type = RAT_EUTRAN;
-    /*
-     * S11 stack specific parameter. Not used in standalone epc mode
-     */
-    s11_modify_bearer_request->trxn = NULL;
-    MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME,  MSC_S11_MME ,
-        NULL, 0, "0 S11_MODIFY_BEARER_REQUEST teid %u ebi %u", s11_modify_bearer_request->teid,
-        s11_modify_bearer_request->bearer_contexts_to_be_modified.bearer_contexts[0].eps_bearer_id);
-    itti_send_msg_to_task (TASK_S11, INSTANCE_DEFAULT, message_p);
+         s11_modify_bearer_request->mme_fq_csid.node_id_type = GLOBAL_UNICAST_IPv4; // TO DO
+         s11_modify_bearer_request->mme_fq_csid.csid = 0;   // TO DO ...
+         memset(&s11_modify_bearer_request->indication_flags, 0, sizeof(s11_modify_bearer_request->indication_flags));   // TO DO
+         s11_modify_bearer_request->rat_type = RAT_EUTRAN;
+         /*
+          * S11 stack specific parameter. Not used in standalone epc mode
+          */
+         s11_modify_bearer_request->trxn = NULL;
+         MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME,  MSC_S11_MME ,
+             NULL, 0, "0 S11_MODIFY_BEARER_REQUEST teid %u ebi %u", s11_modify_bearer_request->teid,
+             s11_modify_bearer_request->bearer_contexts_to_be_modified.bearer_contexts[0].eps_bearer_id);
+         itti_send_msg_to_task (TASK_S11, INSTANCE_DEFAULT, message_p);
 
-    /** Reset any pending downlink bearers. */
-    memset(&ue_context_p->pending_s1u_downlink_bearer, 0, sizeof(ue_context_p)->pending_s1u_downlink_bearer);
-    ue_context_p->pending_s1u_downlink_bearer_ebi = 0;
+         /** Reset any pending downlink bearers. */
+         memset(&ue_context_p->pending_s1u_downlink_bearer, 0, sizeof(ue_context_p)->pending_s1u_downlink_bearer);
+         ue_context_p->pending_s1u_downlink_bearer_ebi = 0;
+    }else{
+      OAILOG_INFO(LOG_MME_APP, "No downlink S10-eNB-TEID is set for mmeUeS1apId " MME_UE_S1AP_ID_FMT ". \n", ueId);
+
+    }
+
   }
   OAILOG_FUNC_OUT (LOG_MME_APP);
 }
@@ -3642,6 +3653,12 @@ static bool mme_app_construct_guti(const plmn_t * const plmn_p, const as_stmsi_t
                 "Construct GUTI using S-TMSI received form UE and MME Group Id and PLMN id from MME Conf: %u, %u \n",
                 s_tmsi_p->m_tmsi, s_tmsi_p->mme_code);
   mme_config_read_lock (&mme_config);
+
+  if(s_tmsi_p->mme_code == (uint8_t)2){
+    OAILOG_DEBUG (LOG_MME_APP, "MME_CODE 2 GUTI RECEIVED. \n");
+  }else{
+    OAILOG_DEBUG (LOG_MME_APP, "RECEIVED MME_CODE %d. \n", s_tmsi_p->mme_code);
+  }
   /*
    * Check number of MMEs in the pool.
    * At present it is assumed that one MME is supported in MME pool but in case there are more

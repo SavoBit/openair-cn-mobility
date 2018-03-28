@@ -217,7 +217,7 @@ void *mme_app_thread (
 
     /** S10 Context Request Messages. */
     case NAS_UE_CONTEXT_REQ:{
-        mme_app_handle_nas_ue_context_req (&received_message_p->ittiMsg.nas_ue_context_req);
+        mme_app_handle_nas_ue_context_req ( &NAS_UE_CONTEXT_REQ(received_message_p));
       }
       break;
     /** Context Acknowledgment will be handled via State Change Callback Handler. */

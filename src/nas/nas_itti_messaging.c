@@ -333,7 +333,7 @@ void nas_itti_ue_context_req(
 
   /** Complete Request Message. */
   nas_ue_context_req_p->request_type = request_type;
-  nas_ue_context_req_p->nas_msg = request_msg;
+  nas_ue_context_req_p->nas_msg = bstrcpy(request_msg);
 
   /** Originating TAI. */
   nas_ue_context_req_p->originating_tai = *last_visited_taiP;
@@ -484,6 +484,7 @@ void nas_itti_establish_cnf(
     AssertFatal((0 <= emm_ctx->_security.vector_index) && (MAX_EPS_AUTH_VECTORS > emm_ctx->_security.vector_index),
         "Invalid vector index %d", emm_ctx->_security.vector_index);
 
+    /** Derive the keNB if the emm_ctx not already has a keNB. */
     derive_keNB (emm_ctx->_vector[emm_ctx->_security.vector_index].kasme,
         emm_ctx->_security.ul_count.seq_num | (emm_ctx->_security.ul_count.overflow << 8),
         NAS_CONNECTION_ESTABLISHMENT_CNF(message_p).kenb);
@@ -492,7 +493,7 @@ void nas_itti_establish_cnf(
     memset(zero, 0, 32);
     memset(emm_ctx->_vector[emm_ctx->_security.vector_index].nh_conj, 0, 32);
 
-    OAILOG_WARNING( LOG_NAS_EMM, "EMM-PROC  - KENB @ INITIAL UE. \n");
+    OAILOG_WARNING( LOG_NAS_EMM, "EMM-PROC  - KENB @ INITIAL UE with UlSeqNo %d.  \n", emm_ctx->_security.ul_count.seq_num);
      OAILOG_STREAM_HEX (OAILOG_LEVEL_DEBUG, LOG_NAS_EMM, "KENB :", NAS_CONNECTION_ESTABLISHMENT_CNF(message_p).kenb, 32);
 
      OAILOG_WARNING( LOG_NAS_EMM, "EMM-PROC  - OLD NH value before @ initial UE  \n");

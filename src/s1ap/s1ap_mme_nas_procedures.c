@@ -54,109 +54,6 @@ static bool
 s1ap_add_bearer_context_to_list1 (S1ap_E_RABToBeSetupListHOReqIEs_t * const e_RABToBeSetupListHOReq_p,
     S1ap_E_RABToBeSetupItemHOReq_t        * e_RABToBeSetupHO_p, bearer_context_t * bearer_ctxt_p);
 
-static int s1ap_mme_process_new_initial_ue_message(
-      const sctp_assoc_id_t assoc_id,
-      const sctp_stream_id_t stream,
-      bstring                 nas,
-      const tai_t             const* tai,
-      const ecgi_t            const* cgi,
-      const long              rrc_cause,
-      const as_stmsi_t const* opt_s_tmsi,
-      csg_id_t                *csg_id,
-      const gummei_t          const* gummei,
-
-      ue_description_t                       *ue_ref,
-      enb_description_t                      *eNB_ref,
-      enb_ue_s1ap_id_t                        enb_ue_s1ap_id
-){
-  uint32_t                                enb_id;
-//  as_stmsi_t                              s_tmsi = {.mme_code = 0, .m_tmsi = INVALID_M_TMSI};
-
-  OAILOG_DEBUG (LOG_S1AP, "INITIAL UE Message: No S-TMSI received from eNodeB. Creating new S1AP UE description. \n");
-  /*
-    * This UE eNB Id has currently no known s1 association.
-    * * * * Create new UE context by associating new mme_ue_s1ap_id.
-    * * * * Update eNB UE list.
-    * * * * Forward message to NAS.
-    */
-   if ((ue_ref = s1ap_new_ue (assoc_id, enb_ue_s1ap_id)) == NULL) {
-     // If we failed to allocate a new UE return -1
-     OAILOG_ERROR (LOG_S1AP, "S1AP:Initial UE Message- Failed to allocate S1AP UE Context, eNBUeS1APId:" ENB_UE_S1AP_ID_FMT "\n", enb_ue_s1ap_id);
-     OAILOG_FUNC_RETURN (LOG_S1AP, RETURNerror);
-   }
-
-   ue_ref->s1_ue_state = S1AP_UE_WAITING_CSR;
-
-   ue_ref->enb_ue_s1ap_id = enb_ue_s1ap_id;
-   // Will be allocated by NAS
-   ue_ref->mme_ue_s1ap_id = INVALID_MME_UE_S1AP_ID;
-
-   OAILOG_DEBUG(LOG_S1AP, "UE_DESCRIPTION REFERENCE @ NEW INITIAL UE MESSAGE %x \n", ue_ref);
-   OAILOG_DEBUG(LOG_S1AP, "UE_DESCRIPTION REFERENCE @ NEW INITIAL UE MESSAGE %p \n", ue_ref);
-   OAILOG_DEBUG(LOG_S1AP, "SET ENB_UE_S1AP_ID (0)   @ NEW INITIAL UE MESSAGE  %d \n", ue_ref->enb_ue_s1ap_id);
-
-   ue_ref->s1ap_ue_context_rel_timer.id  = S1AP_TIMER_INACTIVE_ID;
-   ue_ref->s1ap_ue_context_rel_timer.sec = S1AP_UE_CONTEXT_REL_COMP_TIMER;
-
-   // On which stream we received the message
-   ue_ref->sctp_stream_recv = stream;
-   ue_ref->sctp_stream_send = ue_ref->enb->next_sctp_stream;
-
-   /*
-    * Increment the sctp stream for the eNB association.
-    * If the next sctp stream is >= instream negociated between eNB and MME, wrap to first stream.
-    * TODO: search for the first available stream instead.
-    */
-
-   /*
-    * TODO task#15456359.
-    * Below logic seems to be incorrect , revisit it.
-    */
-   ue_ref->enb->next_sctp_stream += 1;
-   if (ue_ref->enb->next_sctp_stream >= ue_ref->enb->instreams) {
-     ue_ref->enb->next_sctp_stream = 1;
-   }
-   s1ap_dump_enb (ue_ref->enb);
-
-   enb_id = ue_ref->enb->enb_id;
-
-  /*
-   * We received the first NAS transport message: initial UE message.
-   * * * * Send a NAS ESTAeNBBLISH IND to NAS layer
-   */
-  #if ORIGINAL_CODE
-      s1ap_mme_itti_nas_establish_ind (ue_ref->mme_ue_s1ap_id, initialUEMessage_p->nas_pdu.buf, initialUEMessage_p->nas_pdu.size,
-          initialUEMessage_p->rrC_Establishment_Cause, tai_tac);
-  #else
-  #if ITTI_LITE
-      itf_mme_app_ll_initial_ue_message(assoc_id,
-          ue_ref->enb_ue_s1ap_id,
-          ue_ref->mme_ue_s1ap_id,
-          initialUEMessage_p->nas_pdu.buf,
-          initialUEMessage_p->nas_pdu.size,
-          initialUEMessage_p->rrC_Establishment_Cause,
-          &tai, &cgi, &s_tmsi, &gummei);
-  #else
-      s1ap_mme_itti_mme_app_initial_ue_message (assoc_id,
-          enb_id,
-          enb_ue_s1ap_id,
-          INVALID_MME_UE_S1AP_ID,
-          nas,
-          tai,
-          cgi,
-          rrc_cause,
-          opt_s_tmsi,
-          csg_id,
-          gummei,
-          NULL, // CELL ACCESS MODE
-          NULL, // GW Transport Layer Address
-          NULL  //Relay Node Indicator
-          );
-  #endif
-  #endif
-  OAILOG_FUNC_RETURN (LOG_S1AP, RETURNok);
-}
-
 //------------------------------------------------------------------------------
 int
 s1ap_mme_handle_initial_ue_message (
@@ -185,53 +82,121 @@ s1ap_mme_handle_initial_ue_message (
   enb_ue_s1ap_id = (enb_ue_s1ap_id_t) (initialUEMessage_p->eNB_UE_S1AP_ID & 0x00ffffff);
   OAILOG_INFO (LOG_S1AP, "New Initial UE message received with eNB UE S1AP ID: " ENB_UE_S1AP_ID_FMT "\n", enb_ue_s1ap_id);
   ue_ref = s1ap_is_ue_enb_id_in_list (eNB_ref, enb_ue_s1ap_id);
-  tai_t                                   tai = {.plmn = {0}, .tac = INVALID_TAC_0000};
-  ecgi_t                                  ecgi = {.plmn = {0}, .cell_identity = {0}};
-  csg_id_t                                csg_id = 0;
-  gummei_t                                gummei = {.plmn = {0}, .mme_code = 0, .mme_gid = 0}; // initialized after
 
-  // Not changing the state!
-  // TAI mandatory IE
-  OCTET_STRING_TO_TAC (&initialUEMessage_p->tai.tAC, tai.tac);
-  DevAssert (initialUEMessage_p->tai.pLMNidentity.size == 3);
-  TBCD_TO_PLMN_T(&initialUEMessage_p->tai.pLMNidentity, &tai.plmn);
-
-  // CGI mandatory IE
-  DevAssert (initialUEMessage_p->eutran_cgi.pLMNidentity.size == 3);
-  TBCD_TO_PLMN_T(&initialUEMessage_p->eutran_cgi.pLMNidentity, &ecgi.plmn);
-  BIT_STRING_TO_CELL_IDENTITY (&initialUEMessage_p->eutran_cgi.cell_ID, ecgi.cell_identity);
-
-  if (initialUEMessage_p->presenceMask & S1AP_INITIALUEMESSAGEIES_CSG_ID_PRESENT) {
-    csg_id = BIT_STRING_to_uint32(&initialUEMessage_p->csG_Id);
-  }
-
-  memset(&gummei, 0, sizeof(gummei));
-  if (initialUEMessage_p->presenceMask & S1AP_INITIALUEMESSAGEIES_GUMMEI_ID_PRESENT) {
-    //TODO OCTET_STRING_TO_PLMN(&initialUEMessage_p->gummei_id.pLMN_Identity, gummei.plmn);
-    OCTET_STRING_TO_MME_GID(&initialUEMessage_p->gummei_id.mME_Group_ID, gummei.mme_gid);
-    OCTET_STRING_TO_MME_CODE(&initialUEMessage_p->gummei_id.mME_Code, gummei.mme_code);
-  }
   if (ue_ref == NULL) {
+    tai_t                                   tai = {.plmn = {0}, .tac = INVALID_TAC_0000};
+    gummei_t                                gummei = {.plmn = {0}, .mme_code = 0, .mme_gid = 0}; // initialized after
     as_stmsi_t                              s_tmsi = {.mme_code = 0, .m_tmsi = INVALID_M_TMSI};
+    ecgi_t                                  ecgi = {.plmn = {0}, .cell_identity = {0}};
+    csg_id_t                                csg_id = 0;
 
-    AssertFatal((initialUEMessage_p->nas_pdu.size < 1000), "Bad length for NAS message %lu", initialUEMessage_p->nas_pdu.size);
-    bstring nas = blk2bstr(initialUEMessage_p->nas_pdu.buf, initialUEMessage_p->nas_pdu.size);
-    /**
-     * Assuming that the original NAS message will be deallocated.
-     * Always create an eNB reference here. In the MME_APP we will check the S-TMSI.
+    /*
+     * This UE eNB Id has currently no known s1 association.
+     * * * * Create new UE context by associating new mme_ue_s1ap_id.
+     * * * * Update eNB UE list.
+     * * * * Forward message to NAS.
      */
-    return s1ap_mme_process_new_initial_ue_message(assoc_id, stream,
-        nas,
-        &tai, &ecgi,
+    if ((ue_ref = s1ap_new_ue (assoc_id, enb_ue_s1ap_id)) == NULL) {
+      // If we failed to allocate a new UE return -1
+      OAILOG_ERROR (LOG_S1AP, "S1AP:Initial UE Message- Failed to allocate S1AP UE Context, eNBUeS1APId:" ENB_UE_S1AP_ID_FMT "\n", enb_ue_s1ap_id);
+      OAILOG_FUNC_RETURN (LOG_S1AP, RETURNerror);
+    }
+
+    ue_ref->s1_ue_state = S1AP_UE_WAITING_CSR;
+
+    ue_ref->enb_ue_s1ap_id = enb_ue_s1ap_id;
+    // Will be allocated by NAS
+    ue_ref->mme_ue_s1ap_id = INVALID_MME_UE_S1AP_ID;
+
+    ue_ref->s1ap_ue_context_rel_timer.id  = S1AP_TIMER_INACTIVE_ID;
+    ue_ref->s1ap_ue_context_rel_timer.sec = S1AP_UE_CONTEXT_REL_COMP_TIMER;
+
+    // On which stream we received the message
+    ue_ref->sctp_stream_recv = stream;
+    ue_ref->sctp_stream_send = ue_ref->enb->next_sctp_stream;
+
+    /*
+     * Increment the sctp stream for the eNB association.
+     * If the next sctp stream is >= instream negociated between eNB and MME, wrap to first stream.
+     * TODO: search for the first available stream instead.
+     */
+
+    /*
+     * TODO task#15456359.
+     * Below logic seems to be incorrect , revisit it.
+     */
+    ue_ref->enb->next_sctp_stream += 1;
+    if (ue_ref->enb->next_sctp_stream >= ue_ref->enb->instreams) {
+      ue_ref->enb->next_sctp_stream = 1;
+    }
+    s1ap_dump_enb (ue_ref->enb);
+    // TAI mandatory IE
+    OCTET_STRING_TO_TAC (&initialUEMessage_p->tai.tAC, tai.tac);
+    DevAssert (initialUEMessage_p->tai.pLMNidentity.size == 3);
+    TBCD_TO_PLMN_T(&initialUEMessage_p->tai.pLMNidentity, &tai.plmn);
+
+    // CGI mandatory IE
+    DevAssert (initialUEMessage_p->eutran_cgi.pLMNidentity.size == 3);
+    TBCD_TO_PLMN_T(&initialUEMessage_p->eutran_cgi.pLMNidentity, &ecgi.plmn);
+    BIT_STRING_TO_CELL_IDENTITY (&initialUEMessage_p->eutran_cgi.cell_ID, ecgi.cell_identity);
+
+    if (initialUEMessage_p->presenceMask & S1AP_INITIALUEMESSAGEIES_S_TMSI_PRESENT) {
+      OCTET_STRING_TO_MME_CODE(&initialUEMessage_p->s_tmsi.mMEC, s_tmsi.mme_code);
+      OCTET_STRING_TO_M_TMSI(&initialUEMessage_p->s_tmsi.m_TMSI, s_tmsi.m_tmsi);
+    }
+
+    if (initialUEMessage_p->presenceMask & S1AP_INITIALUEMESSAGEIES_CSG_ID_PRESENT) {
+      csg_id = BIT_STRING_to_uint32(&initialUEMessage_p->csG_Id);
+    }
+
+    memset(&gummei, 0, sizeof(gummei));
+    if (initialUEMessage_p->presenceMask & S1AP_INITIALUEMESSAGEIES_GUMMEI_ID_PRESENT) {
+      //TODO OCTET_STRING_TO_PLMN(&initialUEMessage_p->gummei_id.pLMN_Identity, gummei.plmn);
+      OCTET_STRING_TO_MME_GID(&initialUEMessage_p->gummei_id.mME_Group_ID, gummei.mme_gid);
+      OCTET_STRING_TO_MME_CODE(&initialUEMessage_p->gummei_id.mME_Code, gummei.mme_code);
+    }
+    /*
+     * We received the first NAS transport message: initial UE message.
+     * * * * Send a NAS ESTAeNBBLISH IND to NAS layer
+     */
+#if ORIGINAL_CODE
+    s1ap_mme_itti_nas_establish_ind (ue_ref->mme_ue_s1ap_id, initialUEMessage_p->nas_pdu.buf, initialUEMessage_p->nas_pdu.size,
+        initialUEMessage_p->rrC_Establishment_Cause, tai_tac);
+#else
+#if ITTI_LITE
+    itf_mme_app_ll_initial_ue_message(assoc_id,
+        ue_ref->enb_ue_s1ap_id,
+        ue_ref->mme_ue_s1ap_id,
+        initialUEMessage_p->nas_pdu.buf,
+        initialUEMessage_p->nas_pdu.size,
+        initialUEMessage_p->rrC_Establishment_Cause,
+        &tai, &cgi, &s_tmsi, &gummei);
+#else
+    s1ap_mme_itti_mme_app_initial_ue_message (assoc_id,
+        ue_ref->enb->enb_id,
+        ue_ref->enb_ue_s1ap_id,
+        ue_ref->mme_ue_s1ap_id,
+        initialUEMessage_p->nas_pdu.buf,
+        initialUEMessage_p->nas_pdu.size,
+        &tai,
+        &ecgi,
         initialUEMessage_p->rrC_Establishment_Cause,
         (initialUEMessage_p->presenceMask & S1AP_INITIALUEMESSAGEIES_S_TMSI_PRESENT) ? &s_tmsi:NULL,
         (initialUEMessage_p->presenceMask & S1AP_INITIALUEMESSAGEIES_CSG_ID_PRESENT) ? &csg_id:NULL,
         (initialUEMessage_p->presenceMask & S1AP_INITIALUEMESSAGEIES_GUMMEI_ID_PRESENT) ? &gummei:NULL,
-        ue_ref, eNB_ref, enb_ue_s1ap_id);
-} else {
-  OAILOG_ERROR (LOG_S1AP, "S1AP:Initial UE Message- Duplicate ENB_UE_S1AP_ID. Ignoring the message, eNBUeS1APId:" ENB_UE_S1AP_ID_FMT "\n", enb_ue_s1ap_id);
+        NULL, // CELL ACCESS MODE
+        NULL, // GW Transport Layer Address
+        NULL  //Relay Node Indicator
+        );
+#endif
+#endif
+  } else {
+    OAILOG_ERROR (LOG_S1AP, "S1AP:Initial UE Message- Duplicate ENB_UE_S1AP_ID. Ignoring the message, eNBUeS1APId:" ENB_UE_S1AP_ID_FMT "\n", enb_ue_s1ap_id);
+  }
+
+  OAILOG_FUNC_RETURN (LOG_S1AP, RETURNok);
 }
-}
+
 
 //------------------------------------------------------------------------------
 int

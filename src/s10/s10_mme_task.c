@@ -93,6 +93,18 @@ s10_mme_ulp_process_stack_req_cb (
       ret = s10_mme_handle_forward_relocation_complete_notification(&s10_mme_stack_handle, pUlpApi);
       break;
 
+    case NW_GTP_CONTEXT_REQ:
+      ret = s10_mme_handle_context_request(&s10_mme_stack_handle, pUlpApi);
+      break;
+
+    case NW_GTP_CONTEXT_RSP:
+      ret = s10_mme_handle_context_response(&s10_mme_stack_handle, pUlpApi);
+      break;
+
+    case NW_GTP_CONTEXT_ACK:
+      ret = s10_mme_handle_context_acknowledgement(&s10_mme_stack_handle, pUlpApi);
+      break;
+
     default:
       OAILOG_WARNING (LOG_S10, "Received unhandled message type %d\n", pUlpApi->apiInfo.triggeredRspIndInfo.msgType);
       break;

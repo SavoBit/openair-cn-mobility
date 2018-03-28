@@ -571,6 +571,12 @@ inline void emm_ctx_update_from_mm_eps_context(emm_data_context_t * const emm_ct
   emm_ctx->_security.ul_count = mm_eps_ctxt->nas_ul_count;
   emm_ctx->_security.dl_count = mm_eps_ctxt->nas_dl_count;
 
+  /** Increment the NAS UL_COUNT. */
+  emm_ctx->_security.ul_count.seq_num += 1;
+  if (!emm_ctx->_security.ul_count.seq_num) {
+    emm_ctx->_security.ul_count.overflow += 1;
+  }
+
   /**
    * Set the NAS ciphering and integrity keys.
    * Check if the UE & MS network capabilities are already set.
@@ -609,6 +615,9 @@ inline void emm_ctx_update_from_mm_eps_context(emm_data_context_t * const emm_ct
   AssertFatal(MAX_EPS_AUTH_VECTORS >  emm_ctx->_security.vector_index, "Vector index outbound value %d/%d", emm_ctx->_security.vector_index, MAX_EPS_AUTH_VECTORS);
   derive_key_nas (NAS_INT_ALG, emm_ctx->_security.selected_algorithms.integrity,  emm_ctx->_vector[emm_ctx->_security.vector_index].kasme, emm_ctx->_security.knas_int);
   derive_key_nas (NAS_ENC_ALG, emm_ctx->_security.selected_algorithms.encryption, emm_ctx->_vector[emm_ctx->_security.vector_index].kasme, emm_ctx->_security.knas_enc);
+
+  memcpy(emm_ctx->_vector[emm_ctx->_security.vector_index].kasme, mm_eps_ctxt->k_asme, 32);
+
   /**
    * Set new security context indicator.
    */

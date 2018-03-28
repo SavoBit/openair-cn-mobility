@@ -664,7 +664,7 @@ emm_proc_tracking_area_update_request (
      * Depending on if there is a pending MM_EPS_CONTEXT or not, it should send S10 message..
      * MME_APP needs to register the MME_APP context with the IMSI before sending S6a ULR.
      */
-    rc = nas_itti_ue_context_req(ue_id, &emm_ctx->_old_guti, new_tai, last_visited_registered_tai, nas_msg);
+    rc = nas_itti_ue_context_req(ue_id, &emm_ctx->_old_guti, new_tai, last_visited_registered_tai, COMPLETE_TAU_REQUEST_TYPE, nas_msg);
     OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
   }
   OAILOG_INFO(LOG_NAS_EMM, "EMM-PROC- THE UE with ue_id=" MME_UE_S1AP_ID_FMT ", has already a security context. Checking for a subscription profile. \n", ue_id);

@@ -963,6 +963,8 @@ s10_mme_handle_context_request(
   MessageDef                             *message_p;
   NwGtpv2cMsgParserT                     *pMsgParser;
 
+  OAILOG_FUNC_IN (LOG_S10);
+
   DevAssert (stack_p );
   /** Allocating the Signal once at the sender (MME_APP --> S10) and once at the receiver (S10-->MME_APP). */
   message_p = itti_alloc_new_message (TASK_S10, S10_CONTEXT_REQUEST);
@@ -1162,7 +1164,7 @@ s10_mme_handle_context_response(
   resp_p->teid = nwGtpv2cMsgGetTeid(pUlpApi->hMsg);
 
   /** Set the transaction for the triggered acknowledgement. */
-  resp_p->trxn = (void *)pUlpApi->apiInfo.triggeredRspInfo.hTrxn;
+  resp_p->trxn = (void *)pUlpApi->apiInfo.triggeredRspIndInfo.hUlpTrxnId;
 
   /** Create a new message parser.     */
   rc = nwGtpv2cMsgParserNew (*stack_p, NW_GTP_CONTEXT_RSP, s10_ie_indication_generic, NULL, &pMsgParser);
@@ -1248,7 +1250,6 @@ s10_mme_context_acknowledge (
   NwGtpv2cUlpApiT                         ulp_ack;
   NwRcT                                   rc;
   uint8_t                                 restart_counter = 0;
-  NwGtpv2cTrxnHandleT                     trxn;
 
   /**
    * Responses do not have replies except when a "Context Acknowledge" is required as a reply to "Context Response" message as specified in relevant Stage 2 procedures.
@@ -1259,15 +1260,13 @@ s10_mme_context_acknowledge (
   DevAssert (ack_p );
   memset (&ulp_ack, 0, sizeof (NwGtpv2cUlpApiT));
   ulp_ack.apiType = NW_GTPV2C_ULP_API_TRIGGERED_ACK;
-
-  trxn = (NwGtpv2cTrxnHandleT) ack_p->trxn; /**< Transaction stored in handled response. */
-  DevAssert (trxn );
+  ulp_ack.apiInfo.triggeredAckInfo.peerIp = ack_p->peer_ip;
+  ulp_ack.apiInfo.triggeredAckInfo.peerPort = ack_p->peer_port;
 
   /*
    * Prepare a context ack to send to target MME.
    */
-  ulp_ack.apiInfo.triggeredAckInfo.hTrxn = trxn; /**< Use the same transaction. */
-  rc = nwGtpv2cMsgNew (*stack_p, NW_TRUE, NW_GTP_CONTEXT_ACK, 0, 0, &(ulp_ack.hMsg));
+  rc = nwGtpv2cMsgNew (*stack_p, NW_TRUE, NW_GTP_CONTEXT_ACK, 0, ack_p->trxnId, &(ulp_ack.hMsg));
   DevAssert (NW_OK == rc);
 
   /*
@@ -1638,7 +1637,7 @@ s10_mme_handle_ulp_error_indicatior(
     /** Set the destination TEID (our TEID). */
     ack_p->teid = pUlpApi->apiInfo.rspFailureInfo.teidLocal;
     /** Set the transaction for the triggered acknowledgement. */
-    ack_p->trxn = (void *)pUlpApi->apiInfo.rspFailureInfo.hUlpTrxn;
+    ack_p->trxnId = (uint32_t)pUlpApi->apiInfo.rspFailureInfo.hUlpTrxn;
     /** Set the cause. */
     ack_p->cause = SYSTEM_FAILURE; /**< Would mean that this message either did not come at all or could not be dealt with properly. */
   }
