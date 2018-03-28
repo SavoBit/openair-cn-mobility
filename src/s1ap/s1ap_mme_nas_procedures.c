@@ -800,7 +800,7 @@ int s1ap_handover_preparation_failure (
   OAILOG_FUNC_IN (LOG_S1AP);
 
   handoverPreparationFailure_p = &message.msg.s1ap_HandoverPreparationFailureIEs;
-  s1ap_mme_set_cause(&handoverPreparationFailure_p->cause, cause_type, 4);
+  s1ap_mme_set_cause(&handoverPreparationFailure_p->cause, S1ap_Cause_PR_misc, 0);
   handoverPreparationFailure_p->eNB_UE_S1AP_ID = enb_ue_s1ap_id;
   handoverPreparationFailure_p->mme_ue_s1ap_id = mme_ue_s1ap_id;
 
@@ -905,42 +905,9 @@ s1ap_handle_handover_request (
   DevAssert (handover_request_pP != NULL);
 
   /**
-   * Search based on the MME_UE_S1AP_ID, since it's the only one we have currently.
+   * Based on the MME_UE_S1AP_ID, you may or may not have a UE reference, we don't care. Just send HO_Request to the new eNB.
+   * Check that there exists an enb reference to the target-enb.
    */
-  ue_ref = s1ap_is_ue_mme_id_in_list (handover_request_pP->ue_id);
-  if (ue_ref) {
-    OAILOG_ERROR (LOG_S1AP, "Currently only inter-mme s1ap handover is implemented. UE_CONTEXT for mme ue s1ap id (" MME_UE_S1AP_ID_FMT ") is already existing \n",
-        handover_request_pP->ue_id);
-    /**
-     * Send Handover Failure back (manually) to the MME.
-     * This will trigger an implicit detach if the UE is not REGISTERED yet (single MME S1AP HO), or will just send a HO-PREP-FAILURE to the MME (if the cause is not S1AP-SYSTEM-FAILURE).
-     */
-    message_p = itti_alloc_new_message (TASK_S1AP, S1AP_HANDOVER_FAILURE);
-    AssertFatal (message_p != NULL, "itti_alloc_new_message Failed");
-    itti_s1ap_handover_failure_t *handover_failure_p = &message_p->ittiMsg.s1ap_handover_failure;
-    memset ((void *)&message_p->ittiMsg.s1ap_handover_failure, 0, sizeof (itti_s1ap_handover_failure_t));
-    /** Fill the S1AP Handover Failure elements per hand. */
-    handover_failure_p->mme_ue_s1ap_id = handoverRequest_p->mme_ue_s1ap_id;
-    handover_failure_p->enb_ue_s1ap_id = ue_ref->enb_ue_s1ap_id; /**< Set it from the invalid context. */
-    handover_failure_p->assoc_id       = ue_ref->enb->sctp_assoc_id; /**< Set it from the invalid context. */
-    /**
-     * Set it to S1AP_SYSTEM_FAILURE for the invalid context. Not waiting for RELEASE-COMPLETE from target-eNB.
-     * It may remove the sctp association to the correct MME_UE_S1AP_ID, too. For that, to continue with the handover fail case,
-     * to reach the source-ENB, the MME_APP has to re-notify the MME_UE_S1AP_ID/SCTP association.
-     */
-    handover_failure_p->cause          = S1AP_SYSTEM_FAILURE;
-    MSC_LOG_TX_MESSAGE (MSC_S1AP_MME, MSC_MMEAPP_MME, NULL, 0, "0 Sending manually S1AP_HANDOVER_FAILURE for mme_ue_s1ap_id  " MME_UE_S1AP_ID_FMT " ", handover_request_pP->ue_id);
-    itti_send_msg_to_task (TASK_MME_APP, INSTANCE_DEFAULT, message_p);
-    itti_s1ap_ue_context_release_command_t *ue_context_release_cmd_p = &((itti_s1ap_ue_context_release_command_t){ .mme_ue_s1ap_id = handover_request_pP->ue_id, .enb_ue_s1ap_id = ue_ref->enb_ue_s1ap_id, .cause = S1AP_SYSTEM_FAILURE});
-    /** Remove the UE-Reference implicitly. Don't need to wait for the UE_CONTEXT_REMOVAL_COMMAND_COMPLETE. */
-    s1ap_handle_ue_context_release_command(ue_context_release_cmd_p); /**< Send a removal message and remove the context also directly. */
-    // There are some race conditions were NAS T3450 timer is stopped and removed at same time
-    OAILOG_FUNC_OUT (LOG_S1AP);
-  }
-
-  /** Create a new UE_Refence to the new eNodeB. */
-    // todo: we also may create a stacked new one and remove it after the message is sent. Create the permanent one when HandoverRequestAcknowledge is received..
-  /** Check that there exists an enb reference to the target-enb. */
   target_enb_ref = s1ap_is_enb_id_in_list(handover_request_pP->macro_enb_id);
   if(!target_enb_ref){
     OAILOG_ERROR (LOG_S1AP, "No target-enb could be found for enb-id %u. Handover Failed. \n",
@@ -955,20 +922,7 @@ s1ap_handle_handover_request (
     memset ((void *)&message_p->ittiMsg.s1ap_handover_failure, 0, sizeof (itti_s1ap_handover_failure_t));
     /** Fill the S1AP Handover Failure elements per hand. */
     handover_failure_p->mme_ue_s1ap_id = handoverRequest_p->mme_ue_s1ap_id;
-//    handover_failure_p->enb_ue_s1ap_id = ue_ref->enb_ue_s1ap_id; /**< Set it from the invalid context. */
-//    handover_failure_p->assoc_id       = ue_ref->enb->sctp_assoc_id; /**< Set it from the invalid context. */
-    /**
-     * Set it to S1AP_SYSTEM_FAILURE for the invalid context. Not waiting for RELEASE-COMPLETE from target-eNB.
-     * It may remove the sctp association to the correct MME_UE_S1AP_ID, too. For that, to continue with the handover fail case,
-     * to reach the source-ENB, the MME_APP has to re-notify the MME_UE_S1AP_ID/SCTP association.
-     */
-    handover_failure_p->cause          = S1AP_SYSTEM_FAILURE;
-    MSC_LOG_TX_MESSAGE (MSC_S1AP_MME, MSC_MMEAPP_MME, NULL, 0, "0 Sending manually S1AP_HANDOVER_FAILURE for mme_ue_s1ap_id  " MME_UE_S1AP_ID_FMT " ", handover_request_pP->ue_id);
-    itti_send_msg_to_task (TASK_MME_APP, INSTANCE_DEFAULT, message_p);
-    itti_s1ap_ue_context_release_command_t *ue_context_release_cmd_p = &((itti_s1ap_ue_context_release_command_t){ .mme_ue_s1ap_id = handover_request_pP->ue_id, .enb_ue_s1ap_id = INVALID_ENB_UE_S1AP_ID_KEY, .cause = S1AP_SYSTEM_FAILURE});
-    /** Remove the UE-Reference implicitly. Don't need to wait for the UE_CONTEXT_REMOVAL_COMMAND_COMPLETE. */
-    s1ap_handle_ue_context_release_command(ue_context_release_cmd_p); /**< Send a removal message and remove the context also directly. */
-    // There are some race conditions were NAS T3450 timer is stopped and removed at same time
+    /** No need to remove any UE_Reference to the target_enb, not existing. */
     OAILOG_FUNC_OUT (LOG_S1AP);
   }
 

@@ -554,10 +554,10 @@ void s1ap_notified_new_ue_mme_s1ap_id_association (
           sctp_assoc_id, enb_ue_s1ap_id, mme_ue_s1ap_id, hashtable_rc_code2string(h_rc));
       return;
     }
-    OAILOG_DEBUG(LOG_S1AP, "Could not find  ue  with enb_ue_s1ap_id " ENB_UE_S1AP_ID_FMT "\n", enb_ue_s1ap_id);
+    OAILOG_ERROR(LOG_S1AP, "Could not find  ue  with enb_ue_s1ap_id " ENB_UE_S1AP_ID_FMT "\n", enb_ue_s1ap_id);
     return;
   }
-  OAILOG_DEBUG(LOG_S1AP, "Could not find  eNB with sctp_assoc_id %d \n", sctp_assoc_id);
+  OAILOG_ERROR(LOG_S1AP, "Could not find  eNB with sctp_assoc_id %d \n", sctp_assoc_id);
 }
 
 //------------------------------------------------------------------------------

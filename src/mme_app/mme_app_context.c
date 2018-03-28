@@ -1290,8 +1290,8 @@ _mme_app_handle_s1ap_ue_context_release (const mme_ue_s1ap_id_t mme_ue_s1ap_id,
     // calling below function to set the enb_s1ap_id_key to invalid
     if (ue_context_p->ue_context_rel_cause == S1AP_SCTP_SHUTDOWN_OR_RESET) {
       mme_ue_context_update_ue_sig_connection_state (&mme_app_desc.mme_ue_contexts, ue_context_p, ECM_IDLE);
-      mme_app_itti_ue_context_release(ue_context_p, ue_context_p->ue_context_rel_cause);
-      OAILOG_WARNING (LOG_MME_APP, "UE Conetext Release Reqeust:Cause SCTP RESET/SHUTDOWN. UE state: IDLE. mme_ue_s1ap_id = %d, enb_ue_s1ap_id = %d Action -- Handle the message\n ", 
+      mme_app_itti_ue_context_release(ue_context_p, ue_context_p->ue_context_rel_cause, enb_id);
+      OAILOG_WARNING (LOG_MME_APP, "UE Context Release Reqeust:Cause SCTP RESET/SHUTDOWN. UE state: IDLE. mme_ue_s1ap_id = %d, enb_ue_s1ap_id = %d Action -- Handle the message\n ",
                                   ue_context_p->mme_ue_s1ap_id, ue_context_p->enb_ue_s1ap_id);
     }
     OAILOG_ERROR (LOG_MME_APP, "ERROR: UE Context Release Request: UE state : IDLE. enb_ue_s1ap_ue_id " 
@@ -1320,7 +1320,7 @@ _mme_app_handle_s1ap_ue_context_release (const mme_ue_s1ap_id_t mme_ue_s1ap_id,
     }else{
       OAILOG_WARNING(LOG_MME_APP, "UE Context Release Request: No pending downlink bearers exist. Directly replying with UE_CTX_RELEASE for ueId " MME_UE_S1AP_ID_FMT ". \n", ue_context_p->mme_ue_s1ap_id);
       mme_ue_context_update_ue_sig_connection_state (&mme_app_desc.mme_ue_contexts, ue_context_p, ECM_IDLE);
-      mme_app_itti_ue_context_release(ue_context_p, ue_context_p->ue_context_rel_cause);
+      mme_app_itti_ue_context_release(ue_context_p, ue_context_p->ue_context_rel_cause, enb_id);
     }
   }
   OAILOG_FUNC_OUT (LOG_MME_APP);

@@ -83,6 +83,11 @@ static inline int s1ap_mme_encode_pathSwitchRequestFailure (
   uint8_t ** buffer,
   uint32_t * length);
 
+static inline int s1ap_mme_encode_handoverPreparationFailure (
+  s1ap_message * message_p,
+  uint8_t ** buffer,
+  uint32_t * length);
+
 static inline int s1ap_mme_encode_handoverCommand (
     s1ap_message * message_p,
     uint8_t ** buffer,
@@ -220,6 +225,8 @@ s1ap_mme_encode_unsuccessfull_outcome (
     return s1ap_mme_encode_s1setupfailure (message_p, buffer, length);
   case S1ap_ProcedureCode_id_PathSwitchRequest:
     return s1ap_mme_encode_pathSwitchRequestFailure (message_p, buffer, length);
+  case S1ap_ProcedureCode_id_HandoverPreparation:
+    return s1ap_mme_encode_handoverPreparationFailure(message_p, buffer, length);
 
   default:
     OAILOG_DEBUG (LOG_S1AP, "Unknown procedure ID (%d) for unsuccessfull outcome message\n", (int)message_p->procedureCode);
@@ -286,6 +293,7 @@ s1ap_mme_encode_pathSwitchRequestAcknowledge(
   return s1ap_generate_successfull_outcome (buffer, length, S1ap_ProcedureCode_id_PathSwitchRequest, message_p->criticality,
       &asn_DEF_S1ap_PathSwitchRequestAcknowledge, pathSwitchReqAcknowledge_p);
 }
+
 static inline int
 s1ap_mme_encode_pathSwitchRequestFailure (
   s1ap_message * message_p,
@@ -303,6 +311,25 @@ s1ap_mme_encode_pathSwitchRequestFailure (
   }
 
   return s1ap_generate_unsuccessfull_outcome (buffer, length, S1ap_ProcedureCode_id_PathSwitchRequest, message_p->criticality, &asn_DEF_S1ap_PathSwitchRequestFailure, pathSwitchReqFailure_p);
+}
+
+static inline int
+s1ap_mme_encode_handoverPreparationFailure (
+  s1ap_message * message_p,
+  uint8_t ** buffer,
+  uint32_t * length)
+{
+
+  S1ap_HandoverPreparationFailure_t              handoverPreparationFailure;
+  S1ap_HandoverPreparationFailureIEs_t          *handoverPreparationFailure_p = &handoverPreparationFailure;
+
+  memset (handoverPreparationFailure_p, 0, sizeof (S1ap_HandoverPreparationFailure_t));
+
+  if (s1ap_encode_s1ap_handoverpreparationfailureies(handoverPreparationFailure_p, &message_p->msg.s1ap_HandoverPreparationFailureIEs) < 0) {
+    return -1;
+  }
+
+  return s1ap_generate_unsuccessfull_outcome (buffer, length, S1ap_ProcedureCode_id_HandoverPreparation, message_p->criticality, &asn_DEF_S1ap_HandoverPreparationFailure, handoverPreparationFailure_p);
 }
 
 static inline int

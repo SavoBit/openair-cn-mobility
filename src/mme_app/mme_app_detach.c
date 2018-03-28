@@ -138,7 +138,7 @@ mme_app_handle_detach_req (
     // todo: perform paging, if the UE is in EMM_DEREGISTER_INITIATED! state (MME triggered detach).
     ue_context->ue_context_rel_cause = S1AP_IMPLICIT_CONTEXT_RELEASE; /**< No Release command will be sent, even if an S1AP context exists. */
     // Notify S1AP to release S1AP UE context locally. No
-    mme_app_itti_ue_context_release (ue_context, ue_context->ue_context_rel_cause); /**< Set the signaling connection to ECM_IDLE when the Context-Removal-Completion has arrived. */
+    mme_app_itti_ue_context_release (ue_context, ue_context->ue_context_rel_cause, ue_context->e_utran_cgi.cell_identity.enb_id); /**< Set the signaling connection to ECM_IDLE when the Context-Removal-Completion has arrived. */
     // Free MME UE Context
     mme_remove_ue_context (&mme_app_desc.mme_ue_contexts, ue_context);
   } else {  /**< UE has an active context. Setting NAS_DETACH as S1AP cause and sending the context removal command! */
@@ -150,7 +150,7 @@ mme_app_handle_detach_req (
      * This starts a timer to wait for the context removal completion. If timeout happens, the S1AP UE reference will be notified and the MMME_APP will be called.
      * If the S1AP context removal response does not arrive, the MME_APP UE context may already be removed. Not a problem for the MME_APP. The S1AP UE reference will be removed.
      */
-    mme_app_itti_ue_context_release (ue_context, ue_context->ue_context_rel_cause);
+    mme_app_itti_ue_context_release (ue_context, ue_context->ue_context_rel_cause, ue_context->e_utran_cgi.cell_identity.enb_id);
     /**
      * We may or may not expect a response from the eNodeB context removal depending on the set release cause, to remove the rest of the UE context and deregistrate the UE.
      * If the response does not arrive, the S1AP timeout will do the rest.

@@ -87,7 +87,7 @@ s1ap_mme_decode_initiating (
     case S1ap_ProcedureCode_id_HandoverCancel: {
       ret = s1ap_decode_s1ap_handovercancelies(&message->msg.s1ap_HandoverCancelIEs, &initiating_p->value);
       s1ap_xer_print_s1ap_handovercancel (s1ap_xer__print2sp, message_string, message);
-      *message_id = S1AP_PATH_SWITCH_REQUEST_LOG;
+      *message_id = S1AP_HANDOVER_CANCEL_LOG;
     }
     break;
     case S1ap_ProcedureCode_id_eNBStatusTransfer: {

@@ -265,7 +265,9 @@ typedef struct ue_context_s {
 
   /** Handover Target Information. */
   tai_t                  pending_handover_target_tai;     /**< Todo: can they be directly set? with the first handover required message? */
-  uint32_t               pending_handover_enb_id:20;
+  uint32_t               pending_handover_source_enb_id:20;
+  uint32_t               pending_handover_target_enb_id:20;
+
   void                  *pending_s10_response_trxn;       ///< Transaction identifier;
   enb_ue_s1ap_id_t       pending_handover_enb_ue_s1ap_id; /**< eNB-UE-S1AP-Id of the target-ENB if it is a single MME s1AP handover. */
 

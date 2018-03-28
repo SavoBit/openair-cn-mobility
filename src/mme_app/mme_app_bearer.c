@@ -1282,7 +1282,7 @@ mme_app_handle_create_sess_resp (
       // todo: We have the indicator of handover in the CREATE_SESSION_REQUEST operational flags.
       if(ue_context_p->pending_s10_response_trxn){
         OAILOG_INFO(LOG_MME_APP, "UE " MME_UE_S1AP_ID_FMT " is performing an S10 handover. Sending an S1AP_HANDOVER_REQUEST. \n", ue_context_p->mme_ue_s1ap_id);
-        mme_app_send_s1ap_handover_request(ue_context_p->mme_ue_s1ap_id, ue_context_p->pending_handover_enb_id,
+        mme_app_send_s1ap_handover_request(ue_context_p->mme_ue_s1ap_id, ue_context_p->pending_handover_target_enb_id,
                    ue_context_p->pending_mm_ue_eps_context->ue_nc.eea,
                    ue_context_p->pending_mm_ue_eps_context->ue_nc.eia,
                    ue_context_p->pending_mm_ue_eps_context->nh,
@@ -1687,7 +1687,8 @@ mme_app_handle_handover_required(
   }
   /** Set the target TAI and enb_id, to use them if a Handover-Cancel message comes. */
   memcpy(&ue_context_p->pending_handover_target_tai, &handover_required_pP->selected_tai, sizeof(tai_t));
-  ue_context_p->pending_handover_enb_id = handover_required_pP->global_enb_id.cell_identity.enb_id;
+  ue_context_p->pending_handover_target_enb_id = handover_required_pP->global_enb_id.cell_identity.enb_id;
+  ue_context_p->pending_handover_source_enb_id = ue_context_p->e_utran_cgi.cell_identity.enb_id;
 
   /** Check if the destination eNodeB is attached at the same or another MME. */
   if (mme_app_check_ta_local(&handover_required_pP->selected_tai.plmn, handover_required_pP->selected_tai.tac)) {
@@ -1711,6 +1712,7 @@ mme_app_handle_handover_required(
         OAILOG_FUNC_OUT (LOG_MME_APP);
       }else{
         OAILOG_INFO(LOG_MME_APP, "Successfully updated AS security parameters for UE with ueId: " MME_UE_S1AP_ID_FMT ". \n", handover_required_pP->mme_ue_s1ap_id);
+        ue_context_p->pending_s1ap_source_to_target_handover_container = handover_required_pP->eutran_source_to_target_container;
         /** Prepare a Handover Request, keep the transparent container for now, it will be purged together with the free method of the S1AP message. */
         mme_app_send_s1ap_handover_request(handover_required_pP->mme_ue_s1ap_id, handover_required_pP->global_enb_id.cell_identity.enb_id,
             encryption_algorithm_capabilities,
@@ -1891,18 +1893,18 @@ mme_app_handle_handover_cancel(
   /** Check if the destination eNodeB is attached at the same or another MME. */
   if (mme_app_check_ta_local(&ue_context_p->pending_handover_target_tai.plmn, ue_context_p->pending_handover_target_tai.tac)){
     /** Check if the eNB with the given eNB-ID is served. */
-    if(s1ap_is_enb_id_in_list(ue_context_p->pending_handover_enb_id) != NULL){
+    if(s1ap_is_enb_id_in_list(ue_context_p->pending_handover_target_enb_id) != NULL){
       OAILOG_DEBUG (LOG_MME_APP, "Target ENB_ID %d of target TAI " TAI_FMT " is served by current MME. \n",
-          ue_context_p->pending_handover_enb_id, ue_context_p->pending_handover_target_tai);
+          ue_context_p->pending_handover_target_enb_id, ue_context_p->pending_handover_target_tai);
       /**
        * Check if there already exists a UE-Reference to the target cell.
        * If so, this means that HANDOVER_REQUEST_ACKNOWLEDGE is already received.
        * It is so far gone in the handover process. We will send CANCEL-ACK and implicitly detach the UE.
        */
-      ue_description_t * ue_reference = s1ap_is_enb_ue_s1ap_id_in_list_per_enb(ue_context_p->enb_ue_s1ap_id, ue_context_p->pending_handover_enb_id);
+      ue_description_t * ue_reference = s1ap_is_enb_ue_s1ap_id_in_list_per_enb(ue_context_p->enb_ue_s1ap_id, ue_context_p->pending_handover_target_enb_id);
       if(ue_reference == NULL){
         /** No UE Reference to the target eNB found. Sending a UE Context Release to the target MME BEFORE a HANDOVER_REQUEST_ACK arrives. */
-        mme_app_itti_ue_context_release (ue_context_p, S1AP_HANDOVER_CANCELLED);
+        mme_app_itti_ue_context_release (ue_context_p, S1AP_HANDOVER_CANCELLED, ue_context_p->pending_handover_target_enb_id);
         /**
          * An S1AP UE Context Release Command is sent. We wait for the response.
          * If a REMOVE_COMPLETE arrives on time, we will send the CANCEL-ACK back to the source MME and leave the UE context connected.
@@ -1910,7 +1912,7 @@ mme_app_handle_handover_cancel(
          */
         bdestroy(ue_context_p->pending_s1ap_source_to_target_handover_container);
         OAILOG_INFO(LOG_MME_APP, "Successfully sent UE-Context-Release-Cmd to the target eNB %d for the UE-ID " MME_UE_S1AP_ID_FMT " Waiting for the resource removal to complete to send the "
-            "CANCEL_ACK back. \n.", ue_context_p->pending_handover_enb_id, ue_context_p->mme_ue_s1ap_id);
+            "CANCEL_ACK back. \n.", ue_context_p->pending_handover_target_enb_id, ue_context_p->mme_ue_s1ap_id);
         OAILOG_FUNC_OUT (LOG_MME_APP);
       }else{
         /**
@@ -1918,7 +1920,7 @@ mme_app_handle_handover_cancel(
          * Sending a CANCEL_ACK back, release the resources at the target eNB and immediately perform an implicit detach.
          * This situation is too mixed up.
          */
-        mme_app_itti_ue_context_release (ue_context_p, S1AP_HANDOVER_CANCELLED);
+        mme_app_itti_ue_context_release (ue_context_p, S1AP_HANDOVER_CANCELLED, ue_context_p->pending_handover_target_enb_id);
 
         /** Send a HO-CANCEL-ACK to the source-MME. */
         mme_app_send_s1ap_handover_cancel_acknowledge(handover_cancel_pP->mme_ue_s1ap_id, handover_cancel_pP->enb_ue_s1ap_id, handover_cancel_pP->assoc_id);
@@ -1932,14 +1934,14 @@ mme_app_handle_handover_cancel(
         /** Remove the allocated resources in the ITTI message (bstrings). */
         OAILOG_ERROR(LOG_MME_APP, "Successfully sent UE-Context-Release-Cmd to the target eNB %d for the UE-ID " MME_UE_S1AP_ID_FMT "."
             "Afterwards immediately performing implicit detach, since 2 UE-References existed. HO-CANCEL after HO-REQ-ACK is not supported. \n",
-            ue_context_p->pending_handover_enb_id, ue_context_p->mme_ue_s1ap_id);
+            ue_context_p->pending_handover_target_enb_id, ue_context_p->mme_ue_s1ap_id);
         OAILOG_FUNC_OUT (LOG_MME_APP);
       }
     }else{
       OAILOG_ERROR(LOG_MME_APP, "No registered eNB found with target eNB-ID %d in target-TAI " TAI_FMT ". "
           "Cannot release resources in the target-ENB for UE-ID " MME_UE_S1AP_ID_FMT "."
           "Sending CANCEL-ACK back and leaving the UE as it is. \n",
-          ue_context_p->pending_handover_enb_id, ue_context_p->pending_handover_target_tai, ue_context_p->mme_ue_s1ap_id);
+          ue_context_p->pending_handover_target_enb_id, ue_context_p->pending_handover_target_tai, ue_context_p->mme_ue_s1ap_id);
       //todo: eventually perform an implicit detach!
       mme_app_send_s1ap_handover_cancel_acknowledge(handover_cancel_pP->mme_ue_s1ap_id, handover_cancel_pP->enb_ue_s1ap_id, handover_cancel_pP->assoc_id);
       OAILOG_FUNC_OUT (LOG_MME_APP);
@@ -1964,7 +1966,7 @@ mme_app_handle_handover_cancel(
       /** Remove the allocated resources in the ITTI message (bstrings). */
       OAILOG_ERROR(LOG_MME_APP, "Successfully sent UE-Context-Release-Cmd to the target eNB %d for the UE-ID " MME_UE_S1AP_ID_FMT "."
           "Afterwards immediately performing implicit detach, since 2 UE-Refernces existed. HO-CANCEL after HO-REQ-ACK is not supported. \n",
-          ue_context_p->pending_handover_enb_id, ue_context_p->mme_ue_s1ap_id);
+          ue_context_p->pending_handover_target_enb_id, ue_context_p->mme_ue_s1ap_id);
       OAILOG_FUNC_OUT (LOG_MME_APP);
     }else{
       /**
@@ -2205,7 +2207,7 @@ mme_app_handle_forward_relocation_request(
  DevAssert (mme_insert_ue_context (&mme_app_desc.mme_ue_contexts, ue_context_p) == 0);
  /** Set the target information as pending. */
  memcpy(&ue_context_p->pending_handover_target_tai, &target_tai, sizeof(tai_t));
- ue_context_p->pending_handover_enb_id = forward_relocation_request_pP->target_identification.target_id.macro_enb_id.enb_id;
+ ue_context_p->pending_handover_target_enb_id = forward_relocation_request_pP->target_identification.target_id.macro_enb_id.enb_id;
  /**
   * Leave the UE context in UNREGISTERED state.
   * No subscription information at this point.
@@ -2314,7 +2316,7 @@ int EmmCbS1apRegistered(mme_ue_s1ap_id_t ueId){
     ue_context_p->pending_s1u_downlink_bearer_ebi = 0;
 
     // Notify S1AP to send UE Context Release Command to eNB.
-    mme_app_itti_ue_context_release (ue_context_p, ue_context_p->ue_context_rel_cause);
+    mme_app_itti_ue_context_release (ue_context_p, ue_context_p->ue_context_rel_cause, ue_context_p->e_utran_cgi.cell_identity.enb_id);
   }else{
     /** No pending bearer deactivation. Check if there is a pending downlink bearer and send the DL-GTP Tunnel Information to the SAE-GW. */
     if(ue_context_p->pending_s1u_downlink_bearer.teid != (teid_t)0){
@@ -2407,6 +2409,7 @@ void mme_app_send_s1ap_handover_request(mme_ue_s1ap_id_t mme_ue_s1ap_id,
   memcpy(handover_request_p->nh, nh, AUTH_NH_SIZE);
   /** Set the Source-to-Target Transparent container from the pending information, which will be removed from the UE_Context. */
   handover_request_p->source_to_target_eutran_container = ue_context_p->pending_s1ap_source_to_target_handover_container;
+  ue_context_p->pending_s1ap_source_to_target_handover_container = NULL;
   itti_send_msg_to_task (TASK_S1AP, INSTANCE_DEFAULT, message_p);
   OAILOG_DEBUG (LOG_MME_APP, "Sending S1AP Handover Request message for UE "MME_UE_S1AP_ID_FMT ". \n.", mme_ue_s1ap_id);
   OAILOG_FUNC_OUT (LOG_MME_APP);
@@ -2813,7 +2816,7 @@ mme_app_handle_forward_access_context_notification(
   itti_send_msg_to_task (TASK_S10, INSTANCE_DEFAULT, message_p);
 
   /** Send a S1AP MME Status Transfer Message the target eNodeB. */
-  mme_app_send_s1ap_mme_status_transfer(ue_context_p->mme_ue_s1ap_id, ue_context_p->enb_ue_s1ap_id, ue_context_p->pending_handover_enb_id, forward_access_context_notification_pP->eutran_container.container_value);
+  mme_app_send_s1ap_mme_status_transfer(ue_context_p->mme_ue_s1ap_id, ue_context_p->enb_ue_s1ap_id, ue_context_p->pending_handover_target_enb_id, forward_access_context_notification_pP->eutran_container.container_value);
   /**
    * Todo: Lionel
    * Setting the ECM state with the first message to the ENB (HANDOVER_REQUEST - no enb_ue_s1ap_id exists yet then) or with this one?
@@ -2888,7 +2891,11 @@ mme_app_handle_handover_request_acknowledge(
  }
 
  /** Set the pending enb_id (main Ue_reference will be changed to target only with handover_notify). */
- ue_context_p->pending_handover_enb_ue_s1ap_id = handover_request_acknowledge_pP->enb_ue_s1ap_id;
+ if(ue_context_p->enb_ue_s1ap_id != 0)
+   ue_context_p->pending_handover_enb_ue_s1ap_id = handover_request_acknowledge_pP->enb_ue_s1ap_id;
+ else
+   ue_context_p->enb_ue_s1ap_id = handover_request_acknowledge_pP->enb_ue_s1ap_id;
+
  /**
   * Set the downlink bearers as pending.
   * Will be forwarded to the SAE-GW after the HANDOVER_NOTIFY/S10_FORWARD_RELOCATION_COMPLETE_ACKNOWLEDGE.
@@ -3092,23 +3099,39 @@ mme_app_handle_enb_status_transfer(
  /** Check if the destination eNodeB is attached at the same or another MME. */
  if (mme_app_check_ta_local(&ue_context_p->pending_handover_target_tai.plmn, ue_context_p->pending_handover_target_tai.tac)) {
    /** Check if the eNB with the given eNB-ID is served. */
-   if(s1ap_is_enb_id_in_list(ue_context_p->pending_handover_enb_id) != NULL){
-     OAILOG_DEBUG (LOG_MME_APP, "Target ENB_ID %d of target TAI " TAI_FMT " is served by current MME. \n", ue_context_p->pending_handover_enb_id, ue_context_p->pending_handover_target_tai);
+   if(s1ap_is_enb_id_in_list(ue_context_p->pending_handover_target_enb_id) != NULL){
+     OAILOG_DEBUG (LOG_MME_APP, "Target ENB_ID %d of target TAI " TAI_FMT " is served by current MME. \n", ue_context_p->pending_handover_target_enb_id, ue_context_p->pending_handover_target_tai);
      /**
       * Set the ENB of the pending target-eNB.
       * Even if the HANDOVER_NOTIFY messaged is received simultaneously, the pending enb_ue_s1ap_id field should stay.
       * We do not check that the target-eNB exists. We did not modify any contexts.
       */
-     mme_app_send_s1ap_mme_status_transfer(ue_context_p->mme_ue_s1ap_id, ue_context_p->pending_handover_enb_ue_s1ap_id, ue_context_p->e_utran_cgi.cell_identity.enb_id, s1ap_status_transfer_pP->bearerStatusTransferList_buffer);
+
+
+     /**
+      * Concatenate with header (todo: OAI: how to do this properly?)
+      */
+     char enbStatusPrefix[] = {0x00, 0x00, 0x00, 0x59, 0x40, 0x0b};
+     bstring enbStatusPrefixBstr = blk2bstr (enbStatusPrefix, 6);
+     bconcat(enbStatusPrefixBstr, s1ap_status_transfer_pP->bearerStatusTransferList_buffer);
+
+     /** Destroy the container. */
+     bdestroy(s1ap_status_transfer_pP->bearerStatusTransferList_buffer);
+
+     enb_ue_s1ap_id_t target_enb_ue_s1ap_id = ue_context_p->pending_handover_enb_ue_s1ap_id;
+     if(ue_context_p->pending_handover_enb_ue_s1ap_id == s1ap_status_transfer_pP->enb_ue_s1ap_id)
+       target_enb_ue_s1ap_id = ue_context_p->enb_ue_s1ap_id;
+
+     mme_app_send_s1ap_mme_status_transfer(ue_context_p->mme_ue_s1ap_id, target_enb_ue_s1ap_id, ue_context_p->pending_handover_target_enb_id /*e_utran_cgi.cell_identity.enb_id*/, enbStatusPrefixBstr);
      OAILOG_FUNC_OUT (LOG_MME_APP);
    }else{
      /** The target eNB-ID is not served by this MME. */
-     OAILOG_DEBUG (LOG_MME_APP, "Target ENB_ID %d of target TAI " TAI_FMT " is NOT served by current MME. \n", ue_context_p->pending_handover_enb_id, ue_context_p->pending_handover_target_tai);
+     OAILOG_DEBUG (LOG_MME_APP, "Target ENB_ID %d of target TAI " TAI_FMT " is NOT served by current MME. \n", ue_context_p->pending_handover_target_enb_id, ue_context_p->pending_handover_target_tai);
      bdestroy(s1ap_status_transfer_pP->bearerStatusTransferList_buffer);
      OAILOG_FUNC_OUT (LOG_MME_APP);
    }
  }
- OAILOG_DEBUG (LOG_MME_APP, "Target ENB_ID %d of target TAI " TAI_FMT " is served by neighboring MME. \n", ue_context_p->pending_handover_enb_id, ue_context_p->pending_handover_target_tai);
+ OAILOG_DEBUG (LOG_MME_APP, "Target ENB_ID %d of target TAI " TAI_FMT " is served by neighboring MME. \n", ue_context_p->pending_handover_target_enb_id, ue_context_p->pending_handover_target_tai);
  /* UE is DEREGISTERED. Assuming that it came from S10 inter-MME handover. Forwarding the eNB status information to the target-MME via Forward Access Context Notification. */
  message_p = itti_alloc_new_message (TASK_MME_APP, S10_FORWARD_ACCESS_CONTEXT_NOTIFICATION);
  DevAssert (message_p != NULL);
@@ -3147,7 +3170,7 @@ mme_app_handle_s1ap_handover_notify(
  enb_s1ap_id_key_t                       enb_s1ap_id_key = INVALID_ENB_UE_S1AP_ID_KEY;
 
  OAILOG_FUNC_IN (LOG_MME_APP);
- OAILOG_DEBUG (LOG_MME_APP, "Received S1AP_HANDOVER_NOTIFY from S1AP. \n");
+ OAILOG_DEBUG (LOG_MME_APP, "Received S1AP_HANDOVER_NOTIFY from S1AP SCTP ASSOC_ID %d. \n", handover_notify_pP->assoc_id);
 
  /** Check that the UE does exist. */
  ue_context_p = mme_ue_context_exists_mme_ue_s1ap_id(&mme_app_desc.mme_ue_contexts, handover_notify_pP->mme_ue_s1ap_id);
@@ -3166,7 +3189,6 @@ mme_app_handle_s1ap_handover_notify(
 
  /** Set the values to the old source enb as pending (enb_id, enb_ue_s1ap_id). */
  if(ue_context_p->mm_state == UE_REGISTERED && (ue_context_p->e_utran_cgi.cell_identity.enb_id != 0)){
-   ue_context_p->pending_handover_enb_id = ue_context_p->e_utran_cgi.cell_identity.enb_id;
    ue_context_p->pending_handover_enb_ue_s1ap_id = ue_context_p->enb_ue_s1ap_id;
  }
  /**
@@ -3191,6 +3213,8 @@ mme_app_handle_s1ap_handover_notify(
      ue_context_p->mme_s11_teid,
      ue_context_p->local_mme_s10_teid,
      &ue_context_p->guti);
+
+ OAILOG_ERROR(LOG_MME_APP, "Setting UE with mmeS1apUeId %d to enbUeS1apId %u @handover_notify. \n", ue_context_p->mme_ue_s1ap_id, ue_context_p->enb_ue_s1ap_id);
 
  /**
   * This will overwrite the association towards the old eNB if single MME S1AP handover.
@@ -3457,7 +3481,7 @@ mme_app_handle_release_access_bearers_resp (
   update_mme_app_stats_s1u_bearer_sub();
 
   // Send UE Context Release Command
-  mme_app_itti_ue_context_release(ue_context_p, ue_context_p->ue_context_rel_cause);
+  mme_app_itti_ue_context_release(ue_context_p, ue_context_p->ue_context_rel_cause, ue_context_p->e_utran_cgi.cell_identity.enb_id);
   if (ue_context_p->ue_context_rel_cause == S1AP_SCTP_SHUTDOWN_OR_RESET) {
     // Just cleanup the MME APP state associated with s1.
     mme_ue_context_update_ue_sig_connection_state (&mme_app_desc.mme_ue_contexts, ue_context_p, ECM_IDLE);
@@ -3523,10 +3547,25 @@ mme_app_handle_mme_mobility_completion_timer_expiry (struct ue_context_s *ue_con
     MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME, MSC_NAS_MME, NULL, 0, "0 NAS_IMPLICIT_DETACH_UE_IND_MESSAGE");
     itti_send_msg_to_task (TASK_NAS_MME, INSTANCE_DEFAULT, message_p);
   }else{
-    OAILOG_INFO (LOG_MME_APP, "Perform S1AP UE context release, since no CLR flag @ completion of MME_MOBILITY timer for UE id  %d (performing UE context release). \n", ue_context_p->mme_ue_s1ap_id);
-    // todo: check that the UE is registered!
-    // todo: perform UE context release towards the source enb!
+    /** Check if there is a pending source enb existing, if so, release the resources towards it. */
+    OAILOG_INFO (LOG_MME_APP, "Perform S1AP UE context release, since no CLR flag @ completion of MME_MOBILITY timer for UE id  %d (performing UE context release). \n",
+        ue_context_p->pending_handover_source_enb_id, ue_context_p->e_utran_cgi.cell_identity.enb_id, ue_context_p->mme_ue_s1ap_id);
+    if(ue_context_p->pending_handover_source_enb_id != (uint32_t)0 && ue_context_p->pending_handover_source_enb_id != ue_context_p->e_utran_cgi.cell_identity.enb_id){
+      OAILOG_INFO (LOG_MME_APP, "Pending source enb_Id %d is present and not equal to current enb_id %d for enbUeS1apID id " ENB_UE_S1AP_ID_FMT ". \n", ue_context_p->pending_handover_source_enb_id, ue_context_p->e_utran_cgi.cell_identity.enb_id, ue_context_p->pending_handover_enb_ue_s1ap_id);
+      /*
+       * Updating statistics
+       */
+      update_mme_app_stats_s1u_bearer_sub();
 
+      // Send UE Context Release Command
+      enb_ue_s1ap_id_t new_enb_ue_s1ap_id = ue_context_p->enb_ue_s1ap_id;
+      ue_context_p->enb_ue_s1ap_id = ue_context_p->pending_handover_enb_ue_s1ap_id;
+      mme_app_itti_ue_context_release(ue_context_p, ue_context_p->ue_context_rel_cause, ue_context_p->pending_handover_source_enb_id);
+      ue_context_p->enb_ue_s1ap_id = new_enb_ue_s1ap_id;
+    }else{
+      OAILOG_INFO (LOG_MME_APP, "Pending source enb_Id %d is not present or equal to current enb_id %d for UE id " ENB_UE_S1AP_ID_FMT ". \n",
+          ue_context_p->pending_handover_source_enb_id, ue_context_p->e_utran_cgi.cell_identity.enb_id, ue_context_p->pending_handover_enb_ue_s1ap_id);
+    }
   }
   OAILOG_FUNC_OUT (LOG_MME_APP);
 }
@@ -3719,7 +3758,7 @@ static void notify_s1ap_new_ue_mme_s1ap_id_association (struct ue_context_s *ue_
   notification_p->sctp_assoc_id  = ue_context_p->sctp_assoc_id_key;
 
   itti_send_msg_to_task (TASK_S1AP, INSTANCE_DEFAULT, message_p);
-  OAILOG_DEBUG (LOG_MME_APP, " Sent MME_APP_S1AP_MME_UE_ID_NOTIFICATION to S1AP for UE Id %u\n", notification_p->mme_ue_s1ap_id);
+  OAILOG_DEBUG (LOG_MME_APP, " Sent MME_APP_S1AP_MME_UE_ID_NOTIFICATION to S1AP for UE Id %u and enbUeS1apId %u\n", notification_p->mme_ue_s1ap_id, notification_p->enb_ue_s1ap_id);
   OAILOG_FUNC_OUT (LOG_MME_APP);
 }
 
