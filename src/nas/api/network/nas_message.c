@@ -300,9 +300,6 @@ int nas_message_decrypt (
     /*
      * Compute the NAS message authentication code
      */
-    if(emm_security_context->ul_count.seq_num == 3){
-      OAILOG_DEBUG (LOG_NAS, "TAU_COMPLETE RECEIVED\n");
-    }
     uint32_t                                mac = _nas_message_get_mac (inbuf + offset,
                                                                         length - offset,
                                                                         SECU_DIRECTION_UPLINK,

@@ -3653,12 +3653,6 @@ static bool mme_app_construct_guti(const plmn_t * const plmn_p, const as_stmsi_t
                 "Construct GUTI using S-TMSI received form UE and MME Group Id and PLMN id from MME Conf: %u, %u \n",
                 s_tmsi_p->m_tmsi, s_tmsi_p->mme_code);
   mme_config_read_lock (&mme_config);
-
-  if(s_tmsi_p->mme_code == (uint8_t)2){
-    OAILOG_DEBUG (LOG_MME_APP, "MME_CODE 2 GUTI RECEIVED. \n");
-  }else{
-    OAILOG_DEBUG (LOG_MME_APP, "RECEIVED MME_CODE %d. \n", s_tmsi_p->mme_code);
-  }
   /*
    * Check number of MMEs in the pool.
    * At present it is assumed that one MME is supported in MME pool but in case there are more
