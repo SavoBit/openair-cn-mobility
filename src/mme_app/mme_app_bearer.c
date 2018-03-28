@@ -848,13 +848,22 @@ mme_app_handle_initial_ue_message (
           initial_pP->mme_ue_s1ap_id = ue_nas_ctx->ue_id;
           if (ue_context_p->enb_s1ap_id_key != INVALID_ENB_UE_S1AP_ID_KEY)
           {
+
+            /** This only removed the MME_UE_S1AP_ID from enb_s1ap_id_key, it won't remove the UE_REFERENCE itself. */
+            ue_description_t * old_ue_reference = s1ap_is_enb_ue_s1ap_id_in_list_per_enb(ue_context_p->enb_ue_s1ap_id, ue_context_p->e_utran_cgi.cell_identity.enb_id);
+            if(old_ue_reference){
+              OAILOG_ERROR (LOG_MME_APP, "MME_APP_INITAIL_UE_MESSAGE. ERROR***** Found an old UE_REFERENCE with enbUeS1apId " ENB_UE_S1AP_ID_FMT " and enbId %d.\n" , old_ue_reference->enb_ue_s1ap_id,
+                  ue_context_p->e_utran_cgi.cell_identity.enb_id);
+              s1ap_remove_ue(old_ue_reference);
+              OAILOG_WARNING (LOG_MME_APP, "MME_APP_INITAIL_UE_MESSAGE. ERROR***** Removed old UE_REFERENCE with enbUeS1apId " ENB_UE_S1AP_ID_FMT " and enbId %d.\n" , old_ue_reference->enb_ue_s1ap_id,
+                  ue_context_p->e_utran_cgi.cell_identity.enb_id);
+            }
             /*
              * Ideally this should never happen. When UE move to IDLE this key is set to INVALID.
              * Note - This can happen if eNB detects RLF late and by that time UE sends Initial NAS message via new RRC
              * connection.
              * However if this key is valid, remove the key from the hashtable.
              */
-
             hashtable_rc_t result_deletion = hashtable_ts_remove (mme_app_desc.mme_ue_contexts.enb_ue_s1ap_id_ue_context_htbl, (const hash_key_t)ue_context_p->enb_s1ap_id_key, (void **)&id);
             OAILOG_ERROR (LOG_MME_APP, "MME_APP_INITAIL_UE_MESSAGE. ERROR***** enb_s1ap_id_key %ld has valid value %ld. Result of deletion %d.\n" ,
                 ue_context_p->enb_s1ap_id_key,
