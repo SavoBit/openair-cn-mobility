@@ -1417,6 +1417,7 @@ _emm_tracking_area_update_accept (
       OAILOG_INFO (LOG_NAS_EMM, "ue_id=" MME_UE_S1AP_ID_FMT " EMM-PROC  - UE with IMSI " IMSI_64_FMT " has already a valid GUTI " GUTI_FMT ". "
           "Not including new GUTI in Tracking Area Update Accept message\n", emm_ctx->_imsi, GUTI_ARG(&emm_ctx->_guti));
       emm_sap.u.emm_as.u.data.new_guti  = NULL;
+      emm_sap.u.emm_as.u.data.eps_id.guti = &emm_ctx->_guti;
     }
     //----------------------------------------
     REQUIREMENT_3GPP_24_301(R10_5_5_1_2_4__14);
