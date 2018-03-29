@@ -534,6 +534,8 @@ extern                                  "C" {
   NW_IN NwGtpv2cUlpApiT * pUlpReq) {
     NwRcT                                   rc = NW_FAILURE;
     NwGtpv2cTrxnT                          *pTrxn = NULL;
+    NwGtpv2cTunnelT                        *pLocalTunnel = NULL,
+                                            keyTunnel = {0};
 
     OAILOG_FUNC_IN (LOG_GTPV2C);
     /*
@@ -544,8 +546,18 @@ extern                                  "C" {
     // For MME this is the only place to create S11 tunnel!
     if (pTrxn) {
       if (!pUlpReq->apiInfo.initialReqInfo.hTunnel) {
-        rc = nwGtpv2cCreateLocalTunnel (thiz, pUlpReq->apiInfo.initialReqInfo.teidLocal, pUlpReq->apiInfo.initialReqInfo.peerIp, pUlpReq->apiInfo.initialReqInfo.hUlpTunnel, &pUlpReq->apiInfo.initialReqInfo.hTunnel);
-        NW_ASSERT (NW_OK == rc);
+        /** Check if a tunnel already exists depending on the flag. */
+        keyTunnel.teid = pUlpReq->apiInfo.initialReqInfo.teidLocal;
+        keyTunnel.ipv4AddrRemote = pUlpReq->apiInfo.initialReqInfo.peerIp;
+        pLocalTunnel = RB_FIND (NwGtpv2cTunnelMap, &(thiz->tunnelMap), &keyTunnel);
+
+        if (!pLocalTunnel) {
+          OAILOG_WARNING (LOG_GTPV2C,  "Request message received on non-existent teid 0x%x from peer 0x%x received! Discarding.\n", ntohl (pUlpReq->apiInfo.initialReqInfo.teidLocal), htonl (pUlpReq->apiInfo.initialReqInfo.peerIp));
+          rc = nwGtpv2cCreateLocalTunnel (thiz, pUlpReq->apiInfo.initialReqInfo.teidLocal, pUlpReq->apiInfo.initialReqInfo.peerIp, pUlpReq->apiInfo.initialReqInfo.hUlpTunnel, &pUlpReq->apiInfo.initialReqInfo.hTunnel);
+          NW_ASSERT (NW_OK == rc);
+        }else{
+          pUlpReq->apiInfo.initialReqInfo.hTunnel = (NwGtpv2cTunnelHandleT) pLocalTunnel;
+        }
       }
 
       pTrxn->pMsg = (NwGtpv2cMsgT *) pUlpReq->hMsg;

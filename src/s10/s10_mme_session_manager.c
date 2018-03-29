@@ -82,7 +82,6 @@ s10_mme_forward_relocation_request (
   /*
    * Putting the information Elements
    */
-
   /** IMSI. */
   s10_imsi_ie_set (&(ulp_req.hMsg), &req_p->imsi);
   /** F-Cause. */
@@ -408,7 +407,7 @@ s10_mme_handle_forward_relocation_response(
   /**
    * F-Container.
    */
-  rc = nwGtpv2cMsgParserAddIe (pMsgParser, NW_GTPV2C_IE_F_CONTAINER, NW_GTPV2C_IE_INSTANCE_ZERO, NW_GTPV2C_IE_PRESENCE_MANDATORY,
+  rc = nwGtpv2cMsgParserAddIe (pMsgParser, NW_GTPV2C_IE_F_CONTAINER, NW_GTPV2C_IE_INSTANCE_ZERO, NW_GTPV2C_IE_PRESENCE_CONDITIONAL,
       s10_f_container_ie_get, &resp_p->eutran_container);
   DevAssert (NW_OK == rc);
 
@@ -1201,14 +1200,14 @@ s10_mme_handle_context_response(
    * PDN Connection IE : Several can exist
    * todo: multiple pdn connection IEs can exist with instance 0.
    */
-  rc = nwGtpv2cMsgParserAddIe (pMsgParser, NW_GTPV2C_IE_PDN_CONNECTION, NW_GTPV2C_IE_INSTANCE_ZERO, NW_GTPV2C_IE_PRESENCE_MANDATORY,
+  rc = nwGtpv2cMsgParserAddIe (pMsgParser, NW_GTPV2C_IE_PDN_CONNECTION, NW_GTPV2C_IE_INSTANCE_ZERO, NW_GTPV2C_IE_PRESENCE_CONDITIONAL,
       s10_pdn_connection_ie_get, &resp_p->pdn_connections);
   DevAssert (NW_OK == rc);
 
    /*
     * MME UE MM Context.
     */
-   rc = nwGtpv2cMsgParserAddIe (pMsgParser, NW_GTPV2C_IE_MM_EPS_CONTEXT, NW_GTPV2C_IE_INSTANCE_ZERO, NW_GTPV2C_IE_PRESENCE_MANDATORY,
+   rc = nwGtpv2cMsgParserAddIe (pMsgParser, NW_GTPV2C_IE_MM_EPS_CONTEXT, NW_GTPV2C_IE_INSTANCE_ZERO, NW_GTPV2C_IE_PRESENCE_CONDITIONAL,
         s10_mm_ue_context_ie_get, &resp_p->ue_eps_mm_context);
    DevAssert (NW_OK == rc);
 

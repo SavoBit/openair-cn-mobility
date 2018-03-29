@@ -69,7 +69,7 @@ static void mme_app_send_s1ap_handover_request(mme_ue_s1ap_id_t mme_ue_s1ap_id, 
 
 static void mme_app_send_s1ap_handover_command(mme_ue_s1ap_id_t mme_ue_s1ap_id, enb_ue_s1ap_id_t enb_ue_s1ap_id, bstring target_to_source_cont);
 
-static void mme_app_send_s10_forward_relocation_response_err(teid_t mme_source_s10_teid, uint32_t mme_source_ipv4_address, MMECause_t mmeCause);
+static void mme_app_send_s10_forward_relocation_response_err(teid_t mme_source_s10_teid, uint32_t mme_source_ipv4_address, void * trx, MMECause_t mmeCause);
 
 static void mme_app_send_s1ap_mme_status_transfer(mme_ue_s1ap_id_t mme_ue_s1ap_id, enb_ue_s1ap_id_t enb_ue_s1ap_id, uint32_t enb_id, bstring source_to_target_cont);
 
@@ -375,6 +375,7 @@ mme_app_send_s11_create_session_req_from_handover_tau (
         if (ue_context_p->pending_pdn_connectivity_req_apn) {
           nas_pdn_connectivity_rsp->apn = bstrcpy (ue_context_p->pending_pdn_connectivity_req_apn);
           bdestroy(ue_context_p->pending_pdn_connectivity_req_apn);
+          ue_context_p->pending_pdn_connectivity_req_apn = NULL;
           OAILOG_DEBUG (LOG_MME_APP, "SET APN FROM NAS PDN CONNECTIVITY CREATE: %s\n", bdata(nas_pdn_connectivity_rsp->apn));
         }
         //else {
@@ -669,6 +670,7 @@ mme_app_handle_nas_pdn_connectivity_req (
   // copy
   if (ue_context_p->pending_pdn_connectivity_req_apn) {
     bdestroy (ue_context_p->pending_pdn_connectivity_req_apn);
+    ue_context_p->pending_pdn_connectivity_req_apn = NULL;
   }
   ue_context_p->pending_pdn_connectivity_req_apn =  nas_pdn_connectivity_req_pP->apn;
   nas_pdn_connectivity_req_pP->apn = NULL;
@@ -1187,6 +1189,7 @@ mme_app_handle_create_sess_resp (
       if (ue_context_p->pending_pdn_connectivity_req_apn) {
         nas_pdn_connectivity_rsp->apn = bstrcpy (ue_context_p->pending_pdn_connectivity_req_apn);
         bdestroy(ue_context_p->pending_pdn_connectivity_req_apn);
+        ue_context_p->pending_pdn_connectivity_req_apn = NULL;
         OAILOG_DEBUG (LOG_MME_APP, "SET APN FROM NAS PDN CONNECTIVITY CREATE: %s\n", bdata(nas_pdn_connectivity_rsp->apn));
       }
       //else {
@@ -1754,27 +1757,38 @@ mme_app_handle_handover_required(
   forward_relocation_request_p->imsi.length = strlen ((const char *)forward_relocation_request_p->imsi.digit);
   // message content was set to 0
   /** Set the Source MME_S10_FTEID the same as in S11. */
-  OAI_GCC_DIAG_OFF(pointer-to-int-cast);
-  forward_relocation_request_p->s10_source_mme_teid.teid = (teid_t) ue_context_p;
-  OAI_GCC_DIAG_ON(pointer-to-int-cast);
-  forward_relocation_request_p->s10_source_mme_teid.interface_type = S10_MME_GTP_C;
-  mme_config_read_lock (&mme_config);
-  forward_relocation_request_p->s10_source_mme_teid.ipv4_address = mme_config.ipv4.s10;
-  mme_config_unlock (&mme_config);
-  forward_relocation_request_p->s10_source_mme_teid.ipv4 = 1;
-
-  /**
-   * Update the local_s10_key.
-   * Not setting the key directly in the  ue_context structure. Only over this function!
-   */
-  mme_ue_context_update_coll_keys (&mme_app_desc.mme_ue_contexts, ue_context_p,
-      ue_context_p->enb_s1ap_id_key,
-      ue_context_p->mme_ue_s1ap_id,
-      ue_context_p->imsi,
-      ue_context_p->mme_s11_teid,       // mme_s11_teid is new
-      forward_relocation_request_p->s10_source_mme_teid.teid,       // set with forward_relocation_request!
-      &ue_context_p->guti);
-
+  if(!ue_context_p->local_mme_s10_teid){
+    OAI_GCC_DIAG_OFF(pointer-to-int-cast);
+    forward_relocation_request_p->s10_source_mme_teid.teid = (teid_t) ue_context_p;
+    OAI_GCC_DIAG_ON(pointer-to-int-cast);
+    forward_relocation_request_p->s10_source_mme_teid.interface_type = S10_MME_GTP_C;
+    mme_config_read_lock (&mme_config);
+    forward_relocation_request_p->s10_source_mme_teid.ipv4_address = mme_config.ipv4.s10;
+    mme_config_unlock (&mme_config);
+    forward_relocation_request_p->s10_source_mme_teid.ipv4 = 1;
+    /**
+     * Update the local_s10_key.
+     * Not setting the key directly in the  ue_context structure. Only over this function!
+     */
+    mme_ue_context_update_coll_keys (&mme_app_desc.mme_ue_contexts, ue_context_p,
+        ue_context_p->enb_s1ap_id_key,
+        ue_context_p->mme_ue_s1ap_id,
+        ue_context_p->imsi,
+        ue_context_p->mme_s11_teid,       // mme_s11_teid is new
+        forward_relocation_request_p->s10_source_mme_teid.teid,       // set with forward_relocation_request!
+        &ue_context_p->guti);
+  }else{
+    OAILOG_INFO (LOG_MME_APP, "A S10 Local TEID " TEID_FMT " already exists. Not reallocating for UE: %08x %d(dec)\n",
+        ue_context_p->local_mme_s10_teid, handover_required_pP->mme_ue_s1ap_id, handover_required_pP->mme_ue_s1ap_id);
+    OAI_GCC_DIAG_OFF(pointer-to-int-cast);
+    forward_relocation_request_p->s10_source_mme_teid.teid = ue_context_p->local_mme_s10_teid;
+    OAI_GCC_DIAG_ON(pointer-to-int-cast);
+    forward_relocation_request_p->s10_source_mme_teid.interface_type = S10_MME_GTP_C;
+    mme_config_read_lock (&mme_config);
+    forward_relocation_request_p->s10_source_mme_teid.ipv4_address = mme_config.ipv4.s10;
+    mme_config_unlock (&mme_config);
+    forward_relocation_request_p->s10_source_mme_teid.ipv4 = 1;
+  }
   /** Set the SGW_S11_FTEID the same as in S11. */
   OAI_GCC_DIAG_OFF(pointer-to-int-cast);
   forward_relocation_request_p->s11_sgw_teid.teid = ue_context_p->sgw_s11_teid;
@@ -2088,7 +2102,7 @@ mme_app_handle_forward_relocation_request(
  if (ue_context_p != NULL) {
    OAILOG_ERROR(LOG_MME_APP, "An UE MME context for the UE with IMSI " IMSI_64_FMT " already exists. \n", imsi);
    MSC_LOG_EVENT (MSC_MMEAPP_MME, "S10_FORWARD_RELOCATION_REQUEST. Already existing UE " IMSI_64_FMT, imsi);
-   mme_app_send_s10_forward_relocation_response_err(forward_relocation_request_pP->s10_source_mme_teid.teid, forward_relocation_request_pP->s10_source_mme_teid.ipv4, RELOCATION_FAILURE);
+   mme_app_send_s10_forward_relocation_response_err(forward_relocation_request_pP->s10_source_mme_teid.teid, forward_relocation_request_pP->s10_source_mme_teid.ipv4, forward_relocation_request_pP->trxn, RELOCATION_FAILURE);
    // todo: check the specification, if an ongoing handover procedure is there, aborting the current one and continuing with the new one?
    bdestroy(forward_relocation_request_pP->eutran_container.container_value);
    ue_context_p->ue_context_rel_cause = S1AP_IMPLICIT_CONTEXT_RELEASE;
@@ -2106,7 +2120,7 @@ mme_app_handle_forward_relocation_request(
  emm_data_context_t *ue_nas_ctx = emm_data_context_get_by_imsi (&_emm_data, &imsi);
  if (ue_nas_ctx) {
    OAILOG_ERROR(LOG_MME_APP, "A NAS EMM context already exists for this IMSI "IMSI_64_FMT " already exists. \n", imsi);
-   mme_app_send_s10_forward_relocation_response_err(forward_relocation_request_pP->s10_source_mme_teid.teid, forward_relocation_request_pP->s10_source_mme_teid.ipv4, RELOCATION_FAILURE);
+   mme_app_send_s10_forward_relocation_response_err(forward_relocation_request_pP->s10_source_mme_teid.teid, forward_relocation_request_pP->s10_source_mme_teid.ipv4, forward_relocation_request_pP->trxn, RELOCATION_FAILURE);
    bdestroy(forward_relocation_request_pP->eutran_container.container_value);
    /** UE has illegal state. Perform an implicit detach? Or aborting current handover procedure and continuing with handover? . */
    OAILOG_ERROR(LOG_MME_APP, "UE existing in the MME is requested for handover with IMSI " IMSI_64_FMT " and mmeUeS1apId " MME_UE_S1AP_ID_FMT ". \n", ue_nas_ctx->_imsi64, ue_nas_ctx->ue_id);
@@ -2128,7 +2142,7 @@ mme_app_handle_forward_relocation_request(
     * Abort the Context Response procedure since the given IP is not supported.
     * No changes in the source MME side should occur.
     */
-   mme_app_send_s10_forward_relocation_response_err(forward_relocation_request_pP->s10_source_mme_teid.teid, forward_relocation_request_pP->s10_source_mme_teid.ipv4, RELOCATION_FAILURE);
+   mme_app_send_s10_forward_relocation_response_err(forward_relocation_request_pP->s10_source_mme_teid.teid, forward_relocation_request_pP->s10_source_mme_teid.ipv4, forward_relocation_request_pP->trxn, RELOCATION_FAILURE);
    bdestroy(forward_relocation_request_pP->eutran_container.container_value);
    OAILOG_FUNC_OUT (LOG_MME_APP);
  }
@@ -2155,14 +2169,14 @@ mme_app_handle_forward_relocation_request(
    }else{
      /** The target PLMN and TAC are not served by this MME. */
      OAILOG_ERROR(LOG_MME_APP, "Target ENB_ID %u is NOT served by the current MME. \n", forward_relocation_request_pP->target_identification.target_id.macro_enb_id.enb_id);
-     mme_app_send_s10_forward_relocation_response_err(forward_relocation_request_pP->s10_source_mme_teid.teid, forward_relocation_request_pP->s10_source_mme_teid.ipv4, RELOCATION_FAILURE);
+     mme_app_send_s10_forward_relocation_response_err(forward_relocation_request_pP->s10_source_mme_teid.teid, forward_relocation_request_pP->s10_source_mme_teid.ipv4, forward_relocation_request_pP->trxn, RELOCATION_FAILURE);
      bdestroy(forward_relocation_request_pP->eutran_container.container_value);
      OAILOG_FUNC_OUT (LOG_MME_APP);
    }
  }else{
    /** The target PLMN and TAC are not served by this MME. */
    OAILOG_ERROR(LOG_MME_APP, "TARGET TAC " TAC_FMT " is NOT served by current MME. \n", forward_relocation_request_pP->target_identification.target_id.macro_enb_id.tac);
-   mme_app_send_s10_forward_relocation_response_err(forward_relocation_request_pP->s10_source_mme_teid.teid, forward_relocation_request_pP->s10_source_mme_teid.ipv4, RELOCATION_FAILURE);
+   mme_app_send_s10_forward_relocation_response_err(forward_relocation_request_pP->s10_source_mme_teid.teid, forward_relocation_request_pP->s10_source_mme_teid.ipv4, forward_relocation_request_pP->trxn, RELOCATION_FAILURE);
    bdestroy(forward_relocation_request_pP->eutran_container.container_value);
    /** No UE context or tunnel endpoint is allocated yet. */
    OAILOG_FUNC_OUT (LOG_MME_APP);
@@ -2172,7 +2186,7 @@ mme_app_handle_forward_relocation_request(
  OAILOG_DEBUG (LOG_MME_APP, "Creating a new UE context for the UE with incoming S1AP Handover via S10 for IMSI " IMSI_64_FMT ". \n", imsi);
  if ((ue_context_p = mme_create_new_ue_context ()) == NULL) {
    /** Send a negative response before crashing. */
-   mme_app_send_s10_forward_relocation_response_err(forward_relocation_request_pP->s10_source_mme_teid.teid, forward_relocation_request_pP->s10_source_mme_teid.ipv4, SYSTEM_FAILURE);
+   mme_app_send_s10_forward_relocation_response_err(forward_relocation_request_pP->s10_source_mme_teid.teid, forward_relocation_request_pP->s10_source_mme_teid.ipv4, forward_relocation_request_pP->trxn, SYSTEM_FAILURE);
    bdestroy(forward_relocation_request_pP->eutran_container.container_value);
    /**
     * Error during UE context malloc
@@ -2198,7 +2212,7 @@ mme_app_handle_forward_relocation_request(
    /** Deallocate the ue context and remove from MME_APP map. */
    mme_remove_ue_context (&mme_app_desc.mme_ue_contexts, ue_context_p);
    /** Send back failure. */
-   mme_app_send_s10_forward_relocation_response_err(forward_relocation_request_pP->s10_source_mme_teid.teid, forward_relocation_request_pP->s10_source_mme_teid.ipv4, RELOCATION_FAILURE);
+   mme_app_send_s10_forward_relocation_response_err(forward_relocation_request_pP->s10_source_mme_teid.teid, forward_relocation_request_pP->s10_source_mme_teid.ipv4, forward_relocation_request_pP->trxn, RELOCATION_FAILURE);
    bdestroy(forward_relocation_request_pP->eutran_container.container_value);
    OAILOG_FUNC_OUT (LOG_MME_APP);
  }
@@ -2242,7 +2256,7 @@ mme_app_handle_forward_relocation_request(
    /** Deallocate the ue context and remove from MME_APP map. */
    mme_remove_ue_context (&mme_app_desc.mme_ue_contexts, ue_context_p);
    /** Send back failure. */
-   mme_app_send_s10_forward_relocation_response_err(forward_relocation_request_pP->s10_source_mme_teid.teid, forward_relocation_request_pP->s10_source_mme_teid.ipv4, RELOCATION_FAILURE);
+   mme_app_send_s10_forward_relocation_response_err(forward_relocation_request_pP->s10_source_mme_teid.teid, forward_relocation_request_pP->s10_source_mme_teid.ipv4, forward_relocation_request_pP->trxn, RELOCATION_FAILURE);
    bdestroy(forward_relocation_request_pP->eutran_container.container_value);
    OAILOG_FUNC_OUT (LOG_MME_APP);
  }
@@ -2619,7 +2633,7 @@ void mme_app_send_s1ap_mme_status_transfer(mme_ue_s1ap_id_t mme_ue_s1ap_id, enb_
  * Parameter is the TEID & IP of the SOURCE-MME.
  */
 static
-void mme_app_send_s10_forward_relocation_response_err(teid_t mme_source_s10_teid, uint32_t mme_source_ipv4_address, MMECause_t mmeCause){
+void mme_app_send_s10_forward_relocation_response_err(teid_t mme_source_s10_teid, uint32_t mme_source_ipv4_address, void *trxn,  MMECause_t mmeCause){
   OAILOG_FUNC_IN (LOG_MME_APP);
 
   /** Send a Forward Relocation RESPONSE with error cause: RELOCATION_FAILURE. */
@@ -2637,8 +2651,9 @@ void mme_app_send_s10_forward_relocation_response_err(teid_t mme_source_s10_teid
   /** Set the IPv4 address of the source MME. */
   forward_relocation_response_p->peer_ip = mme_source_ipv4_address;
   forward_relocation_response_p->cause = mmeCause;
+  forward_relocation_response_p->trxn  = trxn;
 
-  MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME, MSC_S10_MME, NULL, 0, "MME_APP Sending S10 FORWARD_RELOCATION_RESPONSE_ERR");
+  MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME, MSC_S10_MME, NULL, 0, "MME_APP Sending S10 FORWARD_RELOCATION_RESPONSE_ERR to source TEID " TEID_FMT ". \n", mme_source_s10_teid);
 
   /** Sending a message to S10. */
   itti_send_msg_to_task (TASK_S10, INSTANCE_DEFAULT, message_p);
