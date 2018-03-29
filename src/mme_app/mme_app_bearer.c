@@ -2545,20 +2545,12 @@ void mme_app_send_s1ap_path_switch_request_acknowledge(mme_ue_s1ap_id_t mme_ue_s
   bearer_id = ue_context_p->default_bearer_id;
   current_bearer_p =  mme_app_is_bearer_context_in_list(ue_context_p->mme_ue_s1ap_id, bearer_id);
   path_switch_req_ack_p->eps_bearer_id = bearer_id;
-  path_switch_req_ack_p->bearer_s1u_sgw_fteid.interface_type = S1_U_SGW_GTP_U;
-  path_switch_req_ack_p->bearer_s1u_sgw_fteid.teid = current_bearer_p->s_gw_teid;
 
-  if ((current_bearer_p->s_gw_address.pdn_type == IPv4)
-      || (current_bearer_p->s_gw_address.pdn_type == IPv4_AND_v6)) {
-    path_switch_req_ack_p->bearer_s1u_sgw_fteid.ipv4 = 1;
-    memcpy (&path_switch_req_ack_p->bearer_s1u_sgw_fteid.ipv4_address, current_bearer_p->s_gw_address.address.ipv4_address, 4);
-   }
+  /** Set all active bearers to be switched. */
+  path_switch_req_ack_p->bearer_ctx_to_be_switched_list.n_bearers   = ue_context_p->nb_ue_bearer_ctxs;
+  path_switch_req_ack_p->bearer_ctx_to_be_switched_list.bearer_ctxs = (void*)&ue_context_p->bearer_ctxs;
 
-  if ((current_bearer_p->s_gw_address.pdn_type == IPv6)
-      || (current_bearer_p->s_gw_address.pdn_type == IPv4_AND_v6)) {
-    path_switch_req_ack_p->bearer_s1u_sgw_fteid.ipv6 = 1;
-    memcpy (path_switch_req_ack_p->bearer_s1u_sgw_fteid.ipv6_address, current_bearer_p->s_gw_address.address.ipv6_address, 16);
-  }
+  hash_table_ts_t * bearer_contexts1 = (hash_table_ts_t*)path_switch_req_ack_p->bearer_ctx_to_be_switched_list.bearer_ctxs;
 
   uint16_t encryption_algorithm_capabilities = 0;
   uint16_t integrity_algorithm_capabilities = 0;
@@ -2573,9 +2565,8 @@ void mme_app_send_s1ap_path_switch_request_acknowledge(mme_ue_s1ap_id_t mme_ue_s
   path_switch_req_ack_p->ncc = ue_nas_ctx->_security.ncc;
 
   MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME, MSC_S1AP_MME, NULL, 0,
-      "0 S1AP_PATH_SWITCH_REQUEST_ACKNOWLEDGE ebi %u s1u_sgw teid %u sea 0x%x sia 0x%x ncc %d",
+      "0 S1AP_PATH_SWITCH_REQUEST_ACKNOWLEDGE ebi %u sea 0x%x sia 0x%x ncc %d",
       path_switch_req_ack_p->eps_bearer_id,
-      path_switch_req_ack_p->bearer_s1u_sgw_fteid.teid,
       path_switch_req_ack_p->security_capabilities_encryption_algorithms, path_switch_req_ack_p->security_capabilities_integrity_algorithms,
       path_switch_req_ack_p->ncc);
   itti_send_msg_to_task (TASK_S1AP, INSTANCE_DEFAULT, message_p);

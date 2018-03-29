@@ -227,11 +227,18 @@ typedef struct itti_s1ap_path_switch_req_s {
 //  ip_address_t            s_gw_address;
 } itti_s1ap_path_switch_req_t;
 
+typedef struct bearer_ctx_to_be_xx_list_s {
+  uint8_t n_bearers;
+  void* bearer_ctxs;
+}bearer_ctx_to_be_xx_list_t;
+
 /** Path Switch Request Acknowledgement sent from MME_APP to S1AP layer. */
 typedef struct itti_s1ap_path_switch_request_ack_s {
   ebi_t                   eps_bearer_id;
-  FTeid_t                 bearer_s1u_sgw_fteid;
   mme_ue_s1ap_id_t        ue_id;            /* UE lower layer identifier   */
+
+  /** Bearer Contexts to be switched List. */
+  bearer_ctx_to_be_xx_list_t   bearer_ctx_to_be_switched_list;
 
   /* Key eNB */
   uint8_t                 nh[AUTH_NH_SIZE];
@@ -273,12 +280,6 @@ typedef struct itti_s1ap_handover_command_s {
   // todo: add the enb_ue_s1ap_id and the mme_ue_s1ap_id.. No
 } itti_s1ap_handover_command_t;
 
-typedef struct bearer_ctx_to_be_setup_list_s {
-  uint8_t n_bearers;
-  void* bearer_ctxs;
-}bearer_ctx_to_be_setup_list_t;
-
-
 typedef struct itti_s1ap_handover_request_s {
 //  ebi_t                   eps_bearer_id;
 //  FTeid_t                 bearer_s1u_sgw_fteid;
@@ -294,7 +295,7 @@ typedef struct itti_s1ap_handover_request_s {
   /** UE AMBR. */
   ambr_t                          ambr;
   /** Bearer Contexts to be Setup List. */
-  bearer_ctx_to_be_setup_list_t   bearer_ctx_to_be_setup_list;
+  bearer_ctx_to_be_xx_list_t   bearer_ctx_to_be_setup_list;
 
 //  /** Bearer Level QoS. */
 //  qci_t                           bearer_qos_qci;

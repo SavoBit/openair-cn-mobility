@@ -51,8 +51,12 @@ extern const char                      *s1ap_direction2String[];
 extern hash_table_ts_t g_s1ap_mme_id2assoc_id_coll; // contains sctp association id, key is mme_ue_s1ap_id;
 
 static bool
-s1ap_add_bearer_context_to_list1 (S1ap_E_RABToBeSetupListHOReqIEs_t * const e_RABToBeSetupListHOReq_p,
+s1ap_add_bearer_context_to_setup_list (S1ap_E_RABToBeSetupListHOReqIEs_t * const e_RABToBeSetupListHOReq_p,
     S1ap_E_RABToBeSetupItemHOReq_t        * e_RABToBeSetupHO_p, bearer_context_t * bearer_ctxt_p);
+
+static bool
+s1ap_add_bearer_context_to_switch_list (S1ap_E_RABToBeSwitchedULListIEs_t * const e_RABToBeSwitchedListHOReq_p,
+    S1ap_E_RABToBeSwitchedULItem_t        * e_RABToBeSwitchedHO_p, bearer_context_t * bearer_ctxt_p);
 
 //------------------------------------------------------------------------------
 int
@@ -614,13 +618,11 @@ s1ap_handle_path_switch_req_ack(
    * We received modify bearer response from S-GW on S11 interface abstraction.
    * It could be a handover case where we need to respond with the path switch reply to eNB.
    */
-  uint                                    offset = 0;
   uint8_t                                *buffer_p = NULL;
   uint32_t                                length = 0;
   ue_description_t                       *ue_ref = NULL;
   S1ap_PathSwitchRequestAcknowledgeIEs_t *pathSwitchRequestAcknowledge_p = NULL;
 
-  S1ap_E_RABToBeSwitchedULItem_t          e_RABToBeSwitchedUl = {0}; // yes, alloc on stack
   S1ap_NAS_PDU_t                          nas_pdu = {0}; // yes, alloc on stack
   s1ap_message                            message = {0}; // yes, alloc on stack
 
@@ -653,6 +655,18 @@ s1ap_handle_path_switch_req_ack(
   pathSwitchRequestAcknowledge_p->mme_ue_s1ap_id = (unsigned long)ue_ref->mme_ue_s1ap_id;
   pathSwitchRequestAcknowledge_p->eNB_UE_S1AP_ID = (unsigned long)ue_ref->enb_ue_s1ap_id;
 
+
+  /* Set the GTP-TEID. This is the S1-U S-GW TEID. */
+  hash_table_ts_t * bearer_contexts_p = (hash_table_ts_t*)path_switch_req_ack_pP->bearer_ctx_to_be_switched_list.bearer_ctxs;
+
+  bearer_context_t * bearer_context_p = NULL;
+  hashtable_ts_get ((hash_table_ts_t * const)bearer_contexts_p, (const hash_key_t)5, (void **)&bearer_context_p);
+
+  uint                                    offset = 0;
+  S1ap_E_RABToBeSwitchedULItem_t          e_RABToBeSwitchedUl = {0}; // yes, alloc on stack
+
+  s1ap_add_bearer_context_to_switch_list(&pathSwitchRequestAcknowledge_p->e_RABToBeSwitchedULList, &e_RABToBeSwitchedUl, bearer_context_p);
+  // todo: @ Lionel: pathSwitchRequestAcknowledge_p->presenceMask |= S1AP_PATHSWITCHREQUESTACKNOWLEDGEIES_E_RABTOBESWITCHEDULLIST_PRESENT;
 //  /*
 //   * Only add capability information if it's not empty.
 //   */
@@ -673,55 +687,6 @@ s1ap_handle_path_switch_req_ack(
 //  asn_uint642INTEGER (&initialContextSetupRequest_p->uEaggregateMaximumBitrate.uEaggregateMaximumBitRateUL, conn_est_cnf_pP->ambr.br_ul);
 //  e_RABToBeSetup.e_RAB_ID = conn_est_cnf_pP->eps_bearer_id;     //5;
 //  e_RABToBeSetup.e_RABlevelQoSParameters.qCI = conn_est_cnf_pP->bearer_qos_qci;
-
-  /*
-   * Set the GTP-TEID. This is the S1-U S-GW TEID
-   */
-  e_RABToBeSwitchedUl.e_RAB_ID = 5; // todo: get ebi
-  INT32_TO_OCTET_STRING (path_switch_req_ack_pP->bearer_s1u_sgw_fteid.teid, &e_RABToBeSwitchedUl.gTP_TEID);
-
-  /*
-   * S-GW IP address(es) for user-plane
-   */
-  if (path_switch_req_ack_pP->bearer_s1u_sgw_fteid.ipv4) {
-    e_RABToBeSwitchedUl.transportLayerAddress.buf = calloc (4, sizeof (uint8_t));
-    /*
-     * Only IPv4 supported
-     */
-    memcpy (e_RABToBeSwitchedUl.transportLayerAddress.buf, &path_switch_req_ack_pP->bearer_s1u_sgw_fteid.ipv4_address, 4);
-    offset += 4;
-    e_RABToBeSwitchedUl.transportLayerAddress.size = 4;
-    e_RABToBeSwitchedUl.transportLayerAddress.bits_unused = 0;
-  }
-
-  if (path_switch_req_ack_pP->bearer_s1u_sgw_fteid.ipv6) {
-    if (offset == 0) {
-      /*
-       * Both IPv4 and IPv6 provided
-       */
-      /*
-       * TODO: check memory allocation
-       */
-      e_RABToBeSwitchedUl.transportLayerAddress.buf = calloc (16, sizeof (uint8_t));
-    } else {
-      /*
-       * Only IPv6 supported
-       */
-      /*
-       * TODO: check memory allocation
-       */
-      e_RABToBeSwitchedUl.transportLayerAddress.buf = realloc (e_RABToBeSwitchedUl.transportLayerAddress.buf, (16 + offset) * sizeof (uint8_t));
-    }
-
-    memcpy (&e_RABToBeSwitchedUl.transportLayerAddress.buf[offset], path_switch_req_ack_pP->bearer_s1u_sgw_fteid.ipv6_address, 16);
-    e_RABToBeSwitchedUl.transportLayerAddress.size = 16 + offset;
-    e_RABToBeSwitchedUl.transportLayerAddress.bits_unused = 0;
-  }
-//  pathSwitchRequestAcknowledge_p->presenceMask |=
-//       S1AP_PATHSWITCHREQUESTACKNOWLEDGEIES_E_RABTOBESWITCHEDULLIST_PRESENT;
-
-//  ASN_SEQUENCE_ADD (&initialContextSetupRequest_p->e_RABToBeSetupListCtxtSUReq, &e_RABToBeSetup);
-  ASN_SEQUENCE_ADD (&pathSwitchRequestAcknowledge_p->e_RABToBeSwitchedULList, &e_RABToBeSwitchedUl);
 
   // todo: check if key exists :)
   pathSwitchRequestAcknowledge_p->securityContext.nextHopChainingCount = path_switch_req_ack_pP->ncc;
@@ -960,7 +925,7 @@ s1ap_handle_handover_request (
   handoverRequest_p->mme_ue_s1ap_id = (unsigned long)handover_request_pP->ue_id;
 
   /* Set the GTP-TEID. This is the S1-U S-GW TEID. */
- hash_table_ts_t * bearer_contexts_p = (hash_table_ts_t*)handover_request_pP->bearer_ctx_to_be_setup_list.bearer_ctxs;
+  hash_table_ts_t * bearer_contexts_p = (hash_table_ts_t*)handover_request_pP->bearer_ctx_to_be_setup_list.bearer_ctxs;
 
   bearer_context_t * bearer_context_p = NULL;
   hashtable_ts_get ((hash_table_ts_t * const)bearer_contexts_p, (const hash_key_t)5, (void **)&bearer_context_p);
@@ -969,7 +934,7 @@ s1ap_handle_handover_request (
   uint                                    offset = 0;
   S1ap_E_RABToBeSetupItemHOReq_t          e_RABToBeSetupHO = {0}; // yes, alloc on stack
 
-  s1ap_add_bearer_context_to_list1(&handoverRequest_p->e_RABToBeSetupListHOReq, &e_RABToBeSetupHO, bearer_context_p);
+  s1ap_add_bearer_context_to_setup_list(&handoverRequest_p->e_RABToBeSetupListHOReq, &e_RABToBeSetupHO, bearer_context_p);
   // e_RABToBeSetupHO --> todo: disappears inside
 //  hashtable_ts_apply_callback_on_elements(bearer_contexts_p, s1ap_add_bearer_context_to_list, &handoverRequest_p->e_RABToBeSetupListHOReq, NULL);
 
@@ -1312,7 +1277,7 @@ s1ap_handle_paging( const itti_s1ap_paging_t * const s1ap_paging_pP){
 }
 
 static bool
-s1ap_add_bearer_context_to_list1 (S1ap_E_RABToBeSetupListHOReqIEs_t * const e_RABToBeSetupListHOReq_p,
+s1ap_add_bearer_context_to_setup_list (S1ap_E_RABToBeSetupListHOReqIEs_t * const e_RABToBeSetupListHOReq_p,
     S1ap_E_RABToBeSetupItemHOReq_t        * e_RABToBeSetupHO_p, bearer_context_t * bearer_ctxt_p)
 {
 
@@ -1322,6 +1287,20 @@ s1ap_add_bearer_context_to_list1 (S1ap_E_RABToBeSetupListHOReqIEs_t * const e_RA
   }
   /** Add the E-RAB bearer to the message. */
   ASN_SEQUENCE_ADD (e_RABToBeSetupListHOReq_p, e_RABToBeSetupHO_p);
+  return true;
+}
+
+static bool
+s1ap_add_bearer_context_to_switch_list (S1ap_E_RABToBeSwitchedULListIEs_t * const e_RABToBeSwitchedListHOReq_p,
+    S1ap_E_RABToBeSwitchedULItem_t        * e_RABToBeSwitchedHO_p, bearer_context_t * bearer_ctxt_p)
+{
+
+  if(s1ap_generate_bearer_context_to_switch(bearer_ctxt_p, e_RABToBeSwitchedHO_p) != RETURNok){
+    OAILOG_ERROR(LOG_S1AP, "Error adding bearer context with ebi %d to list of bearers to switch.\n", bearer_ctxt_p->ebi);
+    return false;
+  }
+  /** Add the E-RAB bearer to the message. */
+  ASN_SEQUENCE_ADD (e_RABToBeSwitchedListHOReq_p, e_RABToBeSwitchedHO_p);
   return true;
 }
 
@@ -1395,6 +1374,71 @@ int s1ap_generate_bearer_context_to_setup(bearer_context_t * bearer_ctx_p, S1ap_
 
   return RETURNok;
 }
+
+int s1ap_generate_bearer_context_to_switch(bearer_context_t * bearer_ctx_p, S1ap_E_RABToBeSwitchedULItem_t         * e_RABToBeSwitchedUL_p){
+  OAILOG_FUNC_IN (LOG_S1AP);
+
+  uint                                    offset = 0;
+
+  e_RABToBeSwitchedUL_p->e_RAB_ID = bearer_ctx_p->ebi;
+
+  INT32_TO_OCTET_STRING (bearer_ctx_p->s_gw_teid, &e_RABToBeSwitchedUL_p->gTP_TEID);
+
+  /*
+   * S-GW IP address(es) for user-plane
+   */
+  if(bearer_ctx_p->s_gw_address.address.ipv4_address) {
+    e_RABToBeSwitchedUL_p->transportLayerAddress.buf = calloc(4, sizeof(uint8_t));
+    /*
+     * ONLY IPV4 SUPPORTED
+     */
+    memcpy(e_RABToBeSwitchedUL_p->transportLayerAddress.buf, &bearer_ctx_p->s_gw_address.address.ipv4_address, 4);
+    offset += 4; /**< Later for IPV4V6 addresses. */
+    e_RABToBeSwitchedUL_p->transportLayerAddress.size = 4;
+    e_RABToBeSwitchedUL_p->transportLayerAddress.bits_unused = 0;
+  }
+
+  // TODO: S1AP PDU..
+  /** Set the bearer as an ASN list element. */
+//  S1ap_IE_t                               s1ap_ie_ext;
+//  ssize_t                                 encoded;
+//  S1AP_PDU_t                              pdu;
+//
+//  memset (&s1ap_ie_ext, 0, sizeof (S1ap_IE_t));
+//  s1ap_ie_ext.id = S1ap_ProtocolIE_ID_id_Data_Forwarding_Not_Possible;
+//  s1ap_ie_ext.criticality = S1ap_Criticality_ignore;
+//  s1ap_ie_ext.value.buf = NULL;
+//  s1ap_ie_ext.value.size = 0;
+//  ASN_SEQUENCE_ADD (e_RABToBeSetupHO_p->iE_Extensions, &pdu);
+  /** Adding stacked value. */
+
+  if (bearer_ctx_p->s_gw_address.pdn_type == IPv6 ||bearer_ctx_p->s_gw_address.pdn_type == IPv4_AND_v6) {
+    if (bearer_ctx_p->s_gw_address.pdn_type == IPv6) {
+      /*
+       * Only IPv6 supported
+         */
+      /*
+       * TODO: check memory allocation
+       */
+      e_RABToBeSwitchedUL_p->transportLayerAddress.buf = calloc (16, sizeof (uint8_t));
+    } else {
+      /*
+       * Both IPv4 and IPv6 provided
+       */
+      /*
+       * TODO: check memory allocation
+       */
+      e_RABToBeSwitchedUL_p->transportLayerAddress.buf = realloc (e_RABToBeSwitchedUL_p->transportLayerAddress.buf, (16 + offset) * sizeof (uint8_t));
+    }
+
+    memcpy (&e_RABToBeSwitchedUL_p->transportLayerAddress.buf[offset], bearer_ctx_p->s_gw_address.address.ipv6_address, 16);
+    e_RABToBeSwitchedUL_p->transportLayerAddress.size = 16 + offset;
+    e_RABToBeSwitchedUL_p->transportLayerAddress.bits_unused = 0;
+  }
+
+  return RETURNok;
+}
+
 //------------------------------------------------------------------------------
 void
 s1ap_handle_mme_ue_id_notification (
