@@ -630,12 +630,12 @@ extern                                  "C" {
   NW_IN uint8_t*  container_value,
   NW_IN uint32_t  container_data_size,
   NW_IN uint8_t   container_type){
-    uint8_t fContainerBuf[container_data_size];
+    uint8_t fContainerBuf[container_data_size + 1];
 
     fContainerBuf[0] = container_type;
-    memcpy(&fContainerBuf[1], container_value, container_data_size -1 );
+    memcpy(&fContainerBuf[1], container_value, container_data_size);
     // todo: extended f-cause?!
-    return (nwGtpv2cMsgAddIe(hMsg, NW_GTPV2C_IE_F_CONTAINER, container_data_size, instance, fContainerBuf));
+    return (nwGtpv2cMsgAddIe(hMsg, NW_GTPV2C_IE_F_CONTAINER, container_data_size + 1, instance, fContainerBuf));
   }
 
 

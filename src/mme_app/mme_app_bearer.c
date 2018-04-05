@@ -2264,19 +2264,19 @@ mme_app_handle_forward_relocation_request(
  ue_context_p->pending_s1ap_source_to_target_handover_container = forward_relocation_request_pP->eutran_container.container_value;
 
  /** Start the S10 MME Handover Completion timer. */
-// if (timer_setup (mme_config.mme_s10_handover_completion_timer, 0,
-//     TASK_MME_APP, INSTANCE_DEFAULT, TIMER_ONE_SHOT, (void *) &(ue_context_p->mme_ue_s1ap_id), &(ue_context_p->mme_s10_handover_completion_timer.id)) < 0) {
-//   OAILOG_ERROR (LOG_MME_APP, "Failed to start the MME S10 Handover Completion timer for UE id " MME_UE_S1AP_ID_FMT " for duration %d \n", ue_context_p->mme_ue_s1ap_id, mme_config.mme_mobility_completion_timer);
-//   ue_context_p->mme_paging_timeout_timer.id = MME_APP_TIMER_INACTIVE_ID;
-//   /**
-//    * UE will be implicitly detached, if this timer runs out. It should be manually removed.
-//    * S10 FW Relocation Complete removes this timer.
-//    */
-// } else {
-//   OAILOG_DEBUG (LOG_MME_APP, "MME APP : Activated the MME S10 Handover Completion timer UE id  " MME_UE_S1AP_ID_FMT ". Waiting for UE to go back from IDLE mode to ACTIVE mode.. Timer Id %u. "
-//       "Timer duration %d \n", ue_context_p->mme_ue_s1ap_id, ue_context_p->mme_paging_timeout_timer.id, mme_config.mme_paging_timeout_timer);
-//   /** Upon expiration, invalidate the timer.. no flag needed. */
-// }
+ if (timer_setup (mme_config.mme_s10_handover_completion_timer, 0,
+     TASK_MME_APP, INSTANCE_DEFAULT, TIMER_ONE_SHOT, (void *) &(ue_context_p->mme_ue_s1ap_id), &(ue_context_p->mme_s10_handover_completion_timer.id)) < 0) {
+   OAILOG_ERROR (LOG_MME_APP, "Failed to start the MME S10 Handover Completion timer for UE id " MME_UE_S1AP_ID_FMT " for duration %d \n", ue_context_p->mme_ue_s1ap_id, mme_config.mme_mobility_completion_timer);
+   ue_context_p->mme_paging_timeout_timer.id = MME_APP_TIMER_INACTIVE_ID;
+   /**
+    * UE will be implicitly detached, if this timer runs out. It should be manually removed.
+    * S10 FW Relocation Complete removes this timer.
+    */
+ } else {
+   OAILOG_DEBUG (LOG_MME_APP, "MME APP : Activated the MME S10 Handover Completion timer UE id  " MME_UE_S1AP_ID_FMT ". Waiting for UE to go back from IDLE mode to ACTIVE mode.. Timer Id %u. "
+       "Timer duration %d \n", ue_context_p->mme_ue_s1ap_id, ue_context_p->mme_paging_timeout_timer.id, mme_config.mme_paging_timeout_timer);
+   /** Upon expiration, invalidate the timer.. no flag needed. */
+ }
  /** No initialization of timers here. */
  OAILOG_FUNC_OUT (LOG_MME_APP);
 }
