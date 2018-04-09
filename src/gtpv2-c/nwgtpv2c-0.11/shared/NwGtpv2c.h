@@ -163,6 +163,10 @@ typedef enum {
   NW_GTPV2C_ULP_CREATE_LOCAL_TUNNEL,                    /**< Create a local tunnel (is needed for S10   */
   NW_GTPV2C_ULP_DELETE_LOCAL_TUNNEL,                    /**< Delete a local tunnel                      */
 
+  //todo: remove this!
+  NW_GTPV2C_ULP_FIND_LOCAL_TUNNEL,                    /**< FIND a local tunnel                      */
+
+
   /* Do not add below this */
   NW_GTPV2C_ULP_API_END = 0xFFFFFFFF,
 
@@ -260,6 +264,8 @@ typedef struct {
   NW_INOUT NwGtpv2cTunnelHandleT        hTunnel;
 } NwGtpv2cInitialReqIndInfoT;
 
+typedef NwGtpv2cInitialReqInfoT NwGtpv2cFindInfoT;
+
 ///**
 // * API information elements between ULP and Stack for
 // * sending a Gtpv2c triggered request message.
@@ -341,6 +347,9 @@ typedef struct {
     NwGtpv2cRspFailureIndInfoT          rspFailureInfo;
     NwGtpv2cCreateLocalTunnelInfoT      createLocalTunnelInfo;
     NwGtpv2cDeleteLocalTunnelInfoT      deleteLocalTunnelInfo;
+
+    // todo: remove this one
+    NwGtpv2cFindInfoT                   findLocalTunnelInfo;
   } apiInfo;
 } NwGtpv2cUlpApiT;
 

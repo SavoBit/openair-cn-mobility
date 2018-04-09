@@ -131,7 +131,34 @@ s10_mme_forward_relocation_request (
        blength(req_p->eutran_container.container_value),
        req_p->eutran_container.container_type);
    /** Destroy the container. */
+//   const uint8_t container_map[] = {
+//       0x40, 0x80, 0xc0, 0x0f, 0x10, 0x3f, 0xc5, 0x9a, 0xd4, 0x80, 0x01, 0x06, 0x0e, 0x4d, 0x2a, 0x64,
+//          0xea, 0x04, 0x48, 0xff, 0x8b, 0xfc, 0x8f, 0xf8, 0xbf, 0xc8, 0xff, 0x8b, 0xfc, 0x8f, 0xf8, 0xbf,
+//          0xc8, 0xff, 0x8b, 0xfc, 0x8f, 0xf8, 0xbf, 0xc8, 0xff, 0x8b, 0xfc, 0x8f, 0xf8, 0xbf, 0xc8, 0xff,
+//          0x8b, 0xff, 0xfe, 0x7f, 0xf5, 0xf4, 0x40, 0x40, 0x70, 0xca, 0x74, 0xa9, 0x3b, 0xbe, 0x06, 0x9c,
+//          0x08, 0x00, 0x00, 0x06, 0xc0, 0x15, 0xe0, 0x00, 0x10, 0x06, 0x0e, 0x5a, 0xf0, 0x00, 0x14, 0x80,
+//          0x43, 0xcb, 0x80, 0x00, 0x02, 0x32, 0x11, 0x41, 0xbd, 0x80, 0x9e, 0x18, 0xe0, 0x18, 0x3c, 0x1c,
+//          0x09, 0xe1, 0x8e, 0x01, 0x83, 0xc0, 0x1f, 0x51, 0x34, 0x81, 0x68, 0x3a, 0x0c, 0x0e, 0x1a, 0x67,
+//          0xcc, 0x01, 0xe9, 0x2c, 0x7f, 0xe8, 0x00, 0x8c, 0x30, 0x64, 0x81, 0x4c, 0x02, 0x05, 0x44, 0x0d,
+//          0x9c, 0x00, 0x05, 0x45, 0x0a, 0x50, 0xd0, 0x00, 0x29, 0x00, 0x40, 0x70, 0x2a, 0x58, 0x00, 0x28,
+//          0x40, 0x24, 0x13, 0x02, 0x59, 0x00, 0x0c, 0xd0, 0x19, 0x00, 0x6a, 0x30, 0x40, 0x08, 0x80, 0x17,
+//          0xa5, 0x14, 0x09, 0x09, 0x2a, 0xb7, 0x8d, 0x10, 0x00, 0x1a, 0x05, 0xa1, 0x40, 0x80, 0x00, 0x01,
+//          0x00, 0x1c, 0x2b, 0xec, 0x8a, 0xa2, 0x46, 0x00, 0xd4, 0x9b, 0x28, 0x3a, 0x18, 0x38, 0x40, 0x80,
+//          0x08, 0x14, 0x00, 0x00, 0x00, 0x4e, 0x40, 0x01, 0x05, 0x00, 0x00, 0xf9, 0x90, 0x00, 0x0d, 0x00,
+//          0x14, 0x00, 0x00, 0xf9, 0x90, 0x00, 0x0c, 0xd0, 0x10, 0x80, 0x00, 0x18, 0x00, 0x00, 0xf9, 0x90,
+//          0x00, 0x0d, 0x00, 0x10, 0x80, 0x00, 0x0e, 0x00, 0x00, 0xf9, 0x90, 0x00, 0x0c, 0xd0, 0x10, 0x80,
+//          0x00, 0x1c, 0x00, 0x00, 0xf9, 0x90, 0x00, 0x0d, 0x00, 0x10, 0x80, 0x00, 0x77, 0x00, 0x00, 0xf9,
+//          0x90, 0x00, 0x0c, 0xd0, 0x10, 0x80, 0x00, 0x4d
+//   };
+//   bstring new_long_container = blk2bstr(container_map, 264);
+//   rc = nwGtpv2cMsgAddIeFContainer((ulp_req.hMsg), NW_GTPV2C_IE_INSTANCE_ZERO,
+//       (uint8_t*)new_long_container->data,
+//       blength(new_long_container),
+//       req_p->eutran_container.container_type);
    bdestroy(req_p->eutran_container.container_value);
+//   bdestroy(new_long_container);
+
+
    DevAssert( NW_OK == rc );
 
 
@@ -304,7 +331,16 @@ s10_mme_forward_relocation_response (
      ulp_req.apiInfo.createLocalTunnelInfo.hUlpTunnel = 0;
      ulp_req.apiInfo.createLocalTunnelInfo.hTunnel    = 0;
      rc = nwGtpv2cProcessUlpReq (*stack_p, &ulp_req);
-     DevAssert (NW_OK == rc);
+
+     // todo: DevAssert (NW_OK == rc);
+     if(NW_OK != rc){
+       OAILOG_ERROR(LOG_S10, "Error, we could not setup local tunnel while sending FW_RELOC_RESPONSE!. \n");
+       return RETURNerror;
+     }
+
+
+     OAILOG_INFO(LOG_S10, "Successfully created tunnel while FW_RELOCA_RESP!. \n");
+
      hashtable_rc_t hash_rc = hashtable_ts_insert(s10_mme_teid_2_gtv2c_teid_handle,
          (hash_key_t) ulp_req.apiInfo.createLocalTunnelInfo.teidLocal,
          (void *)ulp_req.apiInfo.createLocalTunnelInfo.hTunnel);
@@ -1067,39 +1103,31 @@ s10_mme_context_response (
   DevAssert (rsp_p );
   DevAssert (stack_p );
   memset (&ulp_req, 0, sizeof (NwGtpv2cUlpApiT));
+  memset (&cause, 0, sizeof (gtp_cause_t));
+
   trxn = (NwGtpv2cTrxnHandleT) rsp_p->trxn;
   DevAssert (trxn);
+
+
+  /**
+   * Prepare a context response to send to target MME.
+   */
+  ulp_req.apiType = NW_GTPV2C_ULP_API_TRIGGERED_RSP;
+  ulp_req.apiInfo.triggeredRspInfo.hTrxn = trxn;
+  ulp_req.apiInfo.triggeredRspInfo.teidLocal = rsp_p->s10_source_mme_teid.teid;
+  ulp_req.apiInfo.triggeredRspInfo.hUlpTunnel = 0;
+  ulp_req.apiInfo.triggeredRspInfo.hTunnel    = 0;
 
   /**
    * Create a tunnel for the GTPv2-C stack if its a positive response.
    */
   if(rsp_p->cause == REQUEST_ACCEPTED){
-    memset (&ulp_req, 0, sizeof (NwGtpv2cUlpApiT));
-    ulp_req.apiType = NW_GTPV2C_ULP_CREATE_LOCAL_TUNNEL; /**< Create a Tunnel Endpoint for the S10. */
-    ulp_req.apiInfo.createLocalTunnelInfo.teidLocal = rsp_p->s10_source_mme_teid.teid;
-    ulp_req.apiInfo.createLocalTunnelInfo.peerIp = rsp_p->peer_ip;
-    ulp_req.apiInfo.createLocalTunnelInfo.hUlpTunnel = 0;
-    ulp_req.apiInfo.createLocalTunnelInfo.hTunnel    = 0;
-    rc = nwGtpv2cProcessUlpReq (*stack_p, &ulp_req);
-    DevAssert (NW_OK == rc);
-    hashtable_rc_t hash_rc = hashtable_ts_insert(s10_mme_teid_2_gtv2c_teid_handle, /**< Directly register the created tunnel. */
-        (hash_key_t) ulp_req.apiInfo.createLocalTunnelInfo.teidLocal,
-        (void *)ulp_req.apiInfo.createLocalTunnelInfo.hTunnel); /**< Just store the value as int (no free method) after allocating the S10 GTPv2c Tunnel from the tunnel pool. */
-    hash_rc = hashtable_ts_get(s10_mme_teid_2_gtv2c_teid_handle,
-        (hash_key_t) ulp_req.apiInfo.createLocalTunnelInfo.teidLocal, (void **)(uintptr_t)&ulp_req.apiInfo.createLocalTunnelInfo.hTunnel);
-    DevAssert(hash_rc == HASH_TABLE_OK);
+    ulp_req.apiType |= NW_GTPV2C_ULP_API_FLAG_CREATE_LOCAL_TUNNEL;
   }else{
     OAILOG_WARNING (LOG_S10, "The cause is not REQUEST_ACCEPTED but %d for S10_CONTEXT_RESPONSE. "
-        "Not creating a local S10 Tunnel. \n", rsp_p->cause);
+        "Not creating a local S10 Tunnel @ triggered response! \n", rsp_p->cause);
   }
 
-  /**
-   * Prepare a context response to send to target MME.
-   */
-  memset (&ulp_req, 0, sizeof (NwGtpv2cUlpApiT));
-  memset (&cause, 0, sizeof (gtp_cause_t));
-  ulp_req.apiType = NW_GTPV2C_ULP_API_TRIGGERED_RSP;
-  ulp_req.apiInfo.triggeredRspInfo.hTrxn = trxn;
   rc = nwGtpv2cMsgNew (*stack_p, NW_TRUE, NW_GTP_CONTEXT_RSP, 0, 0, &(ulp_req.hMsg));
   DevAssert (NW_OK == rc);
   /*
@@ -1137,6 +1165,23 @@ s10_mme_context_response (
   }
   rc = nwGtpv2cProcessUlpReq (*stack_p, &ulp_req);
   DevAssert (NW_OK == rc);
+
+  /**
+   * Create a tunnel for the GTPv2-C stack if its a positive response.
+   */
+  if(rsp_p->cause == REQUEST_ACCEPTED){
+    hashtable_rc_t hash_rc = hashtable_ts_insert(s10_mme_teid_2_gtv2c_teid_handle, /**< Directly register the created tunnel. */
+        (hash_key_t) ulp_req.apiInfo.createLocalTunnelInfo.teidLocal,
+        (void *)ulp_req.apiInfo.createLocalTunnelInfo.hTunnel); /**< Just store the value as int (no free method) after allocating the S10 GTPv2c Tunnel from the tunnel pool. */
+    hash_rc = hashtable_ts_get(s10_mme_teid_2_gtv2c_teid_handle,
+        (hash_key_t) ulp_req.apiInfo.createLocalTunnelInfo.teidLocal, (void **)(uintptr_t)&ulp_req.apiInfo.createLocalTunnelInfo.hTunnel);
+    DevAssert(hash_rc == HASH_TABLE_OK);
+  }else{
+    OAILOG_WARNING (LOG_S10, "The cause is not REQUEST_ACCEPTED but %d for S10_CONTEXT_RESPONSE. "
+        "Not creating a local S10 Tunnel. \n", rsp_p->cause);
+  }
+
+
   return RETURNok;
 }
 
@@ -1302,32 +1347,70 @@ s10_mme_remove_ue_tunnel (
   DevAssert (stack_p );
   DevAssert (remove_ue_tunnel_p );
   MSC_LOG_RX_MESSAGE (MSC_S10_MME, MSC_SGW, NULL, 0, "Removing S10 UE Tunnels for local S10 teid " TEID_FMT " ",
-      remove_ue_tunnel_p->teid);
+      remove_ue_tunnel_p->local_teid);
   // delete local s10 tunnel
   NwGtpv2cUlpApiT                         ulp_req;
   memset (&ulp_req, 0, sizeof (NwGtpv2cUlpApiT));
-  ulp_req.apiType = NW_GTPV2C_ULP_DELETE_LOCAL_TUNNEL;
+
   hash_rc = hashtable_ts_get(s10_mme_teid_2_gtv2c_teid_handle,
-      (hash_key_t) remove_ue_tunnel_p->teid,
+      (hash_key_t) remove_ue_tunnel_p->local_teid,
       (void **)(uintptr_t)&ulp_req.apiInfo.deleteLocalTunnelInfo.hTunnel);
   if (HASH_TABLE_OK != hash_rc) {
-    OAILOG_ERROR (LOG_S10, "Could not get GTPv2-C hTunnel for local teid %X\n", remove_ue_tunnel_p->teid);
-    MSC_LOG_EVENT (MSC_S10_MME, "Failed to deleted teid " TEID_FMT "", remove_ue_tunnel_p->teid);
+
+//    NwGtpv2cTunnelT                        *pLocalTunnel = NULL,
+//                                             keyTunnel = {0};
+//    /** Check if a tunnel already exists depending on the flag. */
+//    keyTunnel.teid = remove_ue_tunnel_p->remote_teid;
+//    keyTunnel.ipv4AddrRemote = remove_ue_tunnel_p->peer_ip;
+//    pLocalTunnel = RB_FIND (NwGtpv2cTunnelMap, &(thiz->tunnelMap), &keyTunnel);
+
+
+    OAILOG_ERROR (LOG_S10, "Could not get GTPv2-C hTunnel for local teid %X\n", remove_ue_tunnel_p->local_teid);
+    MSC_LOG_EVENT (MSC_S10_MME, "Failed to deleted local teid " TEID_FMT "", remove_ue_tunnel_p->local_teid);
     // todo: error in error handling.. asserting?! extreme error handling?
     // Currently ignoring and continue to remove the remains of the tunnel.
-  } else {
+
+    ulp_req.apiType = NW_GTPV2C_ULP_FIND_LOCAL_TUNNEL;
+    ulp_req.apiInfo.findLocalTunnelInfo.teidLocal = remove_ue_tunnel_p->local_teid;
+    ulp_req.apiInfo.findLocalTunnelInfo.peerIp = remove_ue_tunnel_p->peer_ip;
     rc = nwGtpv2cProcessUlpReq (*stack_p, &ulp_req);
     DevAssert (NW_OK == rc);
-    MSC_LOG_EVENT (MSC_S10_MME, "Deleted teid " TEID_FMT "", remove_ue_tunnel_p->teid);
+    if(ulp_req.apiInfo.findLocalTunnelInfo.hTunnel){
+      OAILOG_ERROR (LOG_S10, "Could FIND A GTPv2-C hTunnel for local teid %X @ DELETION \n", remove_ue_tunnel_p->local_teid);
+    }else{
+      OAILOG_ERROR (LOG_S10, "Could NOT FIND A GTPv2-C hTunnel for local teid %X @ DELETION \n", remove_ue_tunnel_p->local_teid);
+    }
+    return RETURNerror;
+
+  } else{
+
+    ulp_req.apiType = NW_GTPV2C_ULP_DELETE_LOCAL_TUNNEL;
+
+    rc = nwGtpv2cProcessUlpReq (*stack_p, &ulp_req);
+    DevAssert (NW_OK == rc);
+    OAILOG_INFO(LOG_S10, "DELETED local S10 teid (TEID FOUND IN HASH_MAP)" TEID_FMT " \n", remove_ue_tunnel_p->local_teid);
+
+    ulp_req.apiType = NW_GTPV2C_ULP_FIND_LOCAL_TUNNEL;
+    ulp_req.apiInfo.findLocalTunnelInfo.teidLocal = remove_ue_tunnel_p->local_teid;
+    ulp_req.apiInfo.findLocalTunnelInfo.peerIp = remove_ue_tunnel_p->peer_ip;
+    rc = nwGtpv2cProcessUlpReq (*stack_p, &ulp_req);
+    DevAssert (NW_OK == rc);
+    if(ulp_req.apiInfo.findLocalTunnelInfo.hTunnel){
+      OAILOG_WARNING (LOG_S10, "Could FIND A GTPv2-C hTunnel for local teid %X @ DELETION (2) \n", remove_ue_tunnel_p->local_teid);
+    }else{
+      OAILOG_WARNING(LOG_S10, "Could NOT FIND A GTPv2-C hTunnel for local teid %X @ DELETION  (2) \n", remove_ue_tunnel_p->local_teid);
+    }
+
     /**
      * hash_free_int_func is set as the freeing function.
      * The value is removed from the map. But the value itself (int) is not freed.
      * The Tunnels are not deallocated but just set back to the Tunnel pool.
      */
-    hash_rc = hashtable_ts_free(s10_mme_teid_2_gtv2c_teid_handle, (hash_key_t) remove_ue_tunnel_p->teid);
+    hash_rc = hashtable_ts_free(s10_mme_teid_2_gtv2c_teid_handle, (hash_key_t) remove_ue_tunnel_p->local_teid);
     DevAssert (HASH_TABLE_OK == hash_rc);
+
   }
-  OAILOG_DEBUG(LOG_S10, "Successfully removed S10 Tunnel local teid %X\n", remove_ue_tunnel_p->teid);
+  OAILOG_DEBUG(LOG_S10, "Successfully removed S10 Tunnel local teid %X\n", remove_ue_tunnel_p->local_teid);
   return RETURNok;
 }
 

@@ -89,6 +89,8 @@ typedef struct ue_description_s {
   
   // UE Context Release procedure guard timer 
   struct s1ap_timer_t       s1ap_ue_context_rel_timer; 
+  // Handover/TAU completion timer (TS 23.401)
+  struct s1ap_timer_t       s1ap_handover_completion_timer; // todo: not TXXXX value found for this.
 
 } ue_description_t;
 

@@ -221,16 +221,17 @@ s1ap_mme_thread (
     case TIMER_HAS_EXPIRED:{
         ue_description_t                       *ue_ref_p = NULL;
         if (received_message_p->ittiMsg.timer_has_expired.arg != NULL) { 
-          mme_ue_s1ap_id_t mme_ue_s1ap_id = *((mme_ue_s1ap_id_t *)(received_message_p->ittiMsg.timer_has_expired.arg));
-          if ((ue_ref_p = s1ap_is_ue_mme_id_in_list (mme_ue_s1ap_id)) == NULL) {
-            OAILOG_WARNING (LOG_S1AP, "Timer expired but no assoicated UE context for UE id %d\n",mme_ue_s1ap_id);
+          ue_description_t* ue_ref_p = (ue_description_t *)(received_message_p->ittiMsg.timer_has_expired.arg);
+          if (!ue_ref_p) {
+            OAILOG_WARNING (LOG_S1AP, "Timer expired but no associated UE context!\n");
             break;
           }
           if (received_message_p->ittiMsg.timer_has_expired.timer_id == ue_ref_p->s1ap_ue_context_rel_timer.id) {
             // UE context release complete timer expiry handler 
             s1ap_mme_handle_ue_context_rel_comp_timer_expiry (ue_ref_p);
+          } else if (received_message_p->ittiMsg.timer_has_expired.timer_id == ue_ref_p->s1ap_handover_completion_timer.id) {
+            s1ap_mme_handle_mme_mobility_completion_timer_expiry(ue_ref_p);
           }
-          /* We cannot set a timer for the Handover_Request, since at that time we don't have a UE-Reference to the target-eNB, yet. */
         }
         /* TODO - Commenting out below function as it is not used as of now. 
          * Need to handle it when we support other timers in S1AP

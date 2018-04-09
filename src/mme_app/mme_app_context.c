@@ -1150,6 +1150,7 @@ mme_app_handle_s1ap_ue_context_release_complete (
 //------------------------------------------------------------------------------
 {
   struct ue_context_s                    *ue_context_p = NULL;
+  MessageDef                             *message_p = NULL;
 
   OAILOG_FUNC_IN (LOG_MME_APP);
   ue_context_p = mme_ue_context_exists_mme_ue_s1ap_id (&mme_app_desc.mme_ue_contexts, s1ap_ue_context_release_complete->mme_ue_s1ap_id);
@@ -1187,7 +1188,15 @@ mme_app_handle_s1ap_ue_context_release_complete (
       mme_app_send_s1ap_handover_cancel_acknowledge(ue_context_p->mme_ue_s1ap_id, s1ap_ue_context_release_complete->enb_ue_s1ap_id, s1ap_ue_context_release_complete->sctp_assoc_id);
       OAILOG_DEBUG(LOG_MME_APP, "Successfully terminated the resources in the target eNB %d for UE with mme_ue_s1ap_ue_id "MME_UE_S1AP_ID_FMT " (REGISTERED). "
           "Sending HO-CANCELLATION-ACK back to the source eNB. \n", s1ap_ue_context_release_complete->enb_id, ue_context_p->mme_ue_s1ap_id, ue_context_p->mm_state);
+    }else if (ue_context_p->pending_clear_location_request){
+      OAILOG_INFO (LOG_MME_APP, "Implicitly detaching the UE due CLR flag @ completion of MME_MOBILITY timer for UE id  %d \n", ue_context_p->mme_ue_s1ap_id);
+      message_p = itti_alloc_new_message (TASK_MME_APP, NAS_IMPLICIT_DETACH_UE_IND);
+      DevAssert (message_p != NULL);
+      message_p->ittiMsg.nas_implicit_detach_ue_ind.ue_id = ue_context_p->mme_ue_s1ap_id;
+      MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME, MSC_NAS_MME, NULL, 0, "0 NAS_IMPLICIT_DETACH_UE_IND_MESSAGE");
+      itti_send_msg_to_task (TASK_NAS_MME, INSTANCE_DEFAULT, message_p);
     }else{
+      OAILOG_INFO (LOG_MME_APP, "No CLR flag set for " MME_UE_S1AP_ID_FMT ". Just releasing S1AP signaling connection. \n", ue_context_p->mme_ue_s1ap_id);
       // Update keys and ECM state
       // todo: when this could happen, UE context release for an UE without any pre
       mme_ue_context_update_ue_sig_connection_state (&mme_app_desc.mme_ue_contexts, ue_context_p,ECM_IDLE);
@@ -1290,7 +1299,7 @@ _mme_app_handle_s1ap_ue_context_release (const mme_ue_s1ap_id_t mme_ue_s1ap_id,
     // calling below function to set the enb_s1ap_id_key to invalid
     if (ue_context_p->ue_context_rel_cause == S1AP_SCTP_SHUTDOWN_OR_RESET) {
       mme_ue_context_update_ue_sig_connection_state (&mme_app_desc.mme_ue_contexts, ue_context_p, ECM_IDLE);
-      mme_app_itti_ue_context_release(ue_context_p, ue_context_p->ue_context_rel_cause, enb_id);
+      mme_app_itti_ue_context_release(ue_context_p->enb_ue_s1ap_id, ue_context_p->ue_context_rel_cause, enb_id);
       OAILOG_WARNING (LOG_MME_APP, "UE Context Release Reqeust:Cause SCTP RESET/SHUTDOWN. UE state: IDLE. mme_ue_s1ap_id = %d, enb_ue_s1ap_id = %d Action -- Handle the message\n ",
                                   ue_context_p->mme_ue_s1ap_id, ue_context_p->enb_ue_s1ap_id);
     }
@@ -1320,7 +1329,7 @@ _mme_app_handle_s1ap_ue_context_release (const mme_ue_s1ap_id_t mme_ue_s1ap_id,
     }else{
       OAILOG_WARNING(LOG_MME_APP, "UE Context Release Request: No pending downlink bearers exist. Directly replying with UE_CTX_RELEASE for ueId " MME_UE_S1AP_ID_FMT ". \n", ue_context_p->mme_ue_s1ap_id);
       mme_ue_context_update_ue_sig_connection_state (&mme_app_desc.mme_ue_contexts, ue_context_p, ECM_IDLE);
-      mme_app_itti_ue_context_release(ue_context_p, ue_context_p->ue_context_rel_cause, enb_id);
+      mme_app_itti_ue_context_release(ue_context_p->enb_ue_s1ap_id, ue_context_p->ue_context_rel_cause, enb_id);
     }
   }
   OAILOG_FUNC_OUT (LOG_MME_APP);
@@ -1816,7 +1825,7 @@ mme_app_handle_s10_context_request(const itti_s10_context_request_t * const s10_
  memset ((void*)context_response_p, 0, sizeof (itti_s10_context_response_t));
  /** Set the target S10 TEID. */
  context_response_p->teid    = s10_context_request_pP->s10_target_mme_teid.teid; /**< Only a single target-MME TEID can exist at a time. */
- context_response_p->peer_ip = s10_context_request_pP->s10_target_mme_teid.ipv4; /**< todo: Check this is correct. */
+ context_response_p->peer_ip = s10_context_request_pP->s10_target_mme_teid.ipv4_address; /**< todo: Check this is correct. */
  context_response_p->trxn    = s10_context_request_pP->trxn;
  /** Set the cause. Since the UE context state has not been changed yet, nothing to do in the context if success or failure.*/
  context_response_p->cause = REQUEST_ACCEPTED; // todo: check the NAS message here!

@@ -429,8 +429,10 @@ typedef struct itti_s10_relocation_cancel_response_s {
  */
 typedef struct itti_s10_remove_ue_tunnel_s {
   /** Local Tunnel TEID. */
-  teid_t                   teid;                ///< S11 MME Tunnel Endpoint Identifier
+  teid_t                  local_teid;                ///< S10 MME Tunnel Endpoint Identifier
+  teid_t                  remote_teid;                ///< S10 MME Tunnel Endpoint Identifier
 
+  uint32_t                 peer_ip;
   // here fields listed in 3GPP TS 29.274
 
   /** Cause to set (like error cause in GTPV2c State Machine). */

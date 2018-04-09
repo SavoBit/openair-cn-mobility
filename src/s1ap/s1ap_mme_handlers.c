@@ -1413,7 +1413,6 @@ s1ap_mme_handle_handover_notification(const sctp_assoc_id_t assoc_id, const sctp
   handoverNotification_p= &message->msg.s1ap_HandoverNotifyIEs;
   // eNB UE S1AP ID is limited to 24 bits
   enb_ue_s1ap_id = (enb_ue_s1ap_id_t) (handoverNotification_p->eNB_UE_S1AP_ID & ENB_UE_S1AP_ID_MASK);
-  mme_ue_s1ap_id = (mme_ue_s1ap_id_t) handoverNotification_p->mme_ue_s1ap_id;
 
   OAILOG_DEBUG (LOG_S1AP, "Handover Notify message received from eNB UE S1AP ID: " ENB_UE_S1AP_ID_FMT "\n", enb_ue_s1ap_id);
   /**
@@ -1452,7 +1451,7 @@ s1ap_mme_handle_handover_notification(const sctp_assoc_id_t assoc_id, const sctp
   /*
    * Bad, very bad cast...
    */
-  S1AP_HANDOVER_NOTIFY (message_p).mme_ue_s1ap_id = ue_ref_p->mme_ue_s1ap_id;
+  S1AP_HANDOVER_NOTIFY (message_p).mme_ue_s1ap_id = (mme_ue_s1ap_id_t) handoverNotification_p->mme_ue_s1ap_id;
   S1AP_HANDOVER_NOTIFY (message_p).enb_ue_s1ap_id = enb_ue_s1ap_id;
   S1AP_HANDOVER_NOTIFY (message_p).tai                    = tai;       /**< MME will not check if thats the correct target eNB. Just update the UE Context. */
   S1AP_HANDOVER_NOTIFY (message_p).cgi                    = ecgi;
@@ -1597,7 +1596,6 @@ s1ap_mme_handle_handover_resource_allocation_response(const sctp_assoc_id_t asso
    */
   // Will be allocated by NAS
   // todo: searching ue_reference just by enb_ue_s1ap id or mme_ue_s1ap_id ?
-  ue_ref_p->mme_ue_s1ap_id = handoverRequestAcknowledge_p->mme_ue_s1ap_id; /**< In contrary to X2, it can be set. */
 
   // todo: UE_REFERENCE
   ue_ref_p->s1ap_ue_context_rel_timer.id  = S1AP_TIMER_INACTIVE_ID;
@@ -1641,7 +1639,7 @@ s1ap_mme_handle_handover_resource_allocation_response(const sctp_assoc_id_t asso
   eRABAdmittedItemIEs_p = (S1ap_E_RABAdmittedItemIEs_t *)
     handoverRequestAcknowledge_p->e_RABAdmittedList.s1ap_E_RABAdmittedItem.array[0];
 
-  S1AP_HANDOVER_REQUEST_ACKNOWLEDGE (message_p).mme_ue_s1ap_id = ue_ref_p->mme_ue_s1ap_id;
+  S1AP_HANDOVER_REQUEST_ACKNOWLEDGE (message_p).mme_ue_s1ap_id = handoverRequestAcknowledge_p->mme_ue_s1ap_id;
   S1AP_HANDOVER_REQUEST_ACKNOWLEDGE (message_p).enb_ue_s1ap_id = ue_ref_p->enb_ue_s1ap_id;
   S1AP_HANDOVER_REQUEST_ACKNOWLEDGE (message_p).eps_bearer_id = eRABAdmittedItemIEs_p->e_RABAdmittedItem.e_RAB_ID;
   S1AP_HANDOVER_REQUEST_ACKNOWLEDGE (message_p).bearer_s1u_enb_fteid.ipv4 = 1;  // TO DO
@@ -2034,6 +2032,28 @@ s1ap_mme_handle_ue_context_rel_comp_timer_expiry (ue_description_t *ue_ref_p)
   s1ap_remove_ue (ue_ref_p);
   OAILOG_FUNC_OUT (LOG_S1AP);
 }
+
+//------------------------------------------------------------------------------
+void
+s1ap_mme_handle_mme_mobility_completion_timer_expiry (ue_description_t *ue_reference_p)
+{
+  OAILOG_FUNC_IN (LOG_S1AP);
+  DevAssert (ue_reference_p != NULL);
+  MessageDef                             *message_p = NULL;
+  OAILOG_INFO (LOG_S1AP, "Expired- MME Mobility Completion timer for enbUeS1apId " ENB_UE_S1AP_ID_FMT " \n", ue_reference_p->enb_ue_s1ap_id);
+
+  /** Inactivate the timer either here in the timeout or manually when removing the S1AP UE_REFERECE. */
+  ue_reference_p->s1ap_handover_completion_timer.id = S1AP_TIMER_INACTIVE_ID;
+
+  /** Perform an UE_CONTEXT_RELEASE and inform the MME_APP afterwards, which will check if the CLR flag is set or not. */
+  if(s1ap_mme_generate_ue_context_release_command (ue_reference_p, S1AP_NAS_NORMAL_RELEASE) == RETURNerror){
+    OAILOG_DEBUG (LOG_S1AP, "Error removing S1AP_UE_REFERENCE FOR ENB_UE_S1AP_ID " ENB_UE_S1AP_ID_FMT "\n", (uint32_t) ue_reference_p->enb_ue_s1ap_id);
+  }else{
+    OAILOG_DEBUG (LOG_S1AP, "Removed S1AP_UE_REFERENCE FOR ENB_UE_S1AP_ID " ENB_UE_S1AP_ID_FMT "\n", (uint32_t) ue_reference_p->enb_ue_s1ap_id);
+  }
+  OAILOG_FUNC_OUT (LOG_S1AP);
+}
+
 //------------------------------------------------------------------------------
 int
 s1ap_mme_handle_error_ind_message (const sctp_assoc_id_t assoc_id, const sctp_stream_id_t stream, struct s1ap_message_s *message)

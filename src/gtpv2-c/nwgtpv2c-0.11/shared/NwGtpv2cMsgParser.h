@@ -48,12 +48,12 @@ typedef struct {
   uint16_t                msgType;
   uint16_t                mandatoryIeCount;
   NwGtpv2cStackHandleT  hStack;
-  NwRcT (*ieReadCallback) (uint8_t ieType, uint8_t ieLength, uint8_t ieInstance,  uint8_t* ieValue, void* ieReadCallbackArg);
+  NwRcT (*ieReadCallback) (uint8_t ieType, uint16_t ieLength, uint8_t ieInstance,  uint8_t* ieValue, void* ieReadCallbackArg);
   void* ieReadCallbackArg;
 
   struct {
     uint8_t iePresence;
-    NwRcT (*ieReadCallback) (uint8_t ieType, uint8_t ieLength, uint8_t ieInstance,  uint8_t* ieValue, void* ieReadCallbackArg);
+    NwRcT (*ieReadCallback) (uint8_t ieType, uint16_t ieLength, uint8_t ieInstance,  uint8_t* ieValue, void* ieReadCallbackArg);
     void* ieReadCallbackArg;
   } ieParseInfo[NW_GTPV2C_IE_TYPE_MAXIMUM][NW_GTPV2C_IE_INSTANCE_MAXIMUM];
 

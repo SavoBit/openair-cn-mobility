@@ -676,9 +676,20 @@ extern                                  "C" {
 
     /** Creating a local tunnel if flag is set. */
     if ((pUlpRsp->apiType & 0xFF000000) == NW_GTPV2C_ULP_API_FLAG_CREATE_LOCAL_TUNNEL) {
-      rc = nwGtpv2cCreateLocalTunnel (thiz, pUlpRsp->apiInfo.triggeredRspInfo.teidLocal, pReqTrxn->peerIp, pUlpRsp->apiInfo.triggeredRspInfo.hUlpTunnel, &pUlpRsp->apiInfo.triggeredRspInfo.hTunnel);
+      /** Check if there is a local tunnel already existing, if not create a local S10 tunnel. */
+      NwGtpv2cTunnelT                        *pLocalTunnel = NULL,
+                                                 keyTunnel = {0};
+      keyTunnel.teid = pUlpRsp->apiInfo.triggeredRspInfo.teidLocal;
+      keyTunnel.ipv4AddrRemote = pReqTrxn->peerIp;
+      pLocalTunnel = RB_FIND (NwGtpv2cTunnelMap, &(thiz->tunnelMap), &keyTunnel);
+      if (!pLocalTunnel) {
+        OAILOG_WARNING (LOG_GTPV2C,  "Triggered response not containing a tunnel. Creating one for local_teid 0x%x and peer 0x%x!\n", ntohl (pUlpRsp->apiInfo.triggeredRspInfo.teidLocal), htonl (pReqTrxn->peerIp));
+        rc = nwGtpv2cCreateLocalTunnel (thiz, pUlpRsp->apiInfo.triggeredRspInfo.teidLocal, pReqTrxn->peerIp, pUlpRsp->apiInfo.triggeredRspInfo.hUlpTunnel, &pUlpRsp->apiInfo.triggeredRspInfo.hTunnel);
+        NW_ASSERT (NW_OK == rc);
+      }else{
+        OAILOG_WARNING (LOG_GTPV2C,  "Triggered response already containing a tunnel. Not creating a new one for local_teid 0x%x and peer 0x%x.\n", ntohl (pUlpRsp->apiInfo.triggeredRspInfo.teidLocal), htonl (pReqTrxn->peerIp));
+      }
     }
-
     OAILOG_FUNC_RETURN( LOG_GTPV2C, rc);
   }
 
@@ -758,6 +769,34 @@ extern                                  "C" {
     rc = nwGtpv2cDeleteLocalTunnel (thiz, pUlpReq->apiInfo.deleteLocalTunnelInfo.hTunnel);
     OAILOG_FUNC_RETURN (LOG_GTPV2C, rc);
   }
+
+  static NwRcT                            nwGtpv2cHandleUlpFindLocalTunnel (
+  NW_IN NwGtpv2cStackT * thiz,
+  NW_IN NwGtpv2cUlpApiT * pUlpReq) {
+    NwRcT                                   rc = NW_FAILURE;
+
+    OAILOG_FUNC_IN (LOG_GTPV2C);
+
+    /** Check if a tunnel already exists depending on the flag. */
+    NwGtpv2cTunnelT                        *pLocalTunnel = NULL,
+        keyTunnel = {0};
+    keyTunnel.teid = pUlpReq->apiInfo.findLocalTunnelInfo.teidLocal;
+    keyTunnel.ipv4AddrRemote = pUlpReq->apiInfo.findLocalTunnelInfo.peerIp;
+    pLocalTunnel = RB_FIND (NwGtpv2cTunnelMap, &(thiz->tunnelMap), &keyTunnel);
+    pUlpReq->apiInfo.findLocalTunnelInfo.hTunnel = (NwGtpv2cTunnelHandleT) pLocalTunnel;
+
+    if(pLocalTunnel){
+      OAILOG_DEBUG (LOG_GTPV2C, "FOUND local tunnel with teid '0x%x' and peer IP 0x%x\n", keyTunnel.teid, keyTunnel.ipv4AddrRemote);
+
+    }else{
+      OAILOG_DEBUG (LOG_GTPV2C, "DID NOT FOUND local tunnel with teid '0x%x' and peer IP 0x%x\n", keyTunnel.teid, keyTunnel.ipv4AddrRemote);
+
+    }
+    return RETURNok;
+  }
+
+
+
 
 /**
   Send GTPv2c Initial Request Message Indication to ULP entity.
@@ -1392,6 +1431,13 @@ NW_IN uint32_t peerIp) {
     case NW_GTPV2C_ULP_DELETE_LOCAL_TUNNEL:{
         OAILOG_DEBUG (LOG_GTPV2C, "Received delete local tunnel from ulp\n");
         rc = nwGtpv2cHandleUlpDeleteLocalTunnel (thiz, pUlpReq);
+      }
+      break;
+
+      // todo: temporary method
+    case NW_GTPV2C_ULP_FIND_LOCAL_TUNNEL:{
+        OAILOG_DEBUG (LOG_GTPV2C, "Received find local tunnel from ulp\n");
+        rc = nwGtpv2cHandleUlpFindLocalTunnel (thiz, pUlpReq);
       }
       break;
 

@@ -94,6 +94,8 @@ int s1ap_mme_generate_s1_setup_failure(
 
 void s1ap_mme_handle_ue_context_rel_comp_timer_expiry (ue_description_t *ue_ref_p);
 
+void s1ap_mme_handle_mme_mobility_completion_timer_expiry (ue_description_t *ue_ref_p);
+
 int s1ap_mme_handle_error_ind_message (const sctp_assoc_id_t assoc_id, 
                                        const sctp_stream_id_t stream, struct s1ap_message_s *message);
 

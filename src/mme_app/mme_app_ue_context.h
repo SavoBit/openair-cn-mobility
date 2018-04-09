@@ -232,6 +232,7 @@ typedef struct ue_context_s {
   teid_t                 local_mme_s10_teid;      // 0 at first. Later set by FORWARD_RELOCATION_REQUEST / FORWARD_RELOCATION_RESPONSE
 
   teid_t                 remote_mme_s10_teid;      // 0 at first. Later set by FORWARD_RELOCATION_REQUEST / FORWARD_RELOCATION_RESPONSE
+  uint32_t               remote_mme_s10_peer_ip;
 
   teid_t                 sgw_s11_teid;                // set by S11 CREATE_SESSION_RESPONSE
 

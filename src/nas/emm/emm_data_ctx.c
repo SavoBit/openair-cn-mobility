@@ -634,7 +634,7 @@ inline void emm_ctx_update_from_mm_eps_context(emm_data_context_t * const emm_ct
    */
   emm_ctx->_security.ncc      = mm_eps_ctxt->ncc;
   memcpy(emm_ctx->_security.nh_conj, mm_eps_ctxt->nh, 32);
-
+  memcpy(emm_ctx->_vector[emm_ctx->_security.vector_index].nh_conj, mm_eps_ctxt->nh, 32);
   /** All remaining capabilities should be set with the TAC/Attach Request. */
   OAILOG_FUNC_OUT (LOG_NAS_EMM);
 }

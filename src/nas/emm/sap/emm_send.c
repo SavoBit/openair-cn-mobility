@@ -659,7 +659,7 @@ emm_send_tracking_area_update_accept (
   int                                     size = EMM_HEADER_MAXIMUM_LENGTH;
   int                                     i = 0;
 
-  OAILOG_INFO (LOG_NAS_EMM, "EMMAS-SAP - Send Tracking Area Update Accept message (cause=%d)\n", msg->emm_cause);
+  OAILOG_INFO (LOG_NAS_EMM, "EMMAS-SAP - Send Tracking Area Update Accept message (cause=%d) (updateType=%d) \n", msg->emm_cause, msg->eps_update_result);
   /*
    * Mandatory - Message type
    */
@@ -863,6 +863,9 @@ emm_send_tracking_area_update_accept_dl_nas (
   OAILOG_FUNC_IN (LOG_NAS_EMM);
   int                                     size = EMM_HEADER_MAXIMUM_LENGTH;
   int                                     i = 0;
+
+  OAILOG_INFO (LOG_NAS_EMM, "EMMAS-SAP - Send Tracking Area Update Accept message (DL_NAS_DATA) (updateType=%d) \n", msg->eps_update_result);
+
   /*
    * Mandatory - Message type
    */
@@ -871,7 +874,7 @@ emm_send_tracking_area_update_accept_dl_nas (
    * Mandatory - EMM cause
    */
   size += EPS_UPDATE_RESULT_MAXIMUM_LENGTH;
-  emm_msg->epsupdateresult = EPS_UPDATE_RESULT_TA_UPDATED;
+  emm_msg->epsupdateresult = msg->eps_update_result;
   /**
    * Set TAI List.
    */

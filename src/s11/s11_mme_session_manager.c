@@ -221,6 +221,8 @@ s11_mme_delete_session_request (
   NwRcT                                   rc;
   //uint8_t                                 restart_counter = 0;
 
+  OAILOG_FUNC_IN (LOG_S11);
+
   DevAssert (stack_p );
   DevAssert (req_p );
   memset (&ulp_req, 0, sizeof (NwGtpv2cUlpApiT));
@@ -237,7 +239,7 @@ s11_mme_delete_session_request (
 
   if (HASH_TABLE_OK != hash_rc) {
     OAILOG_WARNING (LOG_S11, "Could not get GTPv2-C hTunnel for local teid %X\n", ulp_req.apiInfo.initialReqInfo.teidLocal);
-    return RETURNerror;
+    OAILOG_FUNC_RETURN (LOG_S11, RETURNerror);
   }
 
   /*
@@ -261,7 +263,7 @@ s11_mme_delete_session_request (
   MSC_LOG_TX_MESSAGE (MSC_S11_MME, MSC_SGW, NULL, 0, "0 DELETE_SESSION_REQUEST local S11 teid " TEID_FMT " ",
 		  req_p->local_teid);
 
-  return RETURNok;
+  OAILOG_FUNC_RETURN (LOG_S11, RETURNok);
 }
 
 //------------------------------------------------------------------------------

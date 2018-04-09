@@ -30,16 +30,16 @@
  * octet n+4 | Number digit m | Number digit m-1 |
  */
 NwRcT s10_imsi_ie_get(
-  uint8_t ieType, uint8_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
+  uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
 
 int s10_imsi_ie_set(NwGtpv2cMsgHandleT *msg, const Imsi_t *imsi);
 
 int s10_guti_ie_set ( NwGtpv2cMsgHandleT * msg, const guti_t * guti);
 
-NwRcT s10_guti_ie_get ( uint8_t ieType, uint8_t ieLength, uint8_t ieInstance, uint8_t * ieValue, void *arg);
+NwRcT s10_guti_ie_get ( uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t * ieValue, void *arg);
 
 NwRcT s10_msisdn_ie_get(
-  uint8_t ieType, uint8_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
+  uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
 
 /* Node Type Information Element
  * 3GPP TS 29.274 #8.34
@@ -47,7 +47,7 @@ NwRcT s10_msisdn_ie_get(
  *      * 0 = MME
  *      * 1 = SGSN
  */
-NwRcT s10_node_type_ie_get(uint8_t ieType, uint8_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
+NwRcT s10_node_type_ie_get(uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
 
 int s10_node_type_ie_set(NwGtpv2cMsgHandleT *msg, const node_type_t *node_type);
 
@@ -59,7 +59,7 @@ NwRcT s10_ue_mm_eps_context_ie_set ( NwGtpv2cMsgHandleT * msg, const mm_context_
 
 NwRcT
 s10_mm_ue_context_ie_get (
-  uint8_t ieType, uint8_t ieLength, uint8_t ieInstance, uint8_t * ieValue, void *arg);
+  uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t * ieValue, void *arg);
 
 /**
  * PDN Connection Grouped Information Element
@@ -68,7 +68,7 @@ s10_mm_ue_context_ie_get (
 NwRcT s10_pdn_connection_ie_set ( NwGtpv2cMsgHandleT * msg, const mme_ue_eps_pdn_connections_t * pdn_connections);
 
 NwRcT
-s10_pdn_connection_ie_get ( uint8_t ieType, uint8_t ieLength, uint8_t ieInstance, uint8_t * ieValue, void *arg);
+s10_pdn_connection_ie_get ( uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t * ieValue, void *arg);
 
 /* F-Cause Information Element
  * 3GPP TS 29.274 #8.49
@@ -81,7 +81,7 @@ int s10_f_cause_ie_set (NwGtpv2cMsgHandleT * msg,  const F_Cause_t * f_cause);
 NwRcT
 s10_complete_request_message_ie_get (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
   void *arg);
@@ -89,7 +89,7 @@ s10_complete_request_message_ie_get (
 NwRcT
 s10_f_container_ie_get (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
   void *arg);
@@ -108,7 +108,7 @@ int s10_target_identification_ie_set (  NwGtpv2cMsgHandleT * msg,  const target_
  *      * 3 = IPv4v6
  */
 NwRcT s10_pdn_type_ie_get(
-  uint8_t ieType, uint8_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
+  uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
 
 int s10_pdn_type_ie_set(NwGtpv2cMsgHandleT *msg, const pdn_type_t *pdn_type);
 
@@ -117,7 +117,7 @@ int s10_pdn_type_ie_set(NwGtpv2cMsgHandleT *msg, const pdn_type_t *pdn_type);
  * for S10 interface defined in 3GPP TS 29.274 #8.17.
  */
 NwRcT s10_rat_type_ie_get(
-  uint8_t ieType, uint8_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
+  uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
 
 int s10_rat_type_ie_set(NwGtpv2cMsgHandleT *msg, const rat_type_t *rat_type);
 
@@ -125,7 +125,7 @@ int s10_rat_type_ie_set(NwGtpv2cMsgHandleT *msg, const rat_type_t *rat_type);
  * 3GPP TS 29.274 #8.8
  */
 NwRcT s10_ebi_ie_get(
-  uint8_t ieType, uint8_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
+  uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
 
 int s10_ebi_ie_set(NwGtpv2cMsgHandleT *msg, const unsigned ebi);
 
@@ -139,7 +139,7 @@ int s10_list_of_setup_bearers_ie_set (NwGtpv2cMsgHandleT * msg, const bearer_con
 
 int s10_bearer_context_to_be_modified_ie_set (NwGtpv2cMsgHandleT * msg, const bearer_context_to_be_modified_t * bearer_context);
 
-NwRcT s10_bearer_context_to_be_modified_ie_get(uint8_t ieType, uint8_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
+NwRcT s10_bearer_context_to_be_modified_ie_get(uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
 
 /* EPS Bearer Id Information Element
  * 3GPP TS 29.274 #8.8
@@ -147,12 +147,12 @@ NwRcT s10_bearer_context_to_be_modified_ie_get(uint8_t ieType, uint8_t ieLength,
  */
 int s10_ebi_ie_set(NwGtpv2cMsgHandleT *msg, const unsigned ebi);
 
-NwRcT s10_ebi_ie_get (uint8_t ieType, uint8_t ieLength, uint8_t ieInstance, uint8_t * ieValue, void *arg);
+NwRcT s10_ebi_ie_get (uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t * ieValue, void *arg);
 
-NwRcT s10_ebi_ie_get_list (uint8_t ieType, uint8_t ieLength, uint8_t ieInstance, uint8_t * ieValue, void *arg);
+NwRcT s10_ebi_ie_get_list (uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t * ieValue, void *arg);
 
 /* Cause Information Element */
-NwRcT s10_cause_ie_get(uint8_t ieType, uint8_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
+NwRcT s10_cause_ie_get(uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
 
 int s10_cause_ie_set(NwGtpv2cMsgHandleT *msg, const gtp_cause_t  *cause);
 
@@ -160,10 +160,10 @@ int s10_cause_ie_set(NwGtpv2cMsgHandleT *msg, const gtp_cause_t  *cause);
 int s10_bearer_context_to_create_ie_set (NwGtpv2cMsgHandleT * msg, const bearer_context_to_be_created_t * bearer_context);
 
 NwRcT
-s10_bearer_context_to_be_created_ie_get ( uint8_t ieType, uint8_t ieLength, uint8_t ieInstance, uint8_t * ieValue, void *arg);
+s10_bearer_context_to_be_created_ie_get ( uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t * ieValue, void *arg);
 
 /* Bearer Context Created grouped Information Element */
-NwRcT s10_bearer_context_created_ie_get(uint8_t ieType, uint8_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
+NwRcT s10_bearer_context_created_ie_get(uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
 
 int s10_bearer_context_created_ie_set(NwGtpv2cMsgHandleT *msg, const bearer_context_setup_t *bearer_context);
 
@@ -171,7 +171,7 @@ int s10_bearer_context_created_ie_set(NwGtpv2cMsgHandleT *msg, const bearer_cont
  * 3GPP TS 29.274 #8.18
  */
 NwRcT s10_serving_network_ie_get(
-  uint8_t ieType, uint8_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
+  uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
 
 int s10_serving_network_ie_set(
   NwGtpv2cMsgHandleT     *msg,
@@ -181,10 +181,10 @@ int s10_serving_network_ie_set(
 /* Fully Qualified TEID (F-TEID) Information Element */
 int s10_fteid_ie_set (NwGtpv2cMsgHandleT * msg, const FTeid_t * fteid);
 
-NwRcT s10_fteid_ie_get(uint8_t ieType, uint8_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
+NwRcT s10_fteid_ie_get(uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
 
 /* Protocol Configuration Options Information Element */
-NwRcT s10_pco_ie_get (uint8_t ieType, uint8_t ieLength,
+NwRcT s10_pco_ie_get (uint8_t ieType, uint16_t ieLength,
   uint8_t ieInstance, uint8_t * ieValue, void *arg);
 
 int s10_pco_ie_set (NwGtpv2cMsgHandleT * msg,
@@ -192,7 +192,7 @@ int s10_pco_ie_set (NwGtpv2cMsgHandleT * msg,
 
 /* PDN Address Allocation Information Element */
 NwRcT s10_paa_ie_get(
-  uint8_t ieType, uint8_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
+  uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
 
 int s10_paa_ie_set(NwGtpv2cMsgHandleT *msg, const PAA_t *paa);
 
@@ -203,23 +203,23 @@ int s10_paa_ie_set(NwGtpv2cMsgHandleT *msg, const PAA_t *paa);
  * The encoding of the APN field follows 3GPP TS 23.003 subclause 9.1
  */
 NwRcT s10_apn_ie_get(
-  uint8_t ieType, uint8_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
+  uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
 
 int s10_apn_ie_set(NwGtpv2cMsgHandleT *msg, const char *apn);
 
 int s10_apn_plmn_ie_set(NwGtpv2cMsgHandleT *msg, const char *apn, const ServingNetwork_t * serving_network);
 
 NwRcT s10_ambr_ie_get(
-  uint8_t ieType, uint8_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
+  uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
 
 int s10_ambr_ie_set(NwGtpv2cMsgHandleT * msg, ambr_t * ambr);
 
 
 NwRcT s10_mei_ie_get(
-  uint8_t ieType, uint8_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
+  uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
 
 NwRcT s10_uli_ie_get(
-  uint8_t ieType, uint8_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
+  uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
 
 /* APN restrtiction Information Element */
 int s10_apn_restriction_ie_set(
@@ -228,7 +228,7 @@ int s10_apn_restriction_ie_set(
 /* Bearer level Qos Information Element
  * 3GPP TS 29.274 #8.15
  */
-NwRcT s10_bearer_qos_ie_get (uint8_t ieType, uint8_t ieLength, uint8_t ieInstance, uint8_t * ieValue, void *arg);
+NwRcT s10_bearer_qos_ie_get (uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t * ieValue, void *arg);
 
 int s10_bearer_qos_ie_set(NwGtpv2cMsgHandleT *msg, const BearerQOS_t *bearer_qos);
 
@@ -236,19 +236,19 @@ int s10_bearer_qos_ie_set(NwGtpv2cMsgHandleT *msg, const BearerQOS_t *bearer_qos
  * 3GPP TS 29.274 #8.9
  */
 NwRcT s10_ip_address_ie_get(
-  uint8_t ieType, uint8_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
+  uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
 
 int s10_ip_address_ie_set(NwGtpv2cMsgHandleT     *msg,
                           const gtp_ip_address_t *ip_address);
 
 int s10_apn_restriction_ie_get (
-  uint8_t ieType, uint8_t ieLength, uint8_t ieInstance, uint8_t * ieValue, void *arg);
+  uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t * ieValue, void *arg);
 
 /* Delay Value Information Element
  * 3GPP TS 29.274 #8.27
  */
 NwRcT s10_delay_value_ie_get(
-  uint8_t ieType, uint8_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
+  uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
 
 int s10_delay_value_ie_set(NwGtpv2cMsgHandleT *msg,
                            const DelayValue_t *delay_value);
@@ -257,7 +257,7 @@ int s10_delay_value_ie_set(NwGtpv2cMsgHandleT *msg,
  * 3GPP TS 29.274 #8.44
  */
 NwRcT s10_ue_time_zone_ie_get(
-  uint8_t ieType, uint8_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
+  uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
 
 int s10_ue_time_zone_ie_set(NwGtpv2cMsgHandleT *msg,
                             const UETimeZone_t *ue_time_zone);
@@ -266,13 +266,13 @@ int s10_ue_time_zone_ie_set(NwGtpv2cMsgHandleT *msg,
  * 3GPP TS 29.274 #8.51
  */
 NwRcT s10_target_identification_ie_get(
-  uint8_t ieType, uint8_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
+  uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
 
 /* Bearer Flags Information Element
  * 3GPP TS 29.274 #8.32
  */
 NwRcT s10_bearer_flags_ie_get(
-  uint8_t ieType, uint8_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
+  uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
 
 int s10_bearer_flags_ie_set(NwGtpv2cMsgHandleT   *msg,
                             const bearer_flags_t *bearer_flags);
@@ -281,7 +281,7 @@ int s10_bearer_flags_ie_set(NwGtpv2cMsgHandleT   *msg,
  * 3GPP TS 29.274 #8.12
  */
 NwRcT s10_indication_flags_ie_get(
-  uint8_t ieType, uint8_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
+  uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
 
 int
 s10_indication_flags_ie_set (
@@ -294,6 +294,6 @@ s10_indication_flags_ie_set (
  */
 
 NwRcT s10_fqcsid_ie_get(
-  uint8_t ieType, uint8_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
+  uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
 
 #endif /* FILE_S10_IE_FORMATTER_SEEN */

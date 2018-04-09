@@ -286,7 +286,7 @@ void *mme_app_thread (
 
         if (received_message_p->ittiMsg.timer_has_expired.timer_id == mme_app_desc.statistic_timer_id) {
           mme_app_statistics_display ();
-        } else if (received_message_p->ittiMsg.timer_has_expired.arg != NULL) { 
+        } else if (received_message_p->ittiMsg.timer_has_expired.arg != NULL) {
           mme_ue_s1ap_id_t mme_ue_s1ap_id = *((mme_ue_s1ap_id_t *)(received_message_p->ittiMsg.timer_has_expired.arg));
 
           OAILOG_WARNING (LOG_MME_APP, "TIMER_HAS_EXPIRED with ID %u and FOR UE id %d \n", received_message_p->ittiMsg.timer_has_expired.timer_id, mme_ue_s1ap_id);
@@ -305,16 +305,13 @@ void *mme_app_thread (
           } else if (received_message_p->ittiMsg.timer_has_expired.timer_id == ue_context_p->initial_context_setup_rsp_timer.id) {
             // Initial Context Setup Rsp Timer expiry handler
             mme_app_handle_initial_context_setup_rsp_timer_expiry (ue_context_p);
-          } else if (received_message_p->ittiMsg.timer_has_expired.timer_id == ue_context_p->mme_mobility_completion_timer.id) {
-            // MME Mobility Completion Timer expiry handler
-            mme_app_handle_mme_mobility_completion_timer_expiry (ue_context_p);
-          } else if (received_message_p->ittiMsg.timer_has_expired.timer_id == ue_context_p->mme_s10_handover_completion_timer.id) {
+          }
+
+          else if (received_message_p->ittiMsg.timer_has_expired.timer_id == ue_context_p->mme_s10_handover_completion_timer.id) {
             // MME S10 Handover Completion Timer expiry handler
             mme_app_handle_mme_s10_handover_completion_timer_expiry (ue_context_p);
-          } else if (received_message_p->ittiMsg.timer_has_expired.timer_id == ue_context_p->mme_paging_timeout_timer.id) {
-            // MME Paging Timeout Timer expiry handler
-            mme_app_handle_mme_paging_timeout_timer_expiry (ue_context_p);
-          } else {
+          }
+          else {
             OAILOG_WARNING (LOG_MME_APP, "Timer expired but no assoicated timer_id for UE id %d\n",mme_ue_s1ap_id);
           }
         }

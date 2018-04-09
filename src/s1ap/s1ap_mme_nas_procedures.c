@@ -1028,10 +1028,10 @@ s1ap_handle_handover_command (
   DevAssert (handover_command_pP != NULL);
 
   /**
-   * This should still refer to the old UE_REFERENCE structure.
-   * The new UE_REFERENCE structure, though exists in the enb map, not registered as a SCTP associated.
+   * Get the UE_REFERENCE structure via the received eNB_ID and enb_ue_s1ap_id pairs.
+   * Currently, it may be that its a too early handover back and we have both ue_references.
    */
-  ue_ref = s1ap_is_ue_mme_id_in_list (handover_command_pP->mme_ue_s1ap_id);
+  ue_ref = s1ap_is_enb_ue_s1ap_id_in_list_per_enb(handover_command_pP->enb_ue_s1ap_id, handover_command_pP->enb_id);
   if (!ue_ref) {
     /**
      * The source UE-Reference should exist.

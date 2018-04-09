@@ -197,6 +197,11 @@ extern                                  "C" {
         return NW_GTPV2C_MSG_MALFORMED;
       }
 
+      if(pIe->t == 118){
+        OAILOG_DEBUG (LOG_GTPV2C,  "Received CONTAINER_IE of length %d !\n", ieLength);
+
+      }
+
       if ((thiz->ieParseInfo[pIe->t][pIe->i].iePresence)) {
         thiz->pIe[pIe->t][pIe->i] = (uint8_t *) pIeStart;
         pMsg->pIe[pIe->t][pIe->i] = (uint8_t *) pIeStart;

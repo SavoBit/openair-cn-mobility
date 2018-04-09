@@ -43,7 +43,7 @@
 NwRcT
 s10_imsi_ie_get (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
   void *arg)
@@ -163,7 +163,7 @@ s10_guti_ie_set (
 NwRcT
 s10_guti_ie_get (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
   void *arg)
@@ -198,7 +198,7 @@ s10_guti_ie_get (
 NwRcT
 s10_msisdn_ie_get (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
   void *arg)
@@ -206,7 +206,7 @@ s10_msisdn_ie_get (
   Msisdn_t                               *msisdn;
   uint8_t                                 i;
   uint8_t                                 mask = 0x0F;
-  uint8_t                                 msisdn_length = 2 * ieLength;
+  uint16_t                                 msisdn_length = 2 * ieLength;
 
   DevAssert (arg );
   msisdn = (Msisdn_t *) arg;
@@ -236,7 +236,7 @@ s10_msisdn_ie_get (
 NwRcT
 s10_mei_ie_get (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
   void *arg)
@@ -250,7 +250,7 @@ s10_mei_ie_get (
 NwRcT
 s10_node_type_ie_get (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
   void *arg)
@@ -461,7 +461,7 @@ s10_pdn_connection_ie_set ( NwGtpv2cMsgHandleT * msg, const mme_ue_eps_pdn_conne
 NwRcT
 s10_pdn_connection_ie_get (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
   void *arg)
@@ -628,7 +628,7 @@ s10_ue_mm_eps_context_ie_set ( NwGtpv2cMsgHandleT * msg, const mm_context_eps_t 
 NwRcT
 s10_mm_ue_context_ie_get (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
   void *arg)
@@ -778,7 +778,7 @@ s10_mm_ue_context_ie_get (
 NwRcT
 s10_complete_request_message_ie_get (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
   void *arg)
@@ -804,7 +804,7 @@ s10_complete_request_message_ie_get (
 NwRcT
 s10_f_container_ie_get (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
   void *arg)
@@ -817,14 +817,14 @@ s10_f_container_ie_get (
   f_container->container_type = *p_ieValue & 0x0F;
   p_ieValue++;
   /** Allocating a new bstring. It will stay until it is manually deallocated. */
-  f_container->container_value = blk2bstr((void*)p_ieValue, ieLength -1); /**< Will it stay after ITTI message is sent, also in the destination ?*/
+  f_container->container_value = blk2bstr((void*)p_ieValue, ieLength -2); /**< Will it stay after ITTI message is sent, also in the destination ?*/
   return NW_OK;
 }
 
 NwRcT
 s10_pdn_type_ie_get (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
 
@@ -896,7 +896,7 @@ s10_pdn_type_ie_set (
 NwRcT
 s10_rat_type_ie_get (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
   void *arg)
@@ -1002,7 +1002,7 @@ s10_ebi_ie_set (
 NwRcT
 s10_ebi_ie_get (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
   void *arg)
@@ -1018,7 +1018,7 @@ s10_ebi_ie_get (
 NwRcT
 s10_ebi_ie_get_list (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
   void *arg)
@@ -1039,7 +1039,7 @@ s10_ebi_ie_get_list (
 NwRcT
 s10_cause_ie_get (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
   void *arg)
@@ -1114,7 +1114,7 @@ s10_bearer_context_to_create_ie_set (
 NwRcT
 s10_bearer_context_to_be_created_ie_get (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
   void *arg)
@@ -1237,7 +1237,7 @@ s10_bearer_context_to_be_modified_ie_set (
 NwRcT
 s10_bearer_context_to_be_modified_ie_get (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
   void *arg)
@@ -1297,7 +1297,7 @@ s10_bearer_context_to_be_modified_ie_get (
 NwRcT
 s10_bearer_context_created_ie_get (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
   void *arg)
@@ -1437,7 +1437,7 @@ int s10_ambr_ie_set(NwGtpv2cMsgHandleT * msg, ambr_t * ambr){
 NwRcT
 s10_serving_network_ie_get (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
   void *arg)
@@ -1539,7 +1539,7 @@ s10_fteid_ie_set (
 NwRcT
 s10_fteid_ie_get (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
   void *arg)
@@ -1585,7 +1585,7 @@ s10_fteid_ie_get (
 NwRcT
 s10_pco_ie_get (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
   void *arg)
@@ -1620,7 +1620,7 @@ s10_pco_ie_set (
 NwRcT
 s10_paa_ie_get (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
   void *arg)
@@ -1710,7 +1710,7 @@ s10_paa_ie_set (
 NwRcT
 s10_apn_ie_get (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
   void *arg)
@@ -1836,7 +1836,7 @@ s10_apn_plmn_ie_set (
 NwRcT
 s10_ambr_ie_get (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
   void *arg)
@@ -1854,7 +1854,7 @@ s10_ambr_ie_get (
 NwRcT
 s10_uli_ie_get (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
   void *arg)
@@ -1873,7 +1873,7 @@ s10_uli_ie_get (
 NwRcT
 s10_bearer_qos_ie_get (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
   void *arg)
@@ -1936,7 +1936,7 @@ s10_bearer_qos_ie_set (
 NwRcT
 s10_ip_address_ie_get (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
   void *arg)
@@ -1999,7 +1999,7 @@ s10_ip_address_ie_set (
 int
 s10_apn_restriction_ie_get (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
   void *arg)
@@ -2020,7 +2020,7 @@ s10_apn_restriction_ie_get (
 NwRcT
 s10_delay_value_ie_get (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
   void *arg)
@@ -2057,7 +2057,7 @@ s10_delay_value_ie_set (
 NwRcT
 s10_ue_time_zone_ie_get (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
   void *arg)
@@ -2097,7 +2097,7 @@ s10_ue_time_zone_ie_set (
 NwRcT
 s10_target_identification_ie_get (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
   void *arg)
@@ -2186,7 +2186,7 @@ s10_target_identification_ie_get (
 NwRcT
 s10_bearer_flags_ie_get (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
   void *arg)
@@ -2223,7 +2223,7 @@ s10_bearer_flags_ie_set (
 NwRcT
 s10_indication_flags_ie_get (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
   void *arg)
@@ -2307,7 +2307,7 @@ s10_indication_flags_ie_set (
 NwRcT
 s10_fqcsid_ie_get (
   uint8_t ieType,
-  uint8_t ieLength,
+  uint16_t ieLength,
   uint8_t ieInstance,
   uint8_t * ieValue,
   void *arg)

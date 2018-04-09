@@ -41,6 +41,8 @@ typedef struct {
   uint32_t statistic_timer_period;
   uint32_t mme_mobility_management_timer_period;
 
+  long s1ap_handover_statistic_timer_id;
+
   /* Reader/writer lock */
   pthread_rwlock_t rw_lock;
   
@@ -135,8 +137,6 @@ void mme_ue_context_update_ue_sig_connection_state (mme_ue_context_t * const mme
 void mme_app_handle_mobile_reachability_timer_expiry (struct ue_context_s *ue_context_p);
 
 void mme_app_handle_implicit_detach_timer_expiry (struct ue_context_s *ue_context_p); 
-
-void mme_app_handle_mme_mobility_completion_timer_expiry (struct ue_context_s *ue_context_p);
 
 void mme_app_handle_mme_s10_handover_completion_timer_expiry (struct ue_context_s *ue_context_p);
 
