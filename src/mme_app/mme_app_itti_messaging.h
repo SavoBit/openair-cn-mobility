@@ -64,4 +64,26 @@ static inline void mme_app_send_s1ap_handover_cancel_acknowledge(mme_ue_s1ap_id_
   OAILOG_FUNC_OUT (LOG_MME_APP);
 }
 
+//------------------------------------------------------------------------------
+static inline void notify_s1ap_new_ue_mme_s1ap_id_association (const sctp_assoc_id_t   assoc_id,
+    const enb_ue_s1ap_id_t  enb_ue_s1ap_id,
+    const mme_ue_s1ap_id_t  mme_ue_s1ap_id)
+{
+  MessageDef                             *message_p = NULL;
+  itti_mme_app_s1ap_mme_ue_id_notification_t *notification_p = NULL;
+
+  OAILOG_FUNC_IN (LOG_MME_APP);
+
+  message_p = itti_alloc_new_message (TASK_MME_APP, MME_APP_S1AP_MME_UE_ID_NOTIFICATION);
+  notification_p = &message_p->ittiMsg.mme_app_s1ap_mme_ue_id_notification;
+  memset (notification_p, 0, sizeof (itti_mme_app_s1ap_mme_ue_id_notification_t));
+  notification_p->enb_ue_s1ap_id = enb_ue_s1ap_id;
+  notification_p->mme_ue_s1ap_id = mme_ue_s1ap_id;
+  notification_p->sctp_assoc_id  = assoc_id;
+
+  itti_send_msg_to_task (TASK_S1AP, INSTANCE_DEFAULT, message_p);
+  OAILOG_DEBUG (LOG_MME_APP, " Sent MME_APP_S1AP_MME_UE_ID_NOTIFICATION to S1AP for UE Id %u and enbUeS1apId %u\n", notification_p->mme_ue_s1ap_id, notification_p->enb_ue_s1ap_id);
+  OAILOG_FUNC_OUT (LOG_MME_APP);
+}
+
 #endif /* FILE_MME_APP_ITTI_MESSAGING_SEEN */

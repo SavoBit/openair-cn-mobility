@@ -191,6 +191,7 @@ typedef struct itti_s1ap_ue_context_release_command_s {
 typedef struct itti_s1ap_dl_nas_data_req_s {
   mme_ue_s1ap_id_t  mme_ue_s1ap_id;
   enb_ue_s1ap_id_t  enb_ue_s1ap_id:24;
+  uint32_t          enb_id;
   bstring           nas_msg;            /* Downlink NAS message             */
 } itti_s1ap_nas_dl_data_req_t;
 

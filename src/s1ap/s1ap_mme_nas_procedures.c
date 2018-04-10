@@ -350,11 +350,10 @@ int
 s1ap_generate_downlink_nas_transport (
   const enb_ue_s1ap_id_t enb_ue_s1ap_id,
   const mme_ue_s1ap_id_t ue_id,
+  const uint32_t         enb_id,
   STOLEN_REF bstring *payload)
 {
   ue_description_t                       *ue_ref = NULL;
-  ue_description_t                       *ue_ref_2 = NULL;
-
 
   uint8_t                                *buffer_p = NULL;
   uint32_t                                length = 0;
@@ -368,16 +367,7 @@ s1ap_generate_downlink_nas_transport (
     enb_description_t  *enb_ref = s1ap_is_enb_assoc_id_in_list (sctp_assoc_id);
     if (enb_ref) {
       OAILOG_ERROR (LOG_S1AP, "SEARCHING UE REFERENCE for SCTP association id %d,  enbUeS1apId " ENB_UE_S1AP_ID_FMT " and enbId %d. \n", sctp_assoc_id, enb_ue_s1ap_id, enb_ref->enb_id);
-
       ue_ref = s1ap_is_ue_enb_id_in_list (enb_ref,enb_ue_s1ap_id);
-
-      ue_ref_2 = s1ap_is_enb_ue_s1ap_id_in_list_per_enb(enb_ue_s1ap_id, enb_ref->enb_id);
-
-      OAILOG_ERROR (LOG_S1AP, "RECEIVED FIRST UE_REF %p with enbId " ENB_UE_S1AP_ID_FMT ". \n", ue_ref, ue_ref->enb_ue_s1ap_id);
-      OAILOG_ERROR (LOG_S1AP, "RECEIVED SECOND UE_REF %p with enbId " ENB_UE_S1AP_ID_FMT ". \n", ue_ref_2, ue_ref_2->enb_ue_s1ap_id);
-
-
-
     } else {
       OAILOG_ERROR (LOG_S1AP, "No eNB for SCTP association id %d \n", sctp_assoc_id);
       OAILOG_FUNC_RETURN (LOG_S1AP, RETURNerror);
@@ -393,48 +383,51 @@ s1ap_generate_downlink_nas_transport (
      * If the UE-associated logical S1-connection is not established,
      * * * * the MME shall allocate a unique MME UE S1AP ID to be used for the UE.
      */
-    OAILOG_WARNING (LOG_S1AP, "Unknown UE MME ID " MME_UE_S1AP_ID_FMT ", This case is not handled right now\n", ue_id);
-    OAILOG_FUNC_RETURN (LOG_S1AP, RETURNerror);
-  } else {
-    /*
-     * We have fount the UE in the list.
-     * * * * Create new IE list message and encode it.
-     */
-    S1ap_DownlinkNASTransportIEs_t         *downlinkNasTransport = NULL;
-    s1ap_message                            message = {0};
-
-    message.procedureCode = S1ap_ProcedureCode_id_downlinkNASTransport;
-    message.direction = S1AP_PDU_PR_initiatingMessage;
-    ue_ref->s1_ue_state = S1AP_UE_CONNECTED;
-    downlinkNasTransport = &message.msg.s1ap_DownlinkNASTransportIEs;
-    /*
-     * Setting UE informations with the ones fount in ue_ref
-     */
-    downlinkNasTransport->mme_ue_s1ap_id = ue_ref->mme_ue_s1ap_id;
-    downlinkNasTransport->eNB_UE_S1AP_ID = ue_ref->enb_ue_s1ap_id;
-    /*eNB
-     * Fill in the NAS pdu
-     */
-    OCTET_STRING_fromBuf (&downlinkNasTransport->nas_pdu, (char *)bdata(*payload), blength(*payload));
-    bdestroy(*payload);
-    *payload = NULL;
-
-    if (s1ap_mme_encode_pdu (&message, &buffer_p, &length) < 0) {
-      // TODO: handle something
+    OAILOG_WARNING (LOG_S1AP, "Unknown UE MME ID " MME_UE_S1AP_ID_FMT ". Check using the received eNBUeS1apId " ENB_UE_S1AP_ID_FMT " and enbId %d. \n", enb_ue_s1ap_id, enb_id);
+    ue_ref = s1ap_is_enb_ue_s1ap_id_in_list_per_enb(enb_ue_s1ap_id, enb_id);
+    if(!ue_ref){
       OAILOG_FUNC_RETURN (LOG_S1AP, RETURNerror);
     }
-
-    OAILOG_NOTICE (LOG_S1AP, "Send S1AP DOWNLINK_NAS_TRANSPORT message ue_id = " MME_UE_S1AP_ID_FMT " MME_UE_S1AP_ID = " MME_UE_S1AP_ID_FMT " eNB_UE_S1AP_ID = " ENB_UE_S1AP_ID_FMT "\n",
-                ue_id, (mme_ue_s1ap_id_t)downlinkNasTransport->mme_ue_s1ap_id, (enb_ue_s1ap_id_t)downlinkNasTransport->eNB_UE_S1AP_ID);
-    MSC_LOG_TX_MESSAGE (MSC_S1AP_MME,
-                        MSC_S1AP_ENB,
-                        NULL, 0,
-                        "0 downlinkNASTransport/initiatingMessage ue_id " MME_UE_S1AP_ID_FMT " mme_ue_s1ap_id " MME_UE_S1AP_ID_FMT " enb_ue_s1ap_id" ENB_UE_S1AP_ID_FMT " nas length %u",
-                        ue_id, (mme_ue_s1ap_id_t)downlinkNasTransport->mme_ue_s1ap_id, (enb_ue_s1ap_id_t)downlinkNasTransport->eNB_UE_S1AP_ID, length);
-    bstring b = blk2bstr(buffer_p, length);
-    free(buffer_p);
-    s1ap_mme_itti_send_sctp_request (&b , ue_ref->enb->sctp_assoc_id, ue_ref->sctp_stream_send, ue_ref->mme_ue_s1ap_id);
   }
+
+  /*
+   * We have fount the UE in the list.
+   * * * * Create new IE list message and encode it.
+   */
+  S1ap_DownlinkNASTransportIEs_t         *downlinkNasTransport = NULL;
+  s1ap_message                            message = {0};
+
+  message.procedureCode = S1ap_ProcedureCode_id_downlinkNASTransport;
+  message.direction = S1AP_PDU_PR_initiatingMessage;
+  ue_ref->s1_ue_state = S1AP_UE_CONNECTED;
+  downlinkNasTransport = &message.msg.s1ap_DownlinkNASTransportIEs;
+  /*
+   * Setting UE informations with the ones fount in ue_ref
+   */
+  downlinkNasTransport->mme_ue_s1ap_id = ue_ref->mme_ue_s1ap_id;
+  downlinkNasTransport->eNB_UE_S1AP_ID = ue_ref->enb_ue_s1ap_id;
+  /*eNB
+   * Fill in the NAS pdu
+   */
+  OCTET_STRING_fromBuf (&downlinkNasTransport->nas_pdu, (char *)bdata(*payload), blength(*payload));
+  bdestroy(*payload);
+  *payload = NULL;
+
+  if (s1ap_mme_encode_pdu (&message, &buffer_p, &length) < 0) {
+    // TODO: handle something
+    OAILOG_FUNC_RETURN (LOG_S1AP, RETURNerror);
+  }
+
+  OAILOG_NOTICE (LOG_S1AP, "Send S1AP DOWNLINK_NAS_TRANSPORT message ue_id = " MME_UE_S1AP_ID_FMT " MME_UE_S1AP_ID = " MME_UE_S1AP_ID_FMT " eNB_UE_S1AP_ID = " ENB_UE_S1AP_ID_FMT "\n",
+      ue_id, (mme_ue_s1ap_id_t)downlinkNasTransport->mme_ue_s1ap_id, (enb_ue_s1ap_id_t)downlinkNasTransport->eNB_UE_S1AP_ID);
+  MSC_LOG_TX_MESSAGE (MSC_S1AP_MME,
+      MSC_S1AP_ENB,
+      NULL, 0,
+      "0 downlinkNASTransport/initiatingMessage ue_id " MME_UE_S1AP_ID_FMT " mme_ue_s1ap_id " MME_UE_S1AP_ID_FMT " enb_ue_s1ap_id" ENB_UE_S1AP_ID_FMT " nas length %u",
+      ue_id, (mme_ue_s1ap_id_t)downlinkNasTransport->mme_ue_s1ap_id, (enb_ue_s1ap_id_t)downlinkNasTransport->eNB_UE_S1AP_ID, length);
+  bstring b = blk2bstr(buffer_p, length);
+  free(buffer_p);
+  s1ap_mme_itti_send_sctp_request (&b , ue_ref->enb->sctp_assoc_id, ue_ref->sctp_stream_send, ue_ref->mme_ue_s1ap_id);
 
   OAILOG_FUNC_RETURN (LOG_S1AP, RETURNok);
 }

@@ -70,6 +70,7 @@ int mme_app_handle_nas_dl_req (
   
   S1AP_NAS_DL_DATA_REQ (message_p).enb_ue_s1ap_id         = enb_ue_s1ap_id;
   S1AP_NAS_DL_DATA_REQ (message_p).mme_ue_s1ap_id         = nas_dl_req_pP->ue_id;
+  S1AP_NAS_DL_DATA_REQ (message_p).enb_id                 = ue_context->e_utran_cgi.cell_identity.enb_id;
   S1AP_NAS_DL_DATA_REQ (message_p).nas_msg                = nas_dl_req_pP->nas_msg;
 
   MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME,TASK_S1AP,NULL, 0,

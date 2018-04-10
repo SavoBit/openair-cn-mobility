@@ -96,6 +96,7 @@ void s1ap_handle_paging( const itti_s1ap_paging_t * const s1ap_paging_pP);
 int s1ap_generate_downlink_nas_transport (
   const enb_ue_s1ap_id_t enb_ue_s1ap_id,
   const mme_ue_s1ap_id_t ue_id,
+  const uint32_t         enb_id,
   STOLEN_REF bstring *payload);
 
 void

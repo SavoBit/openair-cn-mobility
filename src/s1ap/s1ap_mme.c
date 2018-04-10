@@ -160,6 +160,7 @@ s1ap_mme_thread (
          */
         s1ap_generate_downlink_nas_transport (S1AP_NAS_DL_DATA_REQ (received_message_p).enb_ue_s1ap_id,
             S1AP_NAS_DL_DATA_REQ (received_message_p).mme_ue_s1ap_id,
+            S1AP_NAS_DL_DATA_REQ (received_message_p).enb_id,
             &S1AP_NAS_DL_DATA_REQ (received_message_p).nas_msg);
       }
       break;
