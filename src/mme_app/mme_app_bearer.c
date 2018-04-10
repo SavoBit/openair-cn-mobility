@@ -49,7 +49,6 @@
 //----------------------------------------------------------------------------
 static bool mme_app_construct_guti(const plmn_t * const plmn_p, const as_stmsi_t * const s_tmsi_p,  guti_t * const guti_p);
 
-static void notify_s1ap_new_ue_mme_s1ap_id_association (struct ue_context_s *ue_context_p);
 static bool mme_app_check_ta_local(const plmn_t * target_plmn, const tac_t target_tac);
 
 static int mme_app_compare_tac (uint16_t tac_value);
@@ -926,7 +925,7 @@ mme_app_handle_initial_ue_message (
   ue_context_p->sctp_assoc_id_key = initial_pP->sctp_assoc_id;
   ue_context_p->e_utran_cgi = initial_pP->cgi;
   // Notify S1AP about the mapping between mme_ue_s1ap_id and sctp assoc id + enb_ue_s1ap_id 
-  notify_s1ap_new_ue_mme_s1ap_id_association (ue_context_p);
+  notify_s1ap_new_ue_mme_s1ap_id_association (ue_context_p->sctp_assoc_id_key, ue_context_p->enb_ue_s1ap_id, ue_context_p->mme_ue_s1ap_id);
   // Initialize timers to INVALID IDs
   ue_context_p->mobile_reachability_timer.id = MME_APP_TIMER_INACTIVE_ID;
   ue_context_p->implicit_detach_timer.id = MME_APP_TIMER_INACTIVE_ID;
@@ -3070,7 +3069,7 @@ mme_app_handle_handover_failure (
     * UE is registered, we assume in this case that the source-MME is also attached to the current.
     * In this case, we need to re-notify the MME_UE_S1AP_ID<->SCTP association, because it might be removed with the error handling.
     */
-   notify_s1ap_new_ue_mme_s1ap_id_association (ue_context_p);
+   notify_s1ap_new_ue_mme_s1ap_id_association (ue_context_p->sctp_assoc_id_key, ue_context_p->enb_ue_s1ap_id, ue_context_p->mme_ue_s1ap_id);
    /** We assume a valid enb & sctp id in the UE_Context. */
    mme_app_send_s1ap_handover_preparation_failure(ue_context_p->mme_ue_s1ap_id, ue_context_p->enb_ue_s1ap_id, ue_context_p->sctp_assoc_id_key, S1AP_HANDOVER_FAILED);
    /**
@@ -3270,7 +3269,7 @@ mme_app_handle_s1ap_handover_notify(
   * This will overwrite the association towards the old eNB if single MME S1AP handover.
   * The old eNB will be referenced by the enb_ue_s1ap_id.
   */
- notify_s1ap_new_ue_mme_s1ap_id_association (ue_context_p);
+ notify_s1ap_new_ue_mme_s1ap_id_association (ue_context_p->sctp_assoc_id_key, ue_context_p->enb_ue_s1ap_id, ue_context_p->mme_ue_s1ap_id);
 
  /**
   * Check the UE status:
@@ -3762,28 +3761,5 @@ static bool mme_app_construct_guti(const plmn_t * const plmn_p, const as_stmsi_t
   }
   mme_config_unlock (&mme_config);
   return is_guti_valid;
-}
-
-//------------------------------------------------------------------------------
-static void notify_s1ap_new_ue_mme_s1ap_id_association (struct ue_context_s *ue_context_p)
-{
-  MessageDef                             *message_p = NULL;
-  itti_mme_app_s1ap_mme_ue_id_notification_t *notification_p = NULL;
-  
-  OAILOG_FUNC_IN (LOG_MME_APP);
-  if (ue_context_p == NULL) {
-    OAILOG_ERROR (LOG_MME_APP, " NULL UE context ptr\n" );
-    OAILOG_FUNC_OUT (LOG_MME_APP);
-  }
-  message_p = itti_alloc_new_message (TASK_MME_APP, MME_APP_S1AP_MME_UE_ID_NOTIFICATION);
-  notification_p = &message_p->ittiMsg.mme_app_s1ap_mme_ue_id_notification;
-  memset (notification_p, 0, sizeof (itti_mme_app_s1ap_mme_ue_id_notification_t)); 
-  notification_p->enb_ue_s1ap_id = ue_context_p->enb_ue_s1ap_id; 
-  notification_p->mme_ue_s1ap_id = ue_context_p->mme_ue_s1ap_id;
-  notification_p->sctp_assoc_id  = ue_context_p->sctp_assoc_id_key;
-
-  itti_send_msg_to_task (TASK_S1AP, INSTANCE_DEFAULT, message_p);
-  OAILOG_DEBUG (LOG_MME_APP, " Sent MME_APP_S1AP_MME_UE_ID_NOTIFICATION to S1AP for UE Id %u and enbUeS1apId %u\n", notification_p->mme_ue_s1ap_id, notification_p->enb_ue_s1ap_id);
-  OAILOG_FUNC_OUT (LOG_MME_APP);
 }
 

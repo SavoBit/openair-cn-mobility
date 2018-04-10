@@ -1208,7 +1208,7 @@ mme_app_handle_s1ap_ue_context_release_complete (
          * This will overwrite the association towards the old eNB if single MME S1AP handover.
          * The old eNB will be referenced by the enb_ue_s1ap_id.
          */
-        notify_s1ap_new_ue_mme_s1ap_id_association (ue_context_p);
+        notify_s1ap_new_ue_mme_s1ap_id_association (ue_context_p->sctp_assoc_id_key, ue_context_p->enb_ue_s1ap_id, ue_context_p->mme_ue_s1ap_id);
       }
     }
   }
