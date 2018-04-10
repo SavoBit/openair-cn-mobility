@@ -1394,32 +1394,12 @@ mme_app_handle_downlink_data_notification(const itti_s11_downlink_data_notificat
     OAILOG_FUNC_RETURN (LOG_MME_APP, RETURNerror);
   }
 
-  /** UE is in idle mode. Triggering paging and responding positively. */
-  /** Check if any paging_timeout timer is running, if so ignore the received request. */
-  if(ue_context_p->mme_paging_timeout_timer.id != MME_APP_TIMER_INACTIVE_ID){
-    // todo: ignore or respond with further result code true?!
-    OAILOG_INFO(LOG_MME_APP, "MME_PAGING_TIMEOUT_TIMER %u, is still running. Ignoring further DL_DATA_NOTIFICATIONS for imsi " IMSI_64_FMT ". \n",
-        ue_context_p->mme_paging_timeout_timer.id, ue_context_p->imsi);
-    OAILOG_FUNC_RETURN (LOG_MME_APP, rc);
-  }
   OAILOG_INFO(LOG_MME_APP, "MME_MOBILTY_COMPLETION timer is not running. Starting paging procedure for UE with imsi " IMSI_64_FMT ". \n", ue_context_p->imsi);
 
   // todo: timeout to wait to ignore further DL_DATA_NOTIF messages->
   mme_app_send_downlink_data_notification_acknowledge(REQUEST_ACCEPTED, saegw_dl_data_ntf_pP->teid, saegw_dl_data_ntf_pP->trxn);
 
-  /** Start the paging timeout timer. */
-  if (timer_setup (mme_config.mme_paging_timeout_timer, 0,
-                TASK_MME_APP, INSTANCE_DEFAULT, TIMER_ONE_SHOT, (void *) &(ue_context_p->mme_ue_s1ap_id), &(ue_context_p->mme_mobility_completion_timer.id)) < 0) {
-    OAILOG_ERROR (LOG_MME_APP, "Failed to start initial context setup response timer for UE id  %d for duration %d \n", ue_context_p->mme_ue_s1ap_id, mme_config.mme_mobility_completion_timer);
-    ue_context_p->mme_paging_timeout_timer.id = MME_APP_TIMER_INACTIVE_ID;
-    // todo: do some appropriate error handling..
-  } else {
-    OAILOG_DEBUG (LOG_MME_APP, "MME APP : Handled Downlink Data Notification message from SAE-GW. "
-        "Activated the MME paging completion timer UE id  %d. Waiting for UE to go back from IDLE mode to ACTIVE mode.. Timer Id %u. Timer duration %d \n",
-        ue_context_p->mme_ue_s1ap_id, ue_context_p->mme_paging_timeout_timer.id, mme_config.mme_paging_timeout_timer);
-    /** Upon expiration, invalidate the timer.. no flag needed. */
-  }
-
+  /** No need to start paging timeout timer. It will be handled by the Periodic TAU update timer. */
   // todo: no downlink data notification failure and just removing the UE?
 
   /** Do paging on S1AP interface. */
@@ -2104,19 +2084,58 @@ mme_app_handle_forward_relocation_request(
  /** Check that the UE does not exist. */
  ue_context_p = mme_ue_context_exists_imsi(&mme_app_desc.mme_ue_contexts, imsi);
  if (ue_context_p != NULL) {
-   OAILOG_ERROR(LOG_MME_APP, "An UE MME context for the UE with IMSI " IMSI_64_FMT " already exists. \n", imsi);
+   OAILOG_WARNING(LOG_MME_APP, "An UE MME context for the UE with IMSI " IMSI_64_FMT " already exists. \n", imsi);
    MSC_LOG_EVENT (MSC_MMEAPP_MME, "S10_FORWARD_RELOCATION_REQUEST. Already existing UE " IMSI_64_FMT, imsi);
-   mme_app_send_s10_forward_relocation_response_err(forward_relocation_request_pP->s10_source_mme_teid.teid, forward_relocation_request_pP->s10_source_mme_teid.ipv4, forward_relocation_request_pP->trxn, RELOCATION_FAILURE);
-   // todo: check the specification, if an ongoing handover procedure is there, aborting the current one and continuing with the new one?
-   bdestroy(forward_relocation_request_pP->eutran_container.container_value);
-   ue_context_p->ue_context_rel_cause = S1AP_IMPLICIT_CONTEXT_RELEASE;
-   message_p = itti_alloc_new_message (TASK_MME_APP, NAS_IMPLICIT_DETACH_UE_IND);
-   DevAssert (message_p != NULL);
-   itti_nas_implicit_detach_ue_ind_t *nas_implicit_detach_ue_ind_p = &message_p->ittiMsg.nas_implicit_detach_ue_ind;
-   memset ((void*)nas_implicit_detach_ue_ind_p, 0, sizeof (itti_nas_implicit_detach_ue_ind_t));
-   message_p->ittiMsg.nas_implicit_detach_ue_ind.ue_id = ue_context_p->mme_ue_s1ap_id;
-   itti_send_msg_to_task (TASK_NAS_MME, INSTANCE_DEFAULT, message_p);
-   OAILOG_FUNC_OUT (LOG_MME_APP);
+
+   /** Check that also an NAS UE context exists. */
+   emm_data_context_t *ue_nas_ctx = emm_data_context_get_by_imsi (&_emm_data, &imsi);
+   if (ue_nas_ctx) {
+     OAILOG_INFO(LOG_MME_APP, "A valid UE context and NAS context exist for UE with IMSI " IMSI_64_FMT " and " MME_UE_S1AP_ID_FMT " already, but this re-registration part is not implemented yet. \n", imsi, ue_context_p->mme_ue_s1ap_id);
+//     /** If a CLR flag is existing, reset it. */
+//     if(ue_context_p->pending_clear_location_request){
+//       OAILOG_INFO(LOG_MME_APP, "UE_CONTEXT already had a CLR flag set for UE with IMSI " IMSI_64_FMT " and " MME_UE_S1AP_ID_FMT " already. Resetting. \n", imsi, ue_context_p->mme_ue_s1ap_id);
+//       ue_context_p->pending_clear_location_request = false;
+//     }
+//     /**
+//      * Stop the MME_MOBILITY COMPLETION timer,if running.
+//      * We will leave the UE reference removal as it is. We will create directly a new ue_referece to the target eNB.
+//      */
+//     if (ue_context_p->mme_mobility_completion_timer.id != MME_APP_TIMER_INACTIVE_ID) {
+//       if (timer_remove(ue_context_p->mme_mobility_completion_timer.id)) {
+//         OAILOG_ERROR (LOG_MME_APP, "Failed to stop the MME mobility completion timer for UE id  %d \n", ue_context_p->mme_ue_s1ap_id);
+//       }
+//       ue_context_p->mme_mobility_completion_timer.id = MME_APP_TIMER_INACTIVE_ID;
+//     }
+//     /** If CLR is arriving after this, we will still remove the UE. */
+
+     // todo: if it is too fast handovering back, removing the UE context and taking the received values? Whats the timer for then? Updating specific security values and leaving the rest?
+       // todo: in that case, we could do a "re-registration" state where the state also changes" (without removing the UE context)!!! (like a TAU update)
+
+     mme_app_send_s10_forward_relocation_response_err(forward_relocation_request_pP->s10_source_mme_teid.teid, forward_relocation_request_pP->s10_source_mme_teid.ipv4, forward_relocation_request_pP->trxn, RELOCATION_FAILURE);
+     // todo: check the specification, if an ongoing handover procedure is there, aborting the current one and continuing with the new one?
+     bdestroy(forward_relocation_request_pP->eutran_container.container_value);
+     ue_context_p->ue_context_rel_cause = S1AP_IMPLICIT_CONTEXT_RELEASE;
+     message_p = itti_alloc_new_message (TASK_MME_APP, NAS_IMPLICIT_DETACH_UE_IND);
+     DevAssert (message_p != NULL);
+     itti_nas_implicit_detach_ue_ind_t *nas_implicit_detach_ue_ind_p = &message_p->ittiMsg.nas_implicit_detach_ue_ind;
+     memset ((void*)nas_implicit_detach_ue_ind_p, 0, sizeof (itti_nas_implicit_detach_ue_ind_t));
+     message_p->ittiMsg.nas_implicit_detach_ue_ind.ue_id = ue_context_p->mme_ue_s1ap_id;
+     itti_send_msg_to_task (TASK_NAS_MME, INSTANCE_DEFAULT, message_p);
+     OAILOG_FUNC_OUT (LOG_MME_APP);
+   }else{
+     OAILOG_ERROR(LOG_MME_APP, "No  valid UE context and NAS context exist for UE with IMSI " IMSI_64_FMT " and " MME_UE_S1AP_ID_FMT " already. Removing the UE context. \n", imsi, ue_context_p->mme_ue_s1ap_id);
+     mme_app_send_s10_forward_relocation_response_err(forward_relocation_request_pP->s10_source_mme_teid.teid, forward_relocation_request_pP->s10_source_mme_teid.ipv4, forward_relocation_request_pP->trxn, RELOCATION_FAILURE);
+     // todo: check the specification, if an ongoing handover procedure is there, aborting the current one and continuing with the new one?
+     bdestroy(forward_relocation_request_pP->eutran_container.container_value);
+     ue_context_p->ue_context_rel_cause = S1AP_IMPLICIT_CONTEXT_RELEASE;
+     message_p = itti_alloc_new_message (TASK_MME_APP, NAS_IMPLICIT_DETACH_UE_IND);
+     DevAssert (message_p != NULL);
+     itti_nas_implicit_detach_ue_ind_t *nas_implicit_detach_ue_ind_p = &message_p->ittiMsg.nas_implicit_detach_ue_ind;
+     memset ((void*)nas_implicit_detach_ue_ind_p, 0, sizeof (itti_nas_implicit_detach_ue_ind_t));
+     message_p->ittiMsg.nas_implicit_detach_ue_ind.ue_id = ue_context_p->mme_ue_s1ap_id;
+     itti_send_msg_to_task (TASK_NAS_MME, INSTANCE_DEFAULT, message_p);
+     OAILOG_FUNC_OUT (LOG_MME_APP);
+   }
  }
  OAILOG_INFO(LOG_MME_APP, "Received a FORWARD_RELOCATION_REQUEST for new UE with IMSI " IMSI_64_FMT ". \n", imsi);
 
@@ -2273,14 +2292,14 @@ mme_app_handle_forward_relocation_request(
  if (timer_setup (mme_config.mme_s10_handover_completion_timer, 0,
      TASK_MME_APP, INSTANCE_DEFAULT, TIMER_ONE_SHOT, (void *) &(ue_context_p->mme_ue_s1ap_id), &(ue_context_p->mme_s10_handover_completion_timer.id)) < 0) {
    OAILOG_ERROR (LOG_MME_APP, "Failed to start the MME S10 Handover Completion timer for UE id " MME_UE_S1AP_ID_FMT " for duration %d \n", ue_context_p->mme_ue_s1ap_id, mme_config.mme_mobility_completion_timer);
-   ue_context_p->mme_paging_timeout_timer.id = MME_APP_TIMER_INACTIVE_ID;
+   ue_context_p->mme_s10_handover_completion_timer.id = MME_APP_TIMER_INACTIVE_ID;
    /**
     * UE will be implicitly detached, if this timer runs out. It should be manually removed.
     * S10 FW Relocation Complete removes this timer.
     */
  } else {
    OAILOG_DEBUG (LOG_MME_APP, "MME APP : Activated the MME S10 Handover Completion timer UE id  " MME_UE_S1AP_ID_FMT ". Waiting for UE to go back from IDLE mode to ACTIVE mode.. Timer Id %u. "
-       "Timer duration %d \n", ue_context_p->mme_ue_s1ap_id, ue_context_p->mme_paging_timeout_timer.id, mme_config.mme_paging_timeout_timer);
+       "Timer duration %d \n", ue_context_p->mme_ue_s1ap_id, ue_context_p->mme_s10_handover_completion_timer.id, mme_config.mme_s10_handover_completion_timer);
    /** Upon expiration, invalidate the timer.. no flag needed. */
  }
  /** No initialization of timers here. */
@@ -3315,10 +3334,12 @@ mme_app_handle_s1ap_handover_notify(
                    TASK_S1AP, INSTANCE_DEFAULT, TIMER_ONE_SHOT, (void *)old_ue_reference, &(old_ue_reference->s1ap_handover_completion_timer.id)) < 0) {
        OAILOG_ERROR (LOG_MME_APP, "Failed to start >s1ap_handover_completion for enbUeS1apId " ENB_UE_S1AP_ID_FMT " for duration %d \n", old_ue_reference->enb_ue_s1ap_id, mme_config.mme_mobility_completion_timer);
        old_ue_reference->s1ap_handover_completion_timer.id = MME_APP_TIMER_INACTIVE_ID;
+       /** Not set the timer for the UE context, since we will not deregister. */
      } else {
        OAILOG_DEBUG (LOG_MME_APP, "MME APP : Completed Handover Procedure at (source) MME side after handling S1AP_HANDOVER_NOTIFY. "
            "Activated the S1AP Handover completion timer enbUeS1apId " ENB_UE_S1AP_ID_FMT ". Removing source eNB resources after timer.. Timer Id %u. Timer duration %d \n",
            old_ue_reference->enb_ue_s1ap_id, old_ue_reference->s1ap_handover_completion_timer.id, mme_config.mme_mobility_completion_timer);
+       /** Not setting the timer for MME_APP UE context. */
      }
    }else{
      OAILOG_DEBUG(LOG_MME_APP, "No old UE_REFERENCE was found for mmeS1apUeId " MME_UE_S1AP_ID_FMT " and enbUeS1apId "ENB_UE_S1AP_ID_FMT ". Not starting a new timer. \n",
@@ -3419,10 +3440,13 @@ mme_app_handle_forward_relocation_complete_notification(
        TASK_S1AP, INSTANCE_DEFAULT, TIMER_ONE_SHOT, (void *)old_ue_reference, &(old_ue_reference->s1ap_handover_completion_timer.id)) < 0) {
      OAILOG_ERROR (LOG_MME_APP, "Failed to start >s1ap_handover_completion for enbUeS1apId " ENB_UE_S1AP_ID_FMT " for duration %d \n", old_ue_reference->enb_ue_s1ap_id, mme_config.mme_mobility_completion_timer);
      old_ue_reference->s1ap_handover_completion_timer.id = MME_APP_TIMER_INACTIVE_ID;
+     ue_context_p->mme_mobility_completion_timer.id = MME_APP_TIMER_INACTIVE_ID;
    } else {
      OAILOG_DEBUG (LOG_MME_APP, "MME APP : Completed Handover Procedure at (source) MME side after handling S1AP_HANDOVER_NOTIFY. "
          "Activated the S1AP Handover completion timer enbUeS1apId " ENB_UE_S1AP_ID_FMT ". Removing source eNB resources after timer.. Timer Id %u. Timer duration %d \n",
          old_ue_reference->enb_ue_s1ap_id, old_ue_reference->s1ap_handover_completion_timer.id, mme_config.mme_mobility_completion_timer);
+     /** For the case of the S10 handover, add the timer ID to the MME_APP UE context to remove the UE context. */
+     ue_context_p->mme_mobility_completion_timer.id = old_ue_reference->s1ap_handover_completion_timer.id;
    }
  }else{
    OAILOG_DEBUG(LOG_MME_APP, "No old UE_REFERENCE was found for mmeS1apUeId " MME_UE_S1AP_ID_FMT " and enbUeS1apId "ENB_UE_S1AP_ID_FMT ". Not starting a new timer. \n",
@@ -3592,24 +3616,24 @@ mme_app_handle_mme_s10_handover_completion_timer_expiry (struct ue_context_s *ue
 
 //------------------------------------------------------------------------------
 void
-mme_app_handle_mme_paging_timeout_timer_expiry (struct ue_context_s *ue_context_p)
+mme_app_handle_mobility_completion_timer_expiry (struct ue_context_s *ue_context_p)
 {
   OAILOG_FUNC_IN (LOG_MME_APP);
   DevAssert (ue_context_p != NULL);
   MessageDef                             *message_p = NULL;
-  OAILOG_INFO (LOG_MME_APP, "Expired- MME Paging Timeout timer for UE id  %d \n", ue_context_p->mme_ue_s1ap_id);
-  ue_context_p->mme_paging_timeout_timer.id = MME_APP_TIMER_INACTIVE_ID;
-  ue_context_p->ue_context_rel_cause = S1AP_NAS_DETACH;
-
-  if(ue_context_p->ecm_state != ECM_CONNECTED){
-    OAILOG_INFO (LOG_MME_APP, "Implicitly detaching the UE since UE was not in ECM_CONNECTED state after paging timeout expired for UE id  %d \n", ue_context_p->mme_ue_s1ap_id);
+  OAILOG_INFO (LOG_MME_APP, "Expired- MME Mobility Completion timer for UE " MME_UE_S1AP_ID_FMT " run out. \n", ue_context_p->mme_ue_s1ap_id);
+  if(ue_context_p->pending_clear_location_request){
+    OAILOG_INFO (LOG_MME_APP, "CLR flag is set for UE " MME_UE_S1AP_ID_FMT ". Performing implicit detach. \n", ue_context_p->mme_ue_s1ap_id);
+    ue_context_p->mme_mobility_completion_timer.id = MME_APP_TIMER_INACTIVE_ID;
+    ue_context_p->ue_context_rel_cause = S1AP_NAS_DETACH;
+    /** Check if the CLR flag has been set. */
     message_p = itti_alloc_new_message (TASK_MME_APP, NAS_IMPLICIT_DETACH_UE_IND);
     DevAssert (message_p != NULL);
     message_p->ittiMsg.nas_implicit_detach_ue_ind.ue_id = ue_context_p->mme_ue_s1ap_id;
     MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME, MSC_NAS_MME, NULL, 0, "0 NAS_IMPLICIT_DETACH_UE_IND_MESSAGE");
     itti_send_msg_to_task (TASK_NAS_MME, INSTANCE_DEFAULT, message_p);
   }else{
-    OAILOG_INFO (LOG_MME_APP, "Leaving UE %d with imsi " IMSI_64_FMT "as registered since its in ECM_CONNECTED state before paging timeout expired. \n", ue_context_p->mme_ue_s1ap_id, ue_context_p->imsi);
+    OAILOG_WARNING(LOG_MME_APP, "CLR flag is NOT set for UE " MME_UE_S1AP_ID_FMT ". Not performing implicit detach. \n", ue_context_p->mme_ue_s1ap_id);
   }
   OAILOG_FUNC_OUT (LOG_MME_APP);
 }

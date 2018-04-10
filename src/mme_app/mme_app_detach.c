@@ -183,6 +183,10 @@ mme_app_handle_detach_req (
     } else if (ue_context->ue_context_rel_cause == S1AP_SUCCESSFUL_HANDOVER){ /**< Wait for a response. */
       OAILOG_DEBUG (LOG_MME_APP, "UE context will be released and resources removed due HANDOVER for UE with IMSI: " IMSI_64_FMT " and MME_UE_S1AP_ID : %d. \n",
           ue_context->imsi, ue_context->mme_ue_s1ap_id);
+
+      mme_ue_context_update_ue_sig_connection_state (&mme_app_desc.mme_ue_contexts, ue_context, ECM_IDLE);
+      /** Remove the UE context. */
+      mme_remove_ue_context (&mme_app_desc.mme_ue_contexts, ue_context);
     }
   }
   OAILOG_FUNC_OUT (LOG_MME_APP);

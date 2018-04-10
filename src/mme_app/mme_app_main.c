@@ -307,6 +307,11 @@ void *mme_app_thread (
             mme_app_handle_initial_context_setup_rsp_timer_expiry (ue_context_p);
           }
 
+          /** Handover Related Timers. */
+          else if (received_message_p->ittiMsg.timer_has_expired.timer_id == ue_context_p->mme_mobility_completion_timer.id) {
+            // MME Mobility Completion Timer expiry handler (we need this in addition to the one in the S1AP for CLR handling after TAU at source MME. */
+            mme_app_handle_mobility_completion_timer_expiry (ue_context_p);
+          }
           else if (received_message_p->ittiMsg.timer_has_expired.timer_id == ue_context_p->mme_s10_handover_completion_timer.id) {
             // MME S10 Handover Completion Timer expiry handler
             mme_app_handle_mme_s10_handover_completion_timer_expiry (ue_context_p);

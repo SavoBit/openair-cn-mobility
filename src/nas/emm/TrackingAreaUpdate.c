@@ -322,7 +322,7 @@ int emm_proc_tracking_area_update_validity (emm_data_context_t *emm_ctx, const m
       OAILOG_FUNC_RETURN (LOG_NAS_EMM, RETURNerror);
     }
   } else if ((0 < emm_ctx->num_tau_request) &&
-      (!emm_ctx_is_specific_procedure(emm_ctx, EMM_CTXT_SPEC_PROC_TAU_ACCEPT_SENT) && !emm_ctx_is_specific_procedure(emm_ctx, EMM_CTXT_SPEC_PROC_TAU_REJECT_SENT))) {
+      (emm_ctx_is_specific_procedure(emm_ctx, EMM_CTXT_SPEC_PROC_TAU))){ // TAU_ACCEPT_SENT) && !emm_ctx_is_specific_procedure(emm_ctx, EMM_CTXT_SPEC_PROC_TAU_REJECT_SENT))) {
     if (_emm_tau_have_changed(emm_ctx, msg->naskeysetidentifier.naskeysetidentifier, old_guti,
         msg->uenetworkcapability.eea, msg->uenetworkcapability.eia, msg->uenetworkcapability.ucs2, msg->uenetworkcapability.uea, msg->uenetworkcapability.uia,
         gea,
@@ -1274,6 +1274,8 @@ _emm_tracking_area_update_reject (mme_ue_s1ap_id_t ue_id, int emm_cause)
       _clear_emm_ctxt(emm_ctx); 
     }
   }
+
+//  emm_ctx_mark_specific_procedure(emm_ctx, EMM_CTXT_SPEC_PROC_TAU_REJECT_SENT); /**< Just marking and not setting timer (will be set later with TAU_ACCEPT). */
 
   OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
 }

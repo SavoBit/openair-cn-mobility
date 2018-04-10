@@ -782,8 +782,11 @@ s1ap_mme_generate_ue_context_release_command (
     cause_value = S1ap_CauseRadioNetwork_handover_cancelled;
     break;
   case S1AP_HANDOVER_FAILED:cause_type = S1ap_Cause_PR_radioNetwork;
-      cause_value = S1ap_CauseRadioNetwork_ho_failure_in_target_EPC_eNB_or_target_system;
-      break;
+    cause_value = S1ap_CauseRadioNetwork_ho_failure_in_target_EPC_eNB_or_target_system;
+    break;
+  case S1AP_SUCCESSFUL_HANDOVER: cause_type = S1ap_Cause_PR_radioNetwork;
+    cause_value = S1ap_CauseRadioNetwork_successful_handover;
+    break;
   /**
    * If the cause is an S1AP_NETWORK_ERROR or an S1AP_SYSTEM_FAILURE, we send just a UE-Context-Release-Request (and dismiss the complete).
    * No UE Reference will exist at that point.
@@ -1088,6 +1091,9 @@ s1ap_mme_handle_path_switch_request (
 
     ue_ref_p->s1ap_ue_context_rel_timer.id  = S1AP_TIMER_INACTIVE_ID;
     ue_ref_p->s1ap_ue_context_rel_timer.sec = S1AP_UE_CONTEXT_REL_COMP_TIMER;
+
+    ue_ref_p->s1ap_handover_completion_timer.id  = S1AP_TIMER_INACTIVE_ID;
+    ue_ref_p->s1ap_handover_completion_timer.sec = S1AP_HANDOVER_COMPLETION_TIMER;
 
     // On which stream we received the message
     ue_ref_p->sctp_stream_recv = stream;
@@ -1597,9 +1603,11 @@ s1ap_mme_handle_handover_resource_allocation_response(const sctp_assoc_id_t asso
   // Will be allocated by NAS
   // todo: searching ue_reference just by enb_ue_s1ap id or mme_ue_s1ap_id ?
 
-  // todo: UE_REFERENCE
   ue_ref_p->s1ap_ue_context_rel_timer.id  = S1AP_TIMER_INACTIVE_ID;
   ue_ref_p->s1ap_ue_context_rel_timer.sec = S1AP_UE_CONTEXT_REL_COMP_TIMER;
+
+  ue_ref_p->s1ap_handover_completion_timer.id  = S1AP_TIMER_INACTIVE_ID;
+  ue_ref_p->s1ap_handover_completion_timer.sec = S1AP_HANDOVER_COMPLETION_TIMER;
 
   // On which stream we received the message
   ue_ref_p->sctp_stream_recv = stream;

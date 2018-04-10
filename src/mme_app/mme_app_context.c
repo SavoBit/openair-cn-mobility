@@ -75,8 +75,6 @@ ue_context_t *mme_create_new_ue_context (void)
   new_p->initial_context_setup_rsp_timer.id = MME_APP_TIMER_INACTIVE_ID;
   new_p->ue_context_rel_cause = S1AP_INVALID_CAUSE;
 
-  new_p->mme_mobility_completion_timer.id = MME_APP_TIMER_INACTIVE_ID;
-
   /** Initialize the hash table for the bearer contexts. */
   bstring bs = bfromcstr("mme_app_ue_bearer_cts");
   hashtable_ts_init(&new_p->bearer_ctxs, MAX_NUM_BEARERS_UE, NULL, free_wrapper, bs);
@@ -1200,6 +1198,18 @@ mme_app_handle_s1ap_ue_context_release_complete (
       // Update keys and ECM state
       // todo: when this could happen, UE context release for an UE without any pre
       mme_ue_context_update_ue_sig_connection_state (&mme_app_desc.mme_ue_contexts, ue_context_p,ECM_IDLE);
+      /**
+       * If we don't have a CLR flag, means either CLR came too late, which will cause a UE context removal anyway when it arrives, or it is a single MME handover.
+       * Check if we have a valid UE_REFERENCE and establish notify the SCTP association.
+       */
+      if(ue_context_p->enb_ue_s1ap_id != s1ap_ue_context_release_complete->enb_ue_s1ap_id){
+        OAILOG_DEBUG(LOG_MME_APP, "Establishing the SCTP current UE_REFERENCE enb_ue_s1ap_ue_id " ENB_UE_S1AP_ID_FMT ". ", s1ap_ue_context_release_complete->enb_ue_s1ap_id);
+        /**
+         * This will overwrite the association towards the old eNB if single MME S1AP handover.
+         * The old eNB will be referenced by the enb_ue_s1ap_id.
+         */
+        notify_s1ap_new_ue_mme_s1ap_id_association (ue_context_p);
+      }
     }
   }
   OAILOG_FUNC_OUT (LOG_MME_APP);
@@ -1769,7 +1779,7 @@ mme_app_handle_s10_context_request(const itti_s10_context_request_t * const s10_
  ue_context_p = mme_ue_context_exists_guti(&mme_app_desc.mme_ue_contexts, &s10_context_request_pP->old_guti);
  if (ue_context_p == NULL) {
    /** No UE was found. */
-   OAILOG_ERROR (LOG_MME_APP, "No UE for guti " GUTI_FMT " was found. Cannot proceed with context request. \n", GUTI_ARG(&s10_context_request_pP->old_guti));
+   OAILOG_ERROR (LOG_MME_APP, "No UE for GUTI " GUTI_FMT " was found. Cannot proceed with context request. \n", GUTI_ARG(&s10_context_request_pP->old_guti));
    MSC_LOG_EVENT (MSC_MMEAPP_MME, "S10_CONTEXT_REQUEST. No UE existing for guti: " GUTI_FMT, GUTI_ARG(&s10_context_request_pP->old_guti));
    // todo: error check
    _mme_app_send_s10_context_response_err(s10_context_request_pP->s10_target_mme_teid.teid, s10_context_request_pP->s10_target_mme_teid.ipv4, s10_context_request_pP->trxn, MANDATORY_IE_MISSING);
@@ -1884,7 +1894,6 @@ mme_app_handle_s10_context_request(const itti_s10_context_request_t * const s10_
        TASK_MME_APP, INSTANCE_DEFAULT, TIMER_ONE_SHOT, (void *) &(ue_context_p->mme_ue_s1ap_id), &(ue_context_p->mme_mobility_completion_timer.id)) < 0) {
      OAILOG_ERROR (LOG_MME_APP, "Failed to start MME mobility completion timer for UE id  %d for duration %d \n", ue_context_p->mme_ue_s1ap_id, mme_config.mme_mobility_completion_timer);
      ue_context_p->mme_mobility_completion_timer.id = MME_APP_TIMER_INACTIVE_ID;
-     // todo: do some appropriate error handling..
    } else {
      OAILOG_DEBUG (LOG_MME_APP, "MME APP : Handled S10_CONTEXT_REQUEST at source MME side and started timer for UE context removal. "
          "Activated the MME mobilty timer UE id  %d. Waiting for CANCEL_LOCATION_REQUEST from HSS.. Timer Id %u. Timer duration %d. \n",

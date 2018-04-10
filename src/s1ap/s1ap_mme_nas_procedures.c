@@ -235,7 +235,16 @@ s1ap_mme_handle_uplink_nas_transport (
     if (!(ue_ref = s1ap_is_ue_mme_id_in_list (uplinkNASTransport_p->mme_ue_s1ap_id))) {
       OAILOG_WARNING (LOG_S1AP, "Received S1AP UPLINK_NAS_TRANSPORT No UE is attached to this mme_ue_s1ap_id: " MME_UE_S1AP_ID_FMT "\n",
           (mme_ue_s1ap_id_t)uplinkNASTransport_p->mme_ue_s1ap_id);
-      OAILOG_FUNC_RETURN (LOG_S1AP, RETURNerror);
+      /** Check via the received ENB_UE_S1AP_ID and the ENB_ID. */
+      enb_ref = s1ap_is_enb_assoc_id_in_list (assoc_id);
+      if (!(ue_ref = s1ap_is_ue_enb_id_in_list ( enb_ref, (enb_ue_s1ap_id_t)uplinkNASTransport_p->eNB_UE_S1AP_ID))) {
+        OAILOG_WARNING (LOG_S1AP, "Received S1AP UPLINK_NAS_TRANSPORT No UE is attached to this enb_ue_s1ap_id (after searching with mmeUeS1apId): " ENB_UE_S1AP_ID_FMT "\n",
+            (enb_ue_s1ap_id_t)uplinkNASTransport_p->eNB_UE_S1AP_ID);
+        OAILOG_FUNC_RETURN (LOG_S1AP, RETURNerror);
+      }else{
+        OAILOG_WARNING (LOG_S1AP, "Received S1AP UPLINK_NAS_TRANSPORT and found the UE reference via enb_ue_s1ap_id: " ENB_UE_S1AP_ID_FMT " (after searching with mmeUeS1apId) and enbId %d. \n",
+            (enb_ue_s1ap_id_t)uplinkNASTransport_p->eNB_UE_S1AP_ID, enb_ref->enb_id);
+      }
     }
   }
 
@@ -344,18 +353,31 @@ s1ap_generate_downlink_nas_transport (
   STOLEN_REF bstring *payload)
 {
   ue_description_t                       *ue_ref = NULL;
+  ue_description_t                       *ue_ref_2 = NULL;
+
+
   uint8_t                                *buffer_p = NULL;
   uint32_t                                length = 0;
   void                                   *id = NULL;
 
   OAILOG_FUNC_IN (LOG_S1AP);
 
-  // Try to retrieve SCTP assoication id using mme_ue_s1ap_id
+  // Try to retrieve SCTP association id using mme_ue_s1ap_id
   if (HASH_TABLE_OK ==  hashtable_ts_get (&g_s1ap_mme_id2assoc_id_coll, (const hash_key_t)ue_id, (void **)&id)) {
     sctp_assoc_id_t sctp_assoc_id = (sctp_assoc_id_t)(uintptr_t)id;
     enb_description_t  *enb_ref = s1ap_is_enb_assoc_id_in_list (sctp_assoc_id);
     if (enb_ref) {
+      OAILOG_ERROR (LOG_S1AP, "SEARCHING UE REFERENCE for SCTP association id %d,  enbUeS1apId " ENB_UE_S1AP_ID_FMT " and enbId %d. \n", sctp_assoc_id, enb_ue_s1ap_id, enb_ref->enb_id);
+
       ue_ref = s1ap_is_ue_enb_id_in_list (enb_ref,enb_ue_s1ap_id);
+
+      ue_ref_2 = s1ap_is_enb_ue_s1ap_id_in_list_per_enb(enb_ue_s1ap_id, enb_ref->enb_id);
+
+      OAILOG_ERROR (LOG_S1AP, "RECEIVED FIRST UE_REF %p with enbId " ENB_UE_S1AP_ID_FMT ". \n", ue_ref, ue_ref->enb_ue_s1ap_id);
+      OAILOG_ERROR (LOG_S1AP, "RECEIVED SECOND UE_REF %p with enbId " ENB_UE_S1AP_ID_FMT ". \n", ue_ref_2, ue_ref_2->enb_ue_s1ap_id);
+
+
+
     } else {
       OAILOG_ERROR (LOG_S1AP, "No eNB for SCTP association id %d \n", sctp_assoc_id);
       OAILOG_FUNC_RETURN (LOG_S1AP, RETURNerror);

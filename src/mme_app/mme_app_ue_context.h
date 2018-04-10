@@ -291,11 +291,9 @@ typedef struct ue_context_s {
   struct mme_app_timer_t       implicit_detach_timer; 
   // Initial Context Setup Procedure Guard timer 
   struct mme_app_timer_t       initial_context_setup_rsp_timer; 
-  // Handover/TAU completion timer (TS 23.401)
-  struct mme_app_timer_t       mme_mobility_completion_timer; // todo: not TXXXX value found for this.
   /** Custom timer to remove UE at the source-MME side after a timeout. */
   struct mme_app_timer_t       mme_s10_handover_completion_timer; // todo: not TXXXX value found for this.
-  struct mme_app_timer_t       mme_paging_timeout_timer; // todo: not TXXXX value found for this.
+  struct mme_app_timer_t       mme_mobility_completion_timer; // todo: not TXXXX value found for this.
 
   // Handover related stuff (for which messages to use the following
   struct mme_app_timer_t       path_switch_req_timer;

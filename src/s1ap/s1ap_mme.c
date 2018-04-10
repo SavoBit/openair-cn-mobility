@@ -639,13 +639,21 @@ s1ap_remove_ue (
   /*
    * Remove any attached timer
    */
-  // Stop UE Context Release Complete timer,if running 
+  /** Stop UE Context Release Complete timer,if running. */
   if (ue_ref->s1ap_ue_context_rel_timer.id != S1AP_TIMER_INACTIVE_ID) {
     if (timer_remove (ue_ref->s1ap_ue_context_rel_timer.id)) {
-      OAILOG_ERROR (LOG_MME_APP, "Failed to stop s1ap ue context release complete timer for UE id  %d \n", ue_ref->mme_ue_s1ap_id);
+      OAILOG_ERROR (LOG_S1AP, "Failed to stop s1ap ue context release complete timer for UE id  %d \n", ue_ref->mme_ue_s1ap_id);
     } 
     ue_ref->s1ap_ue_context_rel_timer.id = S1AP_TIMER_INACTIVE_ID;
   }
+
+  /** Stop the S1AP Mobility Completion Timer.  */
+  if (ue_ref->s1ap_handover_completion_timer.id != S1AP_TIMER_INACTIVE_ID) {
+    if (timer_remove (ue_ref->s1ap_handover_completion_timer.id)) {
+      OAILOG_ERROR (LOG_S1AP, "Failed to stop s1ap handover completion timer for UE id " MME_UE_S1AP_ID_FMT" and enbUeS1apId " ENB_UE_S1AP_ID_FMT " \n", ue_ref->mme_ue_s1ap_id, ue_ref->enb_ue_s1ap_id);    }
+    ue_ref->s1ap_handover_completion_timer.id = S1AP_TIMER_INACTIVE_ID;
+  }
+
   //     s1ap_timer_remove_ue(ue_ref->mme_ue_s1ap_id);
   OAILOG_TRACE(LOG_S1AP, "Removing UE enb_ue_s1ap_id: " ENB_UE_S1AP_ID_FMT " mme_ue_s1ap_id:" MME_UE_S1AP_ID_FMT " in eNB id : %d\n",
       ue_ref->enb_ue_s1ap_id, ue_ref->mme_ue_s1ap_id, enb_ref->enb_id);

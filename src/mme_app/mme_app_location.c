@@ -217,7 +217,6 @@ mme_app_handle_s6a_cancel_location_req(
      */
     OAILOG_INFO(LOG_MME_APP, "Handling CLR for MME_UPDATE_PROCEDURE for UE with imsi " IMSI_64_FMT " "
         "Checking the MME_MOBILITY_COMPLETION timer %d. \n", imsi);
-    /** Not checking any flags in this case.. Just check that the timer is invalidated. If so perform an implicit detach. */
     if(ue_context_p->mme_mobility_completion_timer.id != MME_APP_TIMER_INACTIVE_ID){
       OAILOG_INFO(LOG_MME_APP, "MME_MOBILTY_COMPLETION timer %u, is still running. Marking CLR but not removing the UE yet with imsi " IMSI_64_FMT ". \n",
           ue_context_p->mme_mobility_completion_timer.id, imsi);
@@ -225,6 +224,7 @@ mme_app_handle_s6a_cancel_location_req(
       OAILOG_FUNC_RETURN (LOG_MME_APP, rc);
     }else{
       OAILOG_INFO(LOG_MME_APP, "MME_MOBILTY_COMPLETION timer is not running. Implicit removal for UE with imsi " IMSI_64_FMT " due handover. \n", imsi);
+      /** We also will remove the UE context, if the UE handovered back and CLR received afterwards. */
     }
   }else{
     /** todo: handle rest of cancellation procedures.. */
@@ -236,17 +236,13 @@ mme_app_handle_s6a_cancel_location_req(
   /** Perform an implicit detach via NAS layer.. We purge context ourself or purge the MME_APP context. NAS has to purge the EMM context and the MME_APP context. */
   OAILOG_INFO (LOG_MME_APP, "Expired- Implicit Detach timer for UE id  %d \n", ue_context_p->mme_ue_s1ap_id);
   ue_context_p->implicit_detach_timer.id = MME_APP_TIMER_INACTIVE_ID;
-
   // Initiate Implicit Detach for the UE
   message_p = itti_alloc_new_message (TASK_MME_APP, NAS_IMPLICIT_DETACH_UE_IND);
   DevAssert (message_p != NULL);
   message_p->ittiMsg.nas_implicit_detach_ue_ind.ue_id = ue_context_p->mme_ue_s1ap_id;
   MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME, MSC_NAS_MME, NULL, 0, "0 NAS_IMPLICIT_DETACH_UE_IND_MESSAGE");
   itti_send_msg_to_task (TASK_NAS_MME, INSTANCE_DEFAULT, message_p);
-
-
   OAILOG_INFO (LOG_MME_APP, "Expired- Implicit Detach timer for UE id  %d \n", ue_context_p->mme_ue_s1ap_id);
-
   OAILOG_FUNC_RETURN (LOG_MME_APP, rc);
 }
 

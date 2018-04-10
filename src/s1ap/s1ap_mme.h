@@ -35,6 +35,7 @@ struct enb_description_s;
 
 #define S1AP_TIMER_INACTIVE_ID   (-1)
 #define S1AP_UE_CONTEXT_REL_COMP_TIMER 1 // in seconds 
+#define S1AP_HANDOVER_COMPLETION_TIMER 2 // in seconds
 
 /* Timer structure */
 struct s1ap_timer_t {
