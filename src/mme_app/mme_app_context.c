@@ -1486,6 +1486,8 @@ void mme_app_handle_pending_pdn_connectivity_information(ue_context_t *ue_contex
   DevAssert(pdn_conn_pP);
 
   /** Set the pending PDN information in the UE context. */
+  if(ue_context_p->pending_pdn_connectivity_req_apn)
+    bdestroy(ue_context_p->pending_pdn_connectivity_req_apn);
   ue_context_p->pending_pdn_connectivity_req_apn = bfromcstr(pdn_conn_pP->apn);
   DevAssert (ue_context_p->pending_pdn_connectivity_req_apn);
 
@@ -1603,7 +1605,6 @@ mme_app_handle_nas_ue_context_req(const itti_nas_ue_context_req_t * const nas_ue
    */
   if(ue_context_p->pending_mm_ue_eps_context){
 
-
     if ((ue_context_p1 = mme_ue_context_exists_imsi (&mme_app_desc.mme_ue_contexts, ue_context_p->imsi)) == NULL) {
       OAILOG_ERROR (LOG_MME_APP, "That's embarrassing as we don't know this IMSI\n");
       OAILOG_FUNC_RETURN (LOG_MME_APP, RETURNerror);
@@ -1652,10 +1653,14 @@ mme_app_handle_nas_ue_context_req(const itti_nas_ue_context_req_t * const nas_ue
     memset((void*)&nas_context_info->mm_eps_context, 0, sizeof(mm_context_eps_t));
     memcpy((void*)&nas_context_info->mm_eps_context, (void*)ue_context_p->pending_mm_ue_eps_context, sizeof(mm_context_eps_t));
 
+    /** Free the pending MM_EPS_UE_CONTEXT. */
+    if (ue_context_p->pending_mm_ue_eps_context) {
+      free_wrapper((void**) &(ue_context_p->pending_mm_ue_eps_context));
+    }
+
     /**
      * Add the pending PDN
      */
-
 //    /** Get the PDN Connections IE and set the IP addresses. */
 //    pdn_connection_t * pdn_conn_pP = s10_context_response_pP->pdn_connections.pdn_connection;
 //    if(pdn_conn_pP->ip_address.present != 0x0){

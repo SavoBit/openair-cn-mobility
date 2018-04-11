@@ -564,9 +564,14 @@ mme_api_delete_session_request(mme_ue_s1ap_id_t ue_id){
   OAILOG_FUNC_IN (LOG_NAS);
   ue_context = mme_ue_context_exists_mme_ue_s1ap_id(&mme_app_desc.mme_ue_contexts, ue_id);
 
-  mme_app_send_delete_session_request (ue_context);
-  OAILOG_FUNC_RETURN (LOG_NAS, RETURNok);
-
+  /** Check the release cause. If its Invalidate NAS, don't remove the bearer. */
+  if(ue_context->ue_context_rel_cause == S1AP_INVALIDATE_NAS){
+    OAILOG_INFO (LOG_NAS, "UE " MME_UE_S1AP_ID_FMT " has release cause \" INVALIDATE_NAS \". Currently not releasing the bearers until pending information has been stored in session structures in MME_APP. \n", ue_id);
+  }else{
+    OAILOG_INFO (LOG_NAS, "UE " MME_UE_S1AP_ID_FMT " has release cause \" %d \". Releasing the bearers. \n", ue_id, ue_context->ue_context_rel_cause);
+    mme_app_send_delete_session_request (ue_context);
+    OAILOG_FUNC_RETURN (LOG_NAS, RETURNok);
+  }
 }
 /****************************************************************************
  **                                                                        **

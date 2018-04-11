@@ -129,6 +129,15 @@ mme_app_handle_detach_req (
   message_p->ittiMsg.s10_remove_ue_tunnel.local_teid   = ue_context->local_mme_s10_teid;
   message_p->ittiMsg.s10_remove_ue_tunnel.peer_ip      = ue_context->remote_mme_s10_peer_ip;
 
+  /**
+   * Clear the CLR flag.
+   */
+  ue_context->subscription_known = SUBSCRIPTION_UNKNOWN;
+  if(ue_context->pending_clear_location_request){
+    OAILOG_INFO(LOG_MME_APP, "Clearing the pending CLR for UE id " MME_UE_S1AP_ID_FMT ". \n", ue_context->mme_ue_s1ap_id);
+    ue_context->pending_clear_location_request = false;
+  }
+
 //  message_p->ittiMsg.s10_remove_ue_tunnel.cause = LOCAL_DETACH;
   MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME, MSC_NAS_MME, NULL, 0, "0 NAS_IMPLICIT_DETACH_UE_IND_MESSAGE");
   itti_send_msg_to_task (TASK_S10, INSTANCE_DEFAULT, message_p);
@@ -139,11 +148,18 @@ mme_app_handle_detach_req (
    */
   if (ECM_IDLE == ue_context->ecm_state) {
     // todo: perform paging, if the UE is in EMM_DEREGISTER_INITIATED! state (MME triggered detach).
-    ue_context->ue_context_rel_cause = S1AP_IMPLICIT_CONTEXT_RELEASE; /**< No Release command will be sent, even if an S1AP context exists. */
     // Notify S1AP to release S1AP UE context locally. No
-    mme_app_itti_ue_context_release (ue_context->enb_ue_s1ap_id, ue_context->ue_context_rel_cause, ue_context->e_utran_cgi.cell_identity.enb_id); /**< Set the signaling connection to ECM_IDLE when the Context-Removal-Completion has arrived. */
+    OAILOG_DEBUG (LOG_MME_APP, "ECM context for UE with IMSI: " IMSI_64_FMT " and MME_UE_S1AP_ID : " MME_UE_S1AP_ID_FMT " (already idle). \n",
+         ue_context->imsi, ue_context->mme_ue_s1ap_id);
+    mme_app_itti_ue_context_release (ue_context->enb_ue_s1ap_id, S1AP_IMPLICIT_CONTEXT_RELEASE, ue_context->e_utran_cgi.cell_identity.enb_id); /**< Set the signaling connection to ECM_IDLE when the Context-Removal-Completion has arrived. */
     // Free MME UE Context
-    mme_remove_ue_context (&mme_app_desc.mme_ue_contexts, ue_context);
+    if(ue_context->ue_context_rel_cause != S1AP_INVALIDATE_NAS)
+      mme_remove_ue_context (&mme_app_desc.mme_ue_contexts, ue_context);
+    else{
+      OAILOG_DEBUG (LOG_MME_APP, "UE context will not be released for UE with IMSI: " IMSI_64_FMT " and MME_UE_S1AP_ID : %d (already idle). \n",
+           ue_context->imsi, ue_context->mme_ue_s1ap_id);
+      ue_context->ue_context_rel_cause = S1AP_INVALID_CAUSE;
+    }
   } else {  /**< UE has an active context. Setting NAS_DETACH as S1AP cause and sending the context removal command! */
     if (ue_context->ue_context_rel_cause == S1AP_INVALID_CAUSE) {
       ue_context->ue_context_rel_cause = S1AP_NAS_DETACH;
@@ -187,6 +203,11 @@ mme_app_handle_detach_req (
       mme_ue_context_update_ue_sig_connection_state (&mme_app_desc.mme_ue_contexts, ue_context, ECM_IDLE);
       /** Remove the UE context. */
       mme_remove_ue_context (&mme_app_desc.mme_ue_contexts, ue_context);
+    } else if (ue_context->ue_context_rel_cause == S1AP_INVALIDATE_NAS){ /**< Wait for a response. */
+      OAILOG_DEBUG (LOG_MME_APP, "UE context will not be released since only NAS is invalidated for IMSI: " IMSI_64_FMT " and MME_UE_S1AP_ID : %d. \n",
+          ue_context->imsi, ue_context->mme_ue_s1ap_id);
+      mme_ue_context_update_ue_sig_connection_state (&mme_app_desc.mme_ue_contexts, ue_context, ECM_IDLE);
+      ue_context->ue_context_rel_cause = S1AP_INVALID_CAUSE;
     }
   }
   OAILOG_FUNC_OUT (LOG_MME_APP);

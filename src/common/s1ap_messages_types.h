@@ -178,6 +178,8 @@ enum s1cause {
   S1AP_NETWORK_ERROR,
   S1AP_SYSTEM_FAILURE,
 
+  S1AP_INVALIDATE_NAS,  /**< Removing the NAS layer only. */
+
   // todo: not sure if this is the correct
   S1AP_SUCCESSFUL_HANDOVER
 };

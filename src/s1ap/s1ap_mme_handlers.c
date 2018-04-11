@@ -769,6 +769,7 @@ s1ap_mme_generate_ue_context_release_command (
   case S1AP_NAS_DETACH:cause_type = S1ap_Cause_PR_nas;
     cause_value = S1ap_CauseNas_detach;
     break;
+  case S1AP_INVALIDATE_NAS:
   case S1AP_NAS_NORMAL_RELEASE:cause_type = S1ap_Cause_PR_nas;
     cause_value = S1ap_CauseNas_unspecified;
     break;
