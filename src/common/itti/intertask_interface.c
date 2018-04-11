@@ -370,6 +370,10 @@ itti_alloc_new_message (
   task_id_t origin_task_id,
   MessagesIds message_id)
 {
+  int x = 0;
+  if(message_id == NAS_IMPLICIT_DETACH_UE_IND){
+      x = 1;
+  }
   return itti_alloc_new_message_sized (origin_task_id, message_id, itti_desc.messages_info[message_id].size);
 }
 

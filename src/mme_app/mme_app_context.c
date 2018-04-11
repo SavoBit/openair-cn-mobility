@@ -1787,7 +1787,7 @@ mme_app_handle_s10_context_request(const itti_s10_context_request_t * const s10_
    OAILOG_ERROR (LOG_MME_APP, "No UE for GUTI " GUTI_FMT " was found. Cannot proceed with context request. \n", GUTI_ARG(&s10_context_request_pP->old_guti));
    MSC_LOG_EVENT (MSC_MMEAPP_MME, "S10_CONTEXT_REQUEST. No UE existing for guti: " GUTI_FMT, GUTI_ARG(&s10_context_request_pP->old_guti));
    // todo: error check
-   _mme_app_send_s10_context_response_err(s10_context_request_pP->s10_target_mme_teid.teid, s10_context_request_pP->s10_target_mme_teid.ipv4, s10_context_request_pP->trxn, MANDATORY_IE_MISSING);
+   _mme_app_send_s10_context_response_err(s10_context_request_pP->s10_target_mme_teid.teid, s10_context_request_pP->s10_target_mme_teid.ipv4, s10_context_request_pP->trxn, CONTEXT_NOT_FOUND);
    bdestroy(s10_context_request_pP->complete_request_message.request_value);
    OAILOG_FUNC_OUT (LOG_MME_APP);
  }
