@@ -51,7 +51,7 @@ static int                              s1ap_generate_s1_setup_response (
     enb_description_t * enb_association);
 
 static int                              s1ap_mme_generate_ue_context_release_command (
-    ue_description_t * ue_ref_p, enum s1cause);
+    ue_description_t * ue_ref_p, mme_ue_s1ap_id_t mme_ue_s1ap_id, enum s1cause);
 
 static int                              s1ap_send_path_switch_request_failure (
     const sctp_assoc_id_t assoc_id,
@@ -738,7 +738,7 @@ s1ap_mme_handle_ue_context_release_request (
 //------------------------------------------------------------------------------
 static int
 s1ap_mme_generate_ue_context_release_command (
-  ue_description_t * ue_ref_p, enum s1cause cause)
+  ue_description_t * ue_ref_p, mme_ue_s1ap_id_t mme_ue_s1ap_id, enum s1cause cause)
 {
   uint8_t                                *buffer = NULL;
   uint32_t                                length = 0;
@@ -762,7 +762,7 @@ s1ap_mme_generate_ue_context_release_command (
    * Fill in ID pair
    */
   ueContextReleaseCommandIEs_p->uE_S1AP_IDs.present = S1ap_UE_S1AP_IDs_PR_uE_S1AP_ID_pair;
-  ueContextReleaseCommandIEs_p->uE_S1AP_IDs.choice.uE_S1AP_ID_pair.mME_UE_S1AP_ID = ue_ref_p->mme_ue_s1ap_id;
+  ueContextReleaseCommandIEs_p->uE_S1AP_IDs.choice.uE_S1AP_ID_pair.mME_UE_S1AP_ID = mme_ue_s1ap_id;
   ueContextReleaseCommandIEs_p->uE_S1AP_IDs.choice.uE_S1AP_ID_pair.eNB_UE_S1AP_ID = ue_ref_p->enb_ue_s1ap_id;
   ueContextReleaseCommandIEs_p->uE_S1AP_IDs.choice.uE_S1AP_ID_pair.iE_Extensions = NULL;
   switch (cause) {
@@ -861,7 +861,8 @@ s1ap_handle_ue_context_release_command (
         ue_context_release_command_pP->cause == S1AP_SCTP_SHUTDOWN_OR_RESET) {
       s1ap_remove_ue (ue_ref_p);
     } else {   
-      rc = s1ap_mme_generate_ue_context_release_command (ue_ref_p, ue_context_release_command_pP->cause);
+      /** We send the mme_ue_s1ap_id explicitly, since it may be 0 in some handover complete procedures. */
+      rc = s1ap_mme_generate_ue_context_release_command (ue_ref_p, ue_context_release_command_pP->mme_ue_s1ap_id, ue_context_release_command_pP->cause);
     }
   }
 
@@ -889,7 +890,7 @@ s1ap_mme_handle_ue_context_release_complete (
 
   enb_description_t * enb_ref = s1ap_is_enb_assoc_id_in_list (assoc_id);
   DevAssert(enb_ref);
-  if ((ue_ref_p = s1ap_is_enb_ue_s1ap_id_in_list_per_enb(ueContextReleaseComplete_p->eNB_UE_S1AP_ID, enb_ref->enb_id)) == NULL) {
+  if ((ue_ref_p = s1ap_is_ue_enb_id_in_list(enb_ref, ueContextReleaseComplete_p->eNB_UE_S1AP_ID)) == NULL) {
     /*
      * MME doesn't know the MME UE S1AP ID provided.
      * This implies that UE context has already been deleted on the expiry of timer!
@@ -907,12 +908,19 @@ s1ap_mme_handle_ue_context_release_complete (
   message_p = itti_alloc_new_message (TASK_S1AP, S1AP_UE_CONTEXT_RELEASE_COMPLETE);
   AssertFatal (message_p != NULL, "itti_alloc_new_message Failed");
   memset ((void *)&message_p->ittiMsg.s1ap_ue_context_release_complete, 0, sizeof (itti_s1ap_ue_context_release_complete_t));
-  S1AP_UE_CONTEXT_RELEASE_COMPLETE (message_p).mme_ue_s1ap_id = ue_ref_p->mme_ue_s1ap_id;
+
+  /** Fill the ids. */
+  S1AP_UE_CONTEXT_RELEASE_COMPLETE (message_p).mme_ue_s1ap_id = ueContextReleaseComplete_p->mme_ue_s1ap_id;
+  S1AP_UE_CONTEXT_RELEASE_COMPLETE (message_p).enb_ue_s1ap_id = ueContextReleaseComplete_p->eNB_UE_S1AP_ID;
+  S1AP_UE_CONTEXT_RELEASE_COMPLETE (message_p).enb_id         = ue_ref_p->enb->enb_id;
+  S1AP_UE_CONTEXT_RELEASE_COMPLETE (message_p).sctp_assoc_id  = ue_ref_p->enb->sctp_assoc_id;
+
   MSC_LOG_TX_MESSAGE (MSC_S1AP_MME, MSC_MMEAPP_MME, NULL, 0, "0 S1AP_UE_CONTEXT_RELEASE_COMPLETE mme_ue_s1ap_id " MME_UE_S1AP_ID_FMT " ", S1AP_UE_CONTEXT_RELEASE_COMPLETE (message_p).mme_ue_s1ap_id);
   itti_send_msg_to_task (TASK_MME_APP, INSTANCE_DEFAULT, message_p);
+
   DevAssert(ue_ref_p->s1_ue_state == S1AP_UE_WAITING_CRR);
   s1ap_remove_ue (ue_ref_p);
-  OAILOG_DEBUG (LOG_S1AP, "Removed UE " MME_UE_S1AP_ID_FMT "\n", (uint32_t) ueContextReleaseComplete_p->mme_ue_s1ap_id);
+  OAILOG_DEBUG (LOG_S1AP, "Removed UE " MME_UE_S1AP_ID_FMT " with enbUeS1apId " ENB_UE_S1AP_ID_FMT ". \n", S1AP_UE_CONTEXT_RELEASE_COMPLETE (message_p).mme_ue_s1ap_id, S1AP_UE_CONTEXT_RELEASE_COMPLETE (message_p).enb_ue_s1ap_id);
   OAILOG_FUNC_RETURN (LOG_S1AP, RETURNok);
 }
 
@@ -1382,7 +1390,7 @@ s1ap_mme_handle_handover_cancel(const sctp_assoc_id_t assoc_id, const sctp_strea
   memset ((void *)&message_p->ittiMsg.s1ap_handover_cancel, 0, sizeof (itti_s1ap_handover_cancel_t));
   S1AP_HANDOVER_CANCEL (message_p).mme_ue_s1ap_id = ue_ref_p->mme_ue_s1ap_id;
   S1AP_HANDOVER_CANCEL (message_p).enb_ue_s1ap_id = ue_ref_p->enb_ue_s1ap_id;
-  S1AP_UE_CONTEXT_RELEASE_REQ (message_p).enb_id  = ue_ref_p->enb->enb_id;
+  S1AP_HANDOVER_CANCEL (message_p).assoc_id = ue_ref_p->enb->sctp_assoc_id;
   /** Ignore the cause. */
   MSC_LOG_TX_MESSAGE (MSC_S1AP_MME,
       MSC_MMEAPP_MME,
@@ -2055,10 +2063,10 @@ s1ap_mme_handle_mme_mobility_completion_timer_expiry (ue_description_t *ue_refer
   ue_reference_p->s1ap_handover_completion_timer.id = S1AP_TIMER_INACTIVE_ID;
 
   /** Perform an UE_CONTEXT_RELEASE and inform the MME_APP afterwards, which will check if the CLR flag is set or not. */
-  if(s1ap_mme_generate_ue_context_release_command (ue_reference_p, S1AP_NAS_NORMAL_RELEASE) == RETURNerror){
-    OAILOG_DEBUG (LOG_S1AP, "Error removing S1AP_UE_REFERENCE FOR ENB_UE_S1AP_ID " ENB_UE_S1AP_ID_FMT "\n", (uint32_t) ue_reference_p->enb_ue_s1ap_id);
+  if(s1ap_mme_generate_ue_context_release_command (ue_reference_p, ue_reference_p->mme_ue_s1ap_id, S1AP_NAS_NORMAL_RELEASE) == RETURNerror){
+    OAILOG_DEBUG (LOG_S1AP, "Error removing S1AP_UE_REFERENCE FOR ENB_UE_S1AP_ID " ENB_UE_S1AP_ID_FMT " and mmeUeS1apId  " MME_UE_S1AP_ID_FMT " \n", (uint32_t) ue_reference_p->enb_ue_s1ap_id, (uint32_t) ue_reference_p->mme_ue_s1ap_id);
   }else{
-    OAILOG_DEBUG (LOG_S1AP, "Removed S1AP_UE_REFERENCE FOR ENB_UE_S1AP_ID " ENB_UE_S1AP_ID_FMT "\n", (uint32_t) ue_reference_p->enb_ue_s1ap_id);
+    OAILOG_DEBUG (LOG_S1AP, "Removed S1AP_UE_REFERENCE FOR ENB_UE_S1AP_ID " ENB_UE_S1AP_ID_FMT " and mmeUeS1apId  " MME_UE_S1AP_ID_FMT "\n", (uint32_t) ue_reference_p->enb_ue_s1ap_id, (uint32_t) ue_reference_p->mme_ue_s1ap_id);
   }
   OAILOG_FUNC_OUT (LOG_S1AP);
 }

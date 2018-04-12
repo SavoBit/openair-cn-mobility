@@ -62,7 +62,7 @@ s11_mme_ulp_process_stack_req_cb (
   NwGtpv2cUlpHandleT hUlp,
   NwGtpv2cUlpApiT * pUlpApi)
 {
-  //     NwRcT rc = NW_OK;
+  OAILOG_FUNC_IN (LOG_S11);
   int                                     ret = 0;
 
   DevAssert (pUlpApi );

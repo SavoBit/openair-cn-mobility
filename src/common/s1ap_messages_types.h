@@ -184,7 +184,7 @@ enum s1cause {
   S1AP_SUCCESSFUL_HANDOVER
 };
 typedef struct itti_s1ap_ue_context_release_command_s {
-//  mme_ue_s1ap_id_t  mme_ue_s1ap_id;
+  mme_ue_s1ap_id_t  mme_ue_s1ap_id;
   enb_ue_s1ap_id_t  enb_ue_s1ap_id:24;
   uint32_t          enb_id;
   enum s1cause      cause;
@@ -354,7 +354,6 @@ typedef struct itti_s1ap_handover_cancel_s {
   mme_ue_s1ap_id_t        mme_ue_s1ap_id;
   enb_ue_s1ap_id_t        enb_ue_s1ap_id:24;
   sctp_assoc_id_t         assoc_id;
-  uint32_t                enb_id;
 } itti_s1ap_handover_cancel_t;
 
 /** Handover Cancel Acknowledge. */
@@ -362,7 +361,6 @@ typedef struct itti_s1ap_handover_cancel_acknowledge_s {
   mme_ue_s1ap_id_t        mme_ue_s1ap_id;
   enb_ue_s1ap_id_t        enb_ue_s1ap_id:24;
   sctp_assoc_id_t         assoc_id;
-  uint32_t                enb_id;
 } itti_s1ap_handover_cancel_acknowledge_t;
 
 /** S1AP ENB/MME Status Transfer. */

@@ -139,6 +139,62 @@ emm_send_detach_accept (
   OAILOG_FUNC_RETURN (LOG_NAS_EMM, size);
 }
 
+/****************************************************************************
+ **                                                                        **
+ ** Name:    emm_send_detach_request()                                  **
+ **                                                                        **
+ ** Description: Builds Detach Request message                              **
+ **                                                                        **
+ **      The Detach Request message is sent by the network to the   **
+ **      UE to indicate that the UE has been detached by the network.
+ **      No detach accept is expected.corresponding attach request has  **
+ **                                                                        **
+ ** Inputs:  msg:       The EMMAS-SAP primitive to process         **
+ **      Others:    None                                       **
+ **                                                                        **
+ ** Outputs:     emm_msg:   The EMM message to be sent                 **
+ **      Return:    The size of the EMM message                **
+ **      Others:    None                                       **
+ **                                                                        **
+ ***************************************************************************/
+int
+emm_send_detach_request (
+  const emm_as_data_t * msg,
+  detach_request_msg * emm_msg)
+{
+  OAILOG_FUNC_IN (LOG_NAS_EMM);
+  int                                     size = EMM_HEADER_MAXIMUM_LENGTH;
+  int                                     i = 0;
+
+  // Get the UE context
+  emm_data_context_t *ue_ctx = emm_data_context_get (&_emm_data, msg->ue_id);
+  DevAssert(ue_ctx);
+  DevAssert(msg->ue_id == ue_ctx->ue_id);
+
+  OAILOG_INFO (LOG_NAS_EMM, "EMMAS-SAP - Send Detach Request message\n");
+  OAILOG_INFO (LOG_NAS_EMM, "EMMAS-SAP - size = EMM_HEADER_MAXIMUM_LENGTH(%d)\n", size);
+  /*
+   * Mandatory - Message type
+   */
+  emm_msg->messagetype = DETACH_REQUEST;
+  /*
+   * Mandatory - Detach type
+   */
+  emm_msg->detachtype.switchoff = 0;
+  emm_msg->detachtype.typeofdetach = msg->detach_type;
+  size += DETACH_TYPE_MAXIMUM_LENGTH;
+
+  /**
+   * Optional  - EMM Cause
+   */
+  if(msg->emm_cause){
+    emm_msg->presencemask |= DETACH_REQUEST_EMM_CAUSE_PRESENT;
+    size += EMM_CAUSE_MAXIMUM_LENGTH;
+    emm_msg->emmCause = msg->emm_cause;
+  }
+
+  OAILOG_FUNC_RETURN (LOG_NAS_EMM, size);
+}
 
 /*
    --------------------------------------------------------------------------
@@ -198,7 +254,7 @@ emm_send_attach_accept (
      * successful attach .UEs with such settings sends attach type = combined EPS and IMSI attach as attach_type in
      * attach request message. At present, EPC does not support interface with MSC /CS domain and it supports only LTE data service, hence it
      * is supposed to send attach_result as EPS-only and add emm_cause = "CS domain not available" for such cases.
-     * Ideally in data service only n/w ,UE's usage setting should be set to data centric mode and should send attach type as EPS attach only. 
+     * Ideally in data service only n/w ,UE's usage setting should be set to data centric mode and should send attach type as EPS attach only.
      * However UE settings may not be in our control. To take care of this as a workaround in this patch we modified MME
      * implementation to set EPS result to Combined attach if attach type is combined attach to prevent such UEs from
      * sending detach so that such UEs can remain attached in the n/w and should be able to get data service from the n/w.
@@ -223,7 +279,7 @@ emm_send_attach_accept (
    * Mandatory - T3412 value
    */
   size += GPRS_TIMER_MAXIMUM_LENGTH;
-  // Check whether Periodic TAU timer is disabled 
+  // Check whether Periodic TAU timer is disabled
   if (mme_config.nas_config.t3412_min == 0) {
     emm_msg->t3412value.unit = GPRS_TIMER_UNIT_0S;
     emm_msg->t3412value.timervalue = mme_config.nas_config.t3412_min;
@@ -299,6 +355,7 @@ emm_send_attach_accept (
 
   OAILOG_FUNC_RETURN (LOG_NAS_EMM, size);
 }
+
 /****************************************************************************
  **                                                                        **
  ** Name:    emm_send_attach_accept_dl_nas()                               **
@@ -454,117 +511,6 @@ emm_send_attach_accept_dl_nas (
   OAILOG_FUNC_RETURN (LOG_NAS_EMM, size);
 }
 
-/****************************************************************************
- **                                                                        **
- ** Name:    emm_send_handover_request_dl_nas()                            **
- **                                                                        **
- ** Description: Triggers a Handover Request message to be sent via S1AP.  **
- **                                                                        **
- **      The Handover Request will be sent to the target eNB via a new     **
- **      S1AP ue_reference, which has not been established yet.            **
- **      (todo: the underlying s1ap ue_reference may be a temp stacked     **
- **      one which will be purged after sending the handover_request &     **
- **      permanently established receival of Handover Request Acknowledge. **
- **                                                                        **                                                                        **
- **                                                                        **                                                                        **
- ** Inputs: msg:   None - No NAS message will be sent. No ESM message sent.**
- **      Others:    None                                                   **
- **                                                                        **
- ** Outputs:emm_msg:None - No EMM Message will The EMM message to be sent. **
- **      Return:    0                                                      **
- **      Others:    None                                                   **
- **                                                                        **
- ***************************************************************************/
-int
-emm_send_handover_request_dl_nas (
-  mme_ue_s1ap_id_t ue_id,
-  void * emm_msg)
-{
-  OAILOG_FUNC_IN (LOG_NAS_EMM);
-  int                                     i = 0;
-
-  // Get the UE context
-  emm_data_context_t *ue_ctx = emm_data_context_get (&_emm_data, ue_id);
-  DevAssert(ue_ctx);
-  DevAssert(ue_id == ue_ctx->ue_id);
-
-  OAILOG_DEBUG (LOG_NAS_EMM, "EMMAS-SAP - Triggering a Handover Request message\n");
-
-  // todo: get the NAS state of HANDOVER..
-
-  //
-//  switch (ue_ctx->attach_type) {
-//  // todo: any timers in the NAS layer..
-//  /*
-//   * Mandatory - T3412 value
-//   */
-//  size += GPRS_TIMER_MAXIMUM_LENGTH;
-//  // Check whether Periodic TAU timer is disabled
-//  if (mme_config.nas_config.t3412_min == 0) {
-////    emm_msg->t3412value.unit = GPRS_TIMER_UNIT_0S;
-////    emm_msg->t3412value.timervalue = mme_config.nas_config.t3412_min;
-//  } else if (mme_config.nas_config.t3412_min <= 31) {
-////    emm_msg->t3412value.unit = GPRS_TIMER_UNIT_60S;
-////    emm_msg->t3412value.timervalue = mme_config.nas_config.t3412_min;
-//  } else {
-////    emm_msg->t3412value.unit = GPRS_TIMER_UNIT_360S;
-////    emm_msg->t3412value.timervalue = mme_config.nas_config.t3412_min / 6;
-//  }
-//  //emm_msg->t3412value.unit = GPRS_TIMER_UNIT_0S;
-//  OAILOG_INFO (LOG_NAS_EMM, "EMMAS-SAP - size += GPRS_TIMER_MAXIMUM_LENGTH(%d)  (%d)\n", GPRS_TIMER_MAXIMUM_LENGTH, size);
-//  /*
-//   * Mandatory - Tracking area identity list
-//   */
-//  OAILOG_INFO (LOG_NAS_EMM, "EMMAS-SAP - size += " "TRACKING_AREA_IDENTITY_LIST_LENGTH(%d)  (%d)\n", TRACKING_AREA_IDENTITY_LIST_MINIMUM_LENGTH, size);
-////  AssertFatal(msg->tai_list.n_tais <= 16, "Too many TAIs in TAI list");
-//  if (TRACKING_AREA_IDENTITY_LIST_ONE_PLMN_NON_CONSECUTIVE_TACS == emm_msg->tailist.typeoflist) {
-//    for (i = 1; i < msg->tai_list.n_tais; i++) {
-//      emm_msg->tailist.tac[i] = msg->tai_list.tai[i].tac;
-//      size += 2;
-//      OAILOG_INFO (LOG_NAS_EMM, "EMMAS-SAP - size += " "TRACKING AREA CODE LENGTH(%d)  (%d)\n", 2, size);
-//    }
-//  } else if (TRACKING_AREA_IDENTITY_LIST_ONE_PLMN_NON_CONSECUTIVE_TACS == emm_msg->tailist.typeoflist) {
-//    for (i = 1; i < msg->tai_list.n_tais; i++) {
-//      emm_msg->tailist.mccdigit1[i] = msg->tai_list.tai[i].plmn.mcc_digit1;
-//      emm_msg->tailist.mccdigit2[i] = msg->tai_list.tai[i].plmn.mcc_digit2;
-//      emm_msg->tailist.mccdigit3[i] = msg->tai_list.tai[i].plmn.mcc_digit3;
-//      emm_msg->tailist.mncdigit1[i] = msg->tai_list.tai[i].plmn.mnc_digit1;
-//      emm_msg->tailist.mncdigit2[i] = msg->tai_list.tai[i].plmn.mnc_digit2;
-//      emm_msg->tailist.mncdigit3[i] = msg->tai_list.tai[i].plmn.mnc_digit3;
-//      emm_msg->tailist.tac[i] = msg->tai_list.tai[i].tac;
-//      size += 5;
-//      OAILOG_INFO (LOG_NAS_EMM, "EMMAS-SAP - size += " "TRACKING AREA IDENTITY LENGTH(%d)  (%d)\n", 5, size);
-//    }
-//  }
-//  /*
-//   * Mandatory - ESM message container
-//   */
-//  size += ESM_MESSAGE_CONTAINER_MINIMUM_LENGTH + blength(msg->nas_msg);
-//  emm_msg->esmmessagecontainer = bstrcpy(msg->nas_msg);
-//  OAILOG_INFO (LOG_NAS_EMM, "EMMAS-SAP - size += " "ESM_MESSAGE_CONTAINER_MINIMUM_LENGTH(%d)  (%d)\n", ESM_MESSAGE_CONTAINER_MINIMUM_LENGTH, size);
-//
-//  /*
-//   * Optional - GUTI
-//   */
-//  if (msg->new_guti) {
-//    size += EPS_MOBILE_IDENTITY_MAXIMUM_LENGTH;
-//    emm_msg->presencemask |= ATTACH_ACCEPT_GUTI_PRESENT;
-//    emm_msg->guti.guti.typeofidentity = EPS_MOBILE_IDENTITY_GUTI;
-//    emm_msg->guti.guti.oddeven = EPS_MOBILE_IDENTITY_EVEN;
-//    emm_msg->guti.guti.mmegroupid = msg->new_guti->gummei.mme_gid;
-//    emm_msg->guti.guti.mmecode = msg->new_guti->gummei.mme_code;
-//    emm_msg->guti.guti.mtmsi = msg->new_guti->m_tmsi;
-//    emm_msg->guti.guti.mccdigit1 = msg->new_guti->gummei.plmn.mcc_digit1;
-//    emm_msg->guti.guti.mccdigit2 = msg->new_guti->gummei.plmn.mcc_digit2;
-//    emm_msg->guti.guti.mccdigit3 = msg->new_guti->gummei.plmn.mcc_digit3;
-//    emm_msg->guti.guti.mncdigit1 = msg->new_guti->gummei.plmn.mnc_digit1;
-//    emm_msg->guti.guti.mncdigit2 = msg->new_guti->gummei.plmn.mnc_digit2;
-//    emm_msg->guti.guti.mncdigit3 = msg->new_guti->gummei.plmn.mnc_digit3;
-//    OAILOG_INFO (LOG_NAS_EMM, "EMMAS-SAP - size += " "EPS_MOBILE_IDENTITY_MAXIMUM_LENGTH(%d)  (%d)\n", EPS_MOBILE_IDENTITY_MAXIMUM_LENGTH, size);
-//  }
-
-  OAILOG_FUNC_RETURN (LOG_NAS_EMM, 0);
-}
 
 /****************************************************************************
  **                                                                        **

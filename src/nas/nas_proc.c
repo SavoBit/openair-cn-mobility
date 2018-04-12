@@ -687,7 +687,9 @@ nas_proc_smc_fail (
 //------------------------------------------------------------------------------
 int
 nas_proc_implicit_detach_ue_ind (
-  mme_ue_s1ap_id_t ue_id)
+  mme_ue_s1ap_id_t ue_id,
+  uint8_t emm_cause,
+  uint8_t detach_type)
 {
   int                                     rc = RETURNerror;
   emm_sap_t                               emm_sap = {0};
@@ -695,6 +697,9 @@ nas_proc_implicit_detach_ue_ind (
   OAILOG_FUNC_IN (LOG_NAS_EMM);
   emm_sap.primitive = EMMCN_IMPLICIT_DETACH_UE;
   emm_sap.u.emm_cn.u.emm_cn_implicit_detach.ue_id = ue_id;
+  emm_sap.u.emm_cn.u.emm_cn_implicit_detach.emm_cause = emm_cause;
+  emm_sap.u.emm_cn.u.emm_cn_implicit_detach.detach_type = detach_type;
+
   rc = emm_sap_send (&emm_sap);
   OAILOG_FUNC_RETURN (LOG_NAS_EMM, rc);
 }

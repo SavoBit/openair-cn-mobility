@@ -857,6 +857,68 @@ int s1ap_path_switch_request_failure (
   OAILOG_FUNC_RETURN (LOG_S1AP, rc);
 }
 
+void
+s1ap_handle_handover_cancel_acknowledge (
+  const itti_s1ap_handover_cancel_acknowledge_t* const handover_cancel_acknowledge_pP)
+{
+  uint8_t                                *buffer_p = NULL;
+  uint32_t                                length = 0;
+  ue_description_t                       *ue_ref = NULL;
+  enb_description_t                      *source_enb_ref = NULL;
+  S1ap_HandoverCancelAcknowledgeIEs_t    *handoverCancelAcknowledge_p = NULL;
+
+  s1ap_message                            message = {0}; // yes, alloc on stack
+  MessageDef                             *message_p = NULL;
+
+  OAILOG_FUNC_IN (LOG_S1AP);
+  DevAssert (handover_cancel_acknowledge_pP != NULL);
+
+  source_enb_ref = s1ap_is_enb_assoc_id_in_list(handover_cancel_acknowledge_pP->assoc_id);
+  if(!source_enb_ref){
+    OAILOG_ERROR (LOG_S1AP, "No source-enb could be found for assoc-id %u. Handover Cancel Ack Failed. \n",
+        handover_cancel_acknowledge_pP->assoc_id);
+    /** No need to change anything. */
+    OAILOG_FUNC_OUT (LOG_S1AP);
+  }
+  ue_ref = s1ap_is_ue_enb_id_in_list(source_enb_ref, handover_cancel_acknowledge_pP->enb_ue_s1ap_id);
+  if (!ue_ref) {
+    /**
+     * The source UE-Reference should exist.
+     * It is an error, if its not existing.
+     * We rely on the timer that if no HANDOVER_NOTIFY is received in time, we will remove the UE context implicitly and the target-enb UE_REFERENCE.
+     */
+    OAILOG_ERROR (LOG_S1AP, " NO UE_CONTEXT could be found to send handover cancel acknowledge for UE enb ue s1ap id (" ENB_UE_S1AP_ID_FMT ") to the source eNB with assocId %d. \n",
+        handover_cancel_acknowledge_pP->enb_ue_s1ap_id, handover_cancel_acknowledge_pP->assoc_id);
+    OAILOG_FUNC_OUT (LOG_S1AP);
+  }
+  /**
+   * No timer needs to be started here.
+   * The only timer is in the source-eNB..
+   */
+   message.procedureCode = S1ap_ProcedureCode_id_HandoverCancel;
+   message.direction = S1AP_PDU_PR_successfulOutcome;
+   handoverCancelAcknowledge_p = &message.msg.s1ap_HandoverCancelAcknowledgeIEs;
+   /** Set the enb_ue_s1ap id and the mme_ue_s1ap_id. */
+   handoverCancelAcknowledge_p->mme_ue_s1ap_id = (unsigned long)ue_ref->mme_ue_s1ap_id;
+   handoverCancelAcknowledge_p->eNB_UE_S1AP_ID = (unsigned long)ue_ref->enb_ue_s1ap_id;
+
+   if (s1ap_mme_encode_pdu (&message, &buffer_p, &length) < 0) {
+    OAILOG_ERROR (LOG_S1AP, "Failed to encode handover cancel acknowledge \n");
+    OAILOG_FUNC_RETURN (LOG_S1AP, RETURNerror);
+  }
+  OAILOG_NOTICE (LOG_S1AP, "Send S1AP_HANDOVER_CANCEL_ACKNOWLEDGE message MME_UE_S1AP_ID = " MME_UE_S1AP_ID_FMT "\n",
+              (mme_ue_s1ap_id_t)handoverCancelAcknowledge_p->mme_ue_s1ap_id);
+  MSC_LOG_TX_MESSAGE (MSC_S1AP_MME,
+                      0,
+                      NULL, 0,
+                      "0 HandoverCancelAcknowledge/successfullOutcome mme_ue_s1ap_id " MME_UE_S1AP_ID_FMT,
+                      (mme_ue_s1ap_id_t)handoverCancelAcknowledge_p->mme_ue_s1ap_id);
+  bstring b = blk2bstr(buffer_p, length);
+  free(buffer_p);
+  // todo: the next_sctp_stream is the one without incrementation?
+  s1ap_mme_itti_send_sctp_request (&b, source_enb_ref->sctp_assoc_id, source_enb_ref->next_sctp_stream, handover_cancel_acknowledge_pP->mme_ue_s1ap_id);
+  OAILOG_FUNC_OUT (LOG_S1AP);
+}
 
 void
 s1ap_handle_handover_request (

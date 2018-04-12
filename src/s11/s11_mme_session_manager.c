@@ -368,6 +368,7 @@ s11_mme_handle_ulp_error_indicatior(
 {
   /** Get the failed transaction. */
   /** Check the message type. */
+  OAILOG_FUNC_IN (LOG_S11);
 
   NwGtpv2cMsgTypeT msgType = pUlpApi->apiInfo.rspFailureInfo.msgType;
   MessageDef * message_p = NULL;
@@ -401,10 +402,27 @@ s11_mme_handle_ulp_error_indicatior(
     rsp_p->cause = SYSTEM_FAILURE; /**< Would mean that this message either did not come at all or could not be dealt with properly. */
   }
     break;
+  case NW_GTP_DELETE_SESSION_REQ:
+  {
+    itti_s11_delete_session_response_t            *rsp_p;
+    message_p = itti_alloc_new_message (TASK_S10, S11_DELETE_SESSION_RESPONSE);
+    rsp_p = &message_p->ittiMsg.s11_delete_session_response;
+    memset(rsp_p, 0, sizeof(*rsp_p));
+    /** Set the destination TEID (our TEID). */
+    rsp_p->teid = pUlpApi->apiInfo.rspFailureInfo.teidLocal;
+    /** Set the transaction for the triggered acknowledgement. */
+    rsp_p->trxn = (void *)pUlpApi->apiInfo.rspFailureInfo.hUlpTrxn;
+    /** Set the cause. */
+    rsp_p->cause = SYSTEM_FAILURE; /**< Would mean that this message either did not come at all or could not be dealt with properly. */
+  }
+    break;
   default:
-    return RETURNerror;
+    OAILOG_ERROR (LOG_S10, "Received an unhandled error indicator for the local S10-TEID " TEID_FMT " and message type %d. \n",
+        pUlpApi->apiInfo.rspFailureInfo.teidLocal, pUlpApi->apiInfo.rspFailureInfo.msgType);
+    OAILOG_FUNC_RETURN (LOG_S11, RETURNerror);
   }
   OAILOG_WARNING (LOG_S10, "Received an error indicator for the local S10-TEID " TEID_FMT " and message type %d. \n",
       pUlpApi->apiInfo.rspFailureInfo.teidLocal, pUlpApi->apiInfo.rspFailureInfo.msgType);
-  return itti_send_msg_to_task (TASK_MME_APP, INSTANCE_DEFAULT, message_p);
+  int rc = itti_send_msg_to_task (TASK_MME_APP, INSTANCE_DEFAULT, message_p);
+  OAILOG_FUNC_RETURN (LOG_S11, rc);
 }

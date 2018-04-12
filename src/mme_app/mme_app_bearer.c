@@ -1338,11 +1338,14 @@ mme_app_handle_modify_bearer_resp (
     if(ue_context_p->pending_x2_handover){
       OAILOG_ERROR(LOG_MME_APP, "Error modifying SAE-GW bearers for UE with ueId: " MME_UE_S1AP_ID_FMT ". \n", ue_context_p->mme_ue_s1ap_id);
       mme_app_send_s1ap_path_switch_request_failure(ue_context_p->mme_ue_s1ap_id, ue_context_p->enb_ue_s1ap_id, ue_context_p->sctp_assoc_id_key, SYSTEM_FAILURE);
+      /** We continue with the implicit detach, since handover already happened. */
     }
     /** Implicitly detach the UE --> If EMM context is missing, still continue with the resource removal. */
     message_p = itti_alloc_new_message (TASK_MME_APP, NAS_IMPLICIT_DETACH_UE_IND);
     DevAssert (message_p != NULL);
     message_p->ittiMsg.nas_implicit_detach_ue_ind.ue_id = ue_context_p->mme_ue_s1ap_id;
+    message_p->ittiMsg.nas_implicit_detach_ue_ind.emm_cause = EMM_CAUSE_NETWORK_FAILURE;
+    message_p->ittiMsg.nas_implicit_detach_ue_ind.detach_type = 0x02; // Re-Attach Not required;
     MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME, MSC_NAS_MME, NULL, 0, "0 NAS_IMPLICIT_DETACH_UE_IND_MESSAGE");
     itti_send_msg_to_task (TASK_NAS_MME, INSTANCE_DEFAULT, message_p);
     OAILOG_FUNC_RETURN (LOG_MME_APP, RETURNok);
@@ -1895,42 +1898,30 @@ mme_app_handle_handover_cancel(
        * If so, this means that HANDOVER_REQUEST_ACKNOWLEDGE is already received.
        * It is so far gone in the handover process. We will send CANCEL-ACK and implicitly detach the UE.
        */
-      ue_description_t * ue_reference = s1ap_is_enb_ue_s1ap_id_in_list_per_enb(ue_context_p->enb_ue_s1ap_id, ue_context_p->pending_handover_target_enb_id);
-      if(ue_reference == NULL){
-        /** No UE Reference to the target eNB found. Sending a UE Context Release to the target MME BEFORE a HANDOVER_REQUEST_ACK arrives. */
-        mme_app_itti_ue_context_release (ue_context_p->enb_ue_s1ap_id, S1AP_HANDOVER_CANCELLED, ue_context_p->pending_handover_target_enb_id);
-        /**
-         * An S1AP UE Context Release Command is sent. We wait for the response.
-         * If a REMOVE_COMPLETE arrives on time, we will send the CANCEL-ACK back to the source MME and leave the UE context connected.
-         * Else, if no REMOVE_COMPLETE arrives, we will purge the UE context without sending CANCEL_ACK back.
-         */
-        bdestroy(ue_context_p->pending_s1ap_source_to_target_handover_container);
-        OAILOG_INFO(LOG_MME_APP, "Successfully sent UE-Context-Release-Cmd to the target eNB %d for the UE-ID " MME_UE_S1AP_ID_FMT " Waiting for the resource removal to complete to send the "
-            "CANCEL_ACK back. \n.", ue_context_p->pending_handover_target_enb_id, ue_context_p->mme_ue_s1ap_id);
-        OAILOG_FUNC_OUT (LOG_MME_APP);
-      }else{
-        /**
-         * A UE Reference to the target eNB found.
-         * Sending a CANCEL_ACK back, release the resources at the target eNB and immediately perform an implicit detach.
-         * This situation is too mixed up.
-         */
-        mme_app_itti_ue_context_release (ue_context_p->enb_ue_s1ap_id, S1AP_HANDOVER_CANCELLED, ue_context_p->pending_handover_target_enb_id);
-
-        /** Send a HO-CANCEL-ACK to the source-MME. */
-        mme_app_send_s1ap_handover_cancel_acknowledge(handover_cancel_pP->mme_ue_s1ap_id, handover_cancel_pP->enb_ue_s1ap_id, handover_cancel_pP->assoc_id);
-
-        /** Implicitly detach the UE --> If EMM context is missing, still continue with the resource removal. */
-        message_p = itti_alloc_new_message (TASK_MME_APP, NAS_IMPLICIT_DETACH_UE_IND);
-        DevAssert (message_p != NULL);
-        message_p->ittiMsg.nas_implicit_detach_ue_ind.ue_id = ue_context_p->mme_ue_s1ap_id;
-        MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME, MSC_NAS_MME, NULL, 0, "0 NAS_IMPLICIT_DETACH_UE_IND_MESSAGE");
-        itti_send_msg_to_task (TASK_NAS_MME, INSTANCE_DEFAULT, message_p);
-        /** Remove the allocated resources in the ITTI message (bstrings). */
-        OAILOG_ERROR(LOG_MME_APP, "Successfully sent UE-Context-Release-Cmd to the target eNB %d for the UE-ID " MME_UE_S1AP_ID_FMT "."
-            "Afterwards immediately performing implicit detach, since 2 UE-References existed. HO-CANCEL after HO-REQ-ACK is not supported. \n",
-            ue_context_p->pending_handover_target_enb_id, ue_context_p->mme_ue_s1ap_id);
-        OAILOG_FUNC_OUT (LOG_MME_APP);
+      if(ue_context_p->pending_handover_enb_ue_s1ap_id != 0 && ue_context_p->enb_ue_s1ap_id != ue_context_p->pending_handover_enb_ue_s1ap_id){
+        ue_description_t * ue_reference = s1ap_is_enb_ue_s1ap_id_in_list_per_enb(ue_context_p->pending_handover_enb_ue_s1ap_id, ue_context_p->pending_handover_target_enb_id);
+        if(ue_reference != NULL){
+          /** UE Reference to the target eNB found. Sending a UE Context Release to the target MME BEFORE a HANDOVER_REQUEST_ACK arrives. */
+          OAILOG_INFO(LOG_MME_APP, "Sending UE-Context-Release-Cmd to the target eNB %d for the UE-ID " MME_UE_S1AP_ID_FMT " and pending_enbUeS1apId " ENB_UE_S1AP_ID_FMT " (current enbUeS1apId) " ENB_UE_S1AP_ID_FMT ". \n.",
+              ue_context_p->pending_handover_target_enb_id, ue_context_p->mme_ue_s1ap_id, ue_context_p->pending_handover_enb_ue_s1ap_id, ue_context_p->enb_ue_s1ap_id);
+          mme_app_itti_ue_context_release (ue_context_p->mme_ue_s1ap_id, ue_context_p->pending_handover_enb_ue_s1ap_id, S1AP_HANDOVER_CANCELLED, ue_context_p->pending_handover_target_enb_id);
+          ue_context_p->pending_handover_enb_ue_s1ap_id = 0;
+          ue_context_p->ue_context_rel_cause = S1AP_HANDOVER_CANCELLED;
+          /**
+           * No pending transparent container expected.
+           * We directly respond with CANCEL_ACK, since when UE_CTX_RELEASE_CMPLT comes from targetEnb, we don't know if the current enb is target or source,
+           * so we cannot decide there to send CANCEL_ACK without a flag.
+           */
+          OAILOG_FUNC_OUT (LOG_MME_APP);
+        }
+        ue_context_p->pending_handover_enb_ue_s1ap_id = 0;
       }
+      OAILOG_INFO(LOG_MME_APP, "No target UE reference is established yet. No S1AP UE context removal needed for UE-ID " MME_UE_S1AP_ID_FMT ". Responding with HO_CANCEL_ACK back to enbUeS1apId " ENB_UE_S1AP_ID_FMT ". \n.",
+          ue_context_p->mme_ue_s1ap_id, ue_context_p->enb_ue_s1ap_id);
+      /** Send a HO-CANCEL-ACK to the source-MME. */
+      mme_app_send_s1ap_handover_cancel_acknowledge(handover_cancel_pP->mme_ue_s1ap_id, handover_cancel_pP->enb_ue_s1ap_id, handover_cancel_pP->assoc_id);
+      OAILOG_FUNC_OUT (LOG_MME_APP);
+      /** Keeping the UE context as it is. */
     }else{
       OAILOG_ERROR(LOG_MME_APP, "No registered eNB found with target eNB-ID %d in target-TAI " TAI_FMT ". "
           "Cannot release resources in the target-ENB for UE-ID " MME_UE_S1AP_ID_FMT "."
@@ -1940,58 +1931,37 @@ mme_app_handle_handover_cancel(
       mme_app_send_s1ap_handover_cancel_acknowledge(handover_cancel_pP->mme_ue_s1ap_id, handover_cancel_pP->enb_ue_s1ap_id, handover_cancel_pP->assoc_id);
       OAILOG_FUNC_OUT (LOG_MME_APP);
     }
-  }else{
-    /**
-     * Target-TAI was not in the current MME. Sending a S10 Context Release Request.
-     */
-    if(ue_context_p->remote_mme_s10_teid == 0){
-      /**
-       * Send a CANCEL-ACK back and perform an implicit detach.
-       */
-      OAILOG_WARNING(LOG_MME_APP, "Error, the remote MME-TEID is not set yet for UE_CONTEXT " MME_UE_S1AP_ID_FMT ". "
-          "Sending CANCEL-ACK back to source-ENB and performing an implicit detach. \n. ", ue_context_p->mme_ue_s1ap_id);
-      mme_app_send_s1ap_handover_cancel_acknowledge(handover_cancel_pP->mme_ue_s1ap_id, handover_cancel_pP->enb_ue_s1ap_id, handover_cancel_pP->assoc_id);
-      /** Implicitly detach the UE --> If EMM context is missing, still continue with the resource removal. */
-      message_p = itti_alloc_new_message (TASK_MME_APP, NAS_IMPLICIT_DETACH_UE_IND);
-      DevAssert (message_p != NULL);
-      message_p->ittiMsg.nas_implicit_detach_ue_ind.ue_id = ue_context_p->mme_ue_s1ap_id;
-      MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME, MSC_NAS_MME, NULL, 0, "0 NAS_IMPLICIT_DETACH_UE_IND_MESSAGE");
-      itti_send_msg_to_task (TASK_NAS_MME, INSTANCE_DEFAULT, message_p);
-      /** Remove the allocated resources in the ITTI message (bstrings). */
-      OAILOG_ERROR(LOG_MME_APP, "Successfully sent UE-Context-Release-Cmd to the target eNB %d for the UE-ID " MME_UE_S1AP_ID_FMT "."
-          "Afterwards immediately performing implicit detach, since 2 UE-Refernces existed. HO-CANCEL after HO-REQ-ACK is not supported. \n",
-          ue_context_p->pending_handover_target_enb_id, ue_context_p->mme_ue_s1ap_id);
-      OAILOG_FUNC_OUT (LOG_MME_APP);
-    }else{
-      /**
-       * It may be that, the TEID is some other (the old MME it was handovered before from here.
-       * So we need to check the TAI and find the correct neighboring MME.#
-       * todo: to skip this step, we might set it back to 0 after S10-Complete for the previous Handover.
-       */
-      // todo: currently only a single neighboring MME supported.
-
-//      message_p = itti_alloc_new_message (TASK_MME_APP, S10_RELOCATION_CANCEL_REQUEST);
-//      DevAssert (message_p != NULL);
-//      itti_s10_relocation_cancel_request_t *relocation_cancel_request_p = &message_p->ittiMsg.s10_relocation_cancel_request;
-//      memset ((void*)relocation_cancel_request_p, 0, sizeof (itti_s10_relocation_cancel_request_t));
-//      relocation_cancel_request_p->teid = 0;
-//      relocation_cancel_request_p->peer_ip = mme_config.nghMme.nghMme[0].ipAddr;
-//      /** IMSI. */
-//      IMSI64_TO_STRING (ue_context_p->imsi, (char *)relocation_cancel_request_p->imsi.digit);
-//      // message content was set to 0
-//      relocation_cancel_request_p->imsi.length = strlen ((const char *)relocation_cancel_request_p->imsi.digit);
-//      MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME, MSC_S10_MME, NULL, 0, "0 RELOCATION_CANCEL_REQUEST_MESSAGE");
-//      itti_send_msg_to_task (TASK_S10, INSTANCE_DEFAULT, message_p);
-//      /** Remove the allocated resources in the ITTI message (bstrings). */
-//      OAILOG_DEBUG(LOG_MME_APP, "Successfully sent S10 RELOCATION_CANCEL_REQUEST to the target MME for the TARGET-TAI " TAI_FMT " for the UE with IMSI " IMSI_64_FMT ". "
-//          "Waiting for S10 RELOCATION_CANCEL_REQUEST to complete the HO-CANCEL PROCEDURE. \n", ue_context_p->pending_handover_target_tai, ue_context_p->imsi);
-      /**
-       * If the S10 Relocation Cancel Request arrives in time, just send the S10 CANCEL LOCATION ACKNOWLEDGEMENT.
-       * If a timeout occurs, perform an IMPLICIT DETACH after sending the S10 CANCEL LOCATION ACKNOWLEDGEMENT.
-       */
-      OAILOG_FUNC_OUT (LOG_MME_APP);
-    }
   }
+
+  /**
+   * Target-TAI was not in the current MME. Sending a S10 Context Release Request.
+   *
+   * It may be that, the TEID is some other (the old MME it was handovered before from here.
+   * So we need to check the TAI and find the correct neighboring MME.#
+   * todo: to skip this step, we might set it back to 0 after S10-Complete for the previous Handover.
+   */
+  // todo: currently only a single neighboring MME supported.
+  message_p = itti_alloc_new_message (TASK_MME_APP, S10_RELOCATION_CANCEL_REQUEST);
+  DevAssert (message_p != NULL);
+  itti_s10_relocation_cancel_request_t *relocation_cancel_request_p = &message_p->ittiMsg.s10_relocation_cancel_request;
+  memset ((void*)relocation_cancel_request_p, 0, sizeof (itti_s10_relocation_cancel_request_t));
+  relocation_cancel_request_p->teid = 0;
+  // todo: check the table!
+  relocation_cancel_request_p->peer_ip = mme_config.nghMme.nghMme[0].ipAddr;
+  /** IMSI. */
+  IMSI64_TO_STRING (ue_context_p->imsi, (char *)relocation_cancel_request_p->imsi.digit);
+  // message content was set to 0
+  relocation_cancel_request_p->imsi.length = strlen ((const char *)relocation_cancel_request_p->imsi.digit);
+  MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME, MSC_S10_MME, NULL, 0, "0 RELOCATION_CANCEL_REQUEST_MESSAGE");
+  itti_send_msg_to_task (TASK_S10, INSTANCE_DEFAULT, message_p);
+  /** Remove the allocated resources in the ITTI message (bstrings). */
+  OAILOG_DEBUG(LOG_MME_APP, "Successfully sent S10 RELOCATION_CANCEL_REQUEST to the target MME for the UE with IMSI " IMSI_64_FMT " and id " MME_UE_S1AP_ID_FMT ". "
+      "Waiting for S10 RELOCATION_CANCEL_REQUEST to complete the HO-CANCEL PROCEDURE. \n", ue_context_p->mme_ue_s1ap_id, ue_context_p->imsi);
+  /**
+   * If the S10 Relocation Cancel Request arrives in time, just send the S10 CANCEL LOCATION ACKNOWLEDGEMENT.
+   * If a timeout occurs, perform an IMPLICIT DETACH after sending the S10 CANCEL LOCATION ACKNOWLEDGEMENT.
+   */
+  OAILOG_FUNC_OUT (LOG_MME_APP);
 }
 
 static
@@ -2362,7 +2332,7 @@ int EmmCbS1apRegistered(mme_ue_s1ap_id_t ueId){
     ue_context_p->pending_s1u_downlink_bearer_ebi = 0;
 
     // Notify S1AP to send UE Context Release Command to eNB.
-    mme_app_itti_ue_context_release (ue_context_p->enb_ue_s1ap_id, ue_context_p->ue_context_rel_cause, ue_context_p->e_utran_cgi.cell_identity.enb_id);
+    mme_app_itti_ue_context_release (ue_context_p->mme_ue_s1ap_id, ue_context_p->enb_ue_s1ap_id, ue_context_p->ue_context_rel_cause, ue_context_p->e_utran_cgi.cell_identity.enb_id);
   }else{
     /** No pending bearer deactivation. Check if there is a pending downlink bearer and send the DL-GTP Tunnel Information to the SAE-GW. */
     if(ue_context_p->pending_s1u_downlink_bearer.teid != (teid_t)0){
@@ -3556,7 +3526,7 @@ mme_app_handle_release_access_bearers_resp (
   update_mme_app_stats_s1u_bearer_sub();
 
   // Send UE Context Release Command
-  mme_app_itti_ue_context_release(ue_context_p->enb_ue_s1ap_id, ue_context_p->ue_context_rel_cause, ue_context_p->e_utran_cgi.cell_identity.enb_id);
+  mme_app_itti_ue_context_release(ue_context_p->mme_ue_s1ap_id, ue_context_p->enb_ue_s1ap_id, ue_context_p->ue_context_rel_cause, ue_context_p->e_utran_cgi.cell_identity.enb_id);
   if (ue_context_p->ue_context_rel_cause == S1AP_SCTP_SHUTDOWN_OR_RESET) {
     // Just cleanup the MME APP state associated with s1.
     mme_ue_context_update_ue_sig_connection_state (&mme_app_desc.mme_ue_contexts, ue_context_p, ECM_IDLE);
@@ -3636,7 +3606,8 @@ mme_app_handle_mobility_completion_timer_expiry (struct ue_context_s *ue_context
     /** Check if the CLR flag has been set. */
     message_p = itti_alloc_new_message (TASK_MME_APP, NAS_IMPLICIT_DETACH_UE_IND);
     DevAssert (message_p != NULL);
-    message_p->ittiMsg.nas_implicit_detach_ue_ind.ue_id = ue_context_p->mme_ue_s1ap_id;
+    message_p->ittiMsg.nas_implicit_detach_ue_ind.ue_id = ue_context_p->mme_ue_s1ap_id; /**< We don't send a Detach Type such that no Detach Request is sent to the UE if handover is performed. */
+
     MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME, MSC_NAS_MME, NULL, 0, "0 NAS_IMPLICIT_DETACH_UE_IND_MESSAGE");
     itti_send_msg_to_task (TASK_NAS_MME, INSTANCE_DEFAULT, message_p);
   }else{

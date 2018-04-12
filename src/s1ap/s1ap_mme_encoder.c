@@ -364,7 +364,7 @@ s1ap_mme_encode_handoverCancelAck(
 
   memset (handoverCancelAcknowledge_p, 0, sizeof (S1ap_HandoverCancel_t));
 
-  if (s1ap_encode_s1ap_handovercancelies(handoverCancelAcknowledge_p, &message_p->msg.s1ap_HandoverCancelAcknowledgeIEs) < 0) {
+  if (s1ap_encode_s1ap_handovercancelacknowledgeies(handoverCancelAcknowledge_p, &message_p->msg.s1ap_HandoverCancelAcknowledgeIEs) < 0) {
     return -1;
   }
 

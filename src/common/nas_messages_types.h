@@ -398,6 +398,8 @@ typedef struct itti_nas_detach_req_s {
 typedef struct itti_nas_implicit_detach_ue_ind_s {
   /* UE identifier */
   mme_ue_s1ap_id_t ue_id;
+  uint8_t emm_cause;
+  uint8_t detach_type;
 } itti_nas_implicit_detach_ue_ind_t;
 
 /** NAS Context request and response. */

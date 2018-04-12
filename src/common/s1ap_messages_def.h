@@ -68,7 +68,7 @@ MESSAGE_DEF(S1AP_PATH_SWITCH_REQUEST_FAILURE, MESSAGE_PRIORITY_MED, itti_s1ap_pa
 /** Handover Preparation Failure. */
 MESSAGE_DEF(S1AP_HANDOVER_PREPARATION_FAILURE, MESSAGE_PRIORITY_MED, itti_s1ap_handover_preparation_failure_t,    s1ap_handover_preparation_failure)
 /** Handover Cancel. */
-MESSAGE_DEF(S1AP_HANDOVER_CANCEL           , MESSAGE_PRIORITY_MED, itti_s1ap_handover_cancel_t         , s1ap_handover_cancel)
+MESSAGE_DEF(S1AP_HANDOVER_CANCEL             , MESSAGE_PRIORITY_MED, itti_s1ap_handover_cancel_t         , s1ap_handover_cancel)
 MESSAGE_DEF(S1AP_HANDOVER_CANCEL_ACKNOWLEDGE , MESSAGE_PRIORITY_MED, itti_s1ap_handover_cancel_acknowledge_t         , s1ap_handover_cancel_acknowledge)
 
 /** Handover Request. */

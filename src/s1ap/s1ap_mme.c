@@ -189,6 +189,11 @@ s1ap_mme_thread (
     }
     break;
 
+    case S1AP_HANDOVER_CANCEL_ACKNOWLEDGE: {
+        s1ap_handle_handover_cancel_acknowledge(&S1AP_HANDOVER_CANCEL_ACKNOWLEDGE(received_message_p));
+    }
+    break;
+
     case S1AP_PATH_SWITCH_REQUEST_ACKNOWLEDGE: {
       s1ap_handle_path_switch_req_ack(&S1AP_PATH_SWITCH_REQUEST_ACKNOWLEDGE (received_message_p));
     }

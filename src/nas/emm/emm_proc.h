@@ -165,7 +165,10 @@ int emm_proc_service_reject (const mme_ue_s1ap_id_t ue_id, const int emm_cause);
  * --------------------------------------------------------------------------
  */
 
-int emm_proc_detach(mme_ue_s1ap_id_t ue_id, emm_proc_detach_type_t type);
+int emm_proc_detach(mme_ue_s1ap_id_t ue_id,
+    emm_proc_detach_type_t type,
+    int emm_cause);
+
 int emm_proc_detach_request(mme_ue_s1ap_id_t ue_id, emm_proc_detach_type_t type,
                             int switch_off, ksi_t native_ksi, ksi_t ksi, guti_t *guti, imsi_t *imsi,
                             imei_t *imei);

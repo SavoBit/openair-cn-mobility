@@ -47,6 +47,7 @@ Description Defines the EMM primitives available at the EMMAS Service
 #include "commonDef.h"
 #include "securityDef.h"
 #include "bstrlib.h"
+#include "emm_proc.h"
 
 /****************************************************************************/
 /*********************  G L O B A L    C O N S T A N T S  *******************/
@@ -223,7 +224,7 @@ typedef struct emm_as_ho_bearer_modification_s {
   #define EMM_AS_NAS_INFO_TAU     0x03                  /* Tracking Area Update request  */
   #define EMM_AS_NAS_INFO_SR      0x04                  /* Service Request       */
   #define EMM_AS_NAS_INFO_EXTSR   0x05                  /* Extended Service Request  */
-  #define EMM_AS_NAS_INFO_HO      0x05                  /* Handover */
+  #define EMM_AS_NAS_INFO_DETACH_REQ 0x06                  /* Handover */
   #define EMM_AS_NAS_INFO_NONE    0xFF                  /* No Nas Message  */
 
   uint8_t                eps_update_result;           /* TAU EPS update result   */
@@ -284,12 +285,14 @@ typedef struct emm_as_data_s {
 #define EMM_AS_DATA_DELIVERED_TRUE                                 1
 #define EMM_AS_DATA_DELIVERED_LOWER_LAYER_NON_DELIVERY_INDICATION  2
   uint8_t                delivered;   /* Data message delivery indicator  */
+  emm_proc_detach_type_t detach_type; /**< Set to true if reattach is required. */
+  int                    emm_cause;                   /* EMM failure cause code        */
 #define EMM_AS_NAS_DATA_ATTACH           0x01  /* Attach complete      */
-#define EMM_AS_NAS_DATA_DETACH           0x02  /* Detach request       */
+#define EMM_AS_NAS_DATA_DETACH_ACCEPT    0x02  /* Detach accept        */
 #define EMM_AS_NAS_DATA_TAU              0x03  /* TAU    Accept        */
 #define EMM_AS_NAS_DATA_ATTACH_ACCEPT    0x04  /* Attach Accept        */
-/** Todo: Ask, if they are some standardized values (Attach_Accept has id 0x42, so it should not be).  */
-#define EMM_AS_NAS_DATA_HANDOVER_REQUEST 0x05  /* Handover Request     */
+/** MME initiated (implicit) Detach Request. */
+#define EMM_AS_NAS_DATA_DETACH_REQUEST        0x06  /* Detach Request     */
 } emm_as_data_t;
 
 /*

@@ -97,7 +97,7 @@ int mme_app_handle_nas_dl_req (
   if (nas_dl_req_pP->transaction_status != AS_SUCCESS) {
     ue_context->ue_context_rel_cause = S1AP_NAS_NORMAL_RELEASE;
     // Notify S1AP to send UE Context Release Command to eNB.
-    mme_app_itti_ue_context_release (ue_context->enb_ue_s1ap_id, ue_context->ue_context_rel_cause, ue_context->e_utran_cgi.cell_identity.enb_id);
+    mme_app_itti_ue_context_release (ue_context->mme_ue_s1ap_id, ue_context->enb_ue_s1ap_id, ue_context->ue_context_rel_cause, ue_context->e_utran_cgi.cell_identity.enb_id);
   }
 
   OAILOG_FUNC_RETURN (LOG_MME_APP, rc);
