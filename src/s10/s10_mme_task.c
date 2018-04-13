@@ -25,9 +25,6 @@
 * \company Blackned GmbH
 * \email: dbeken@blackned.de
 *
-* \author Andreas Eberlein
-* \company Blackned GmbH
-* \email: aeberlein@blackned.de
 */
 
 #include <stdio.h>
@@ -105,6 +102,10 @@ s10_mme_ulp_process_stack_req_cb (
       ret = s10_mme_handle_context_acknowledgement(&s10_mme_stack_handle, pUlpApi);
       break;
 
+    case NW_GTP_RELOCATION_CANCEL_REQ:
+      ret = s10_mme_handle_relocation_cancel_request(&s10_mme_stack_handle, pUlpApi);
+      break;
+
     default:
       OAILOG_WARNING (LOG_S10, "Received unhandled message type %d\n", pUlpApi->apiInfo.triggeredRspIndInfo.msgType);
       break;
@@ -141,6 +142,10 @@ s10_mme_ulp_process_stack_req_cb (
 
     case NW_GTP_CONTEXT_ACK:
       ret = s10_mme_handle_context_acknowledgement(&s10_mme_stack_handle, pUlpApi);
+      break;
+
+    case NW_GTP_RELOCATION_CANCEL_RSP:
+      ret = s10_mme_handle_relocation_cancel_response(&s10_mme_stack_handle, pUlpApi);
       break;
 
     default:
@@ -279,6 +284,16 @@ s10_mme_thread (
 
     case S10_CONTEXT_ACKNOWLEDGE:{
         s10_mme_context_acknowledge (&s10_mme_stack_handle, &received_message_p->ittiMsg.s10_context_acknowledge);
+      }
+      break;
+
+    case S10_RELOCATION_CANCEL_REQUEST:{
+        s10_mme_relocation_cancel_request(&s10_mme_stack_handle, &received_message_p->ittiMsg.s10_relocation_cancel_request);
+      }
+      break;
+
+    case S10_RELOCATION_CANCEL_RESPONSE:{
+      s10_mme_relocation_cancel_response(&s10_mme_stack_handle, &received_message_p->ittiMsg.s10_relocation_cancel_response);
       }
       break;
 

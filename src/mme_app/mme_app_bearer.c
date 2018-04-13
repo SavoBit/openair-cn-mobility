@@ -1740,9 +1740,14 @@ mme_app_handle_handover_required(
   forward_relocation_request_p->imsi.length = strlen ((const char *)forward_relocation_request_p->imsi.digit);
   // message content was set to 0
   /** Set the Source MME_S10_FTEID the same as in S11. */
+  teid_t local_teid = 0x0;
+  do{
+    local_teid = (teid_t) (rand() % 0xFFFFFFFF);
+  }while(mme_ue_context_exists_s10_teid(&mme_app_desc.mme_ue_contexts, local_teid) != NULL);
+
   if(!ue_context_p->local_mme_s10_teid){
     OAI_GCC_DIAG_OFF(pointer-to-int-cast);
-    forward_relocation_request_p->s10_source_mme_teid.teid = (teid_t) ue_context_p;
+    forward_relocation_request_p->s10_source_mme_teid.teid = local_teid;
     OAI_GCC_DIAG_ON(pointer-to-int-cast);
     forward_relocation_request_p->s10_source_mme_teid.interface_type = S10_MME_GTP_C;
     mme_config_read_lock (&mme_config);
@@ -1945,7 +1950,8 @@ mme_app_handle_handover_cancel(
   DevAssert (message_p != NULL);
   itti_s10_relocation_cancel_request_t *relocation_cancel_request_p = &message_p->ittiMsg.s10_relocation_cancel_request;
   memset ((void*)relocation_cancel_request_p, 0, sizeof (itti_s10_relocation_cancel_request_t));
-  relocation_cancel_request_p->teid = 0;
+  relocation_cancel_request_p->teid = ue_context_p->remote_mme_s10_teid; /**< May or may not be 0. */
+  relocation_cancel_request_p->local_teid = ue_context_p->local_mme_s10_teid; /**< May or may not be 0. */
   // todo: check the table!
   relocation_cancel_request_p->peer_ip = mme_config.nghMme.nghMme[0].ipAddr;
   /** IMSI. */
@@ -1954,13 +1960,24 @@ mme_app_handle_handover_cancel(
   relocation_cancel_request_p->imsi.length = strlen ((const char *)relocation_cancel_request_p->imsi.digit);
   MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME, MSC_S10_MME, NULL, 0, "0 RELOCATION_CANCEL_REQUEST_MESSAGE");
   itti_send_msg_to_task (TASK_S10, INSTANCE_DEFAULT, message_p);
-  /** Remove the allocated resources in the ITTI message (bstrings). */
   OAILOG_DEBUG(LOG_MME_APP, "Successfully sent S10 RELOCATION_CANCEL_REQUEST to the target MME for the UE with IMSI " IMSI_64_FMT " and id " MME_UE_S1AP_ID_FMT ". "
-      "Waiting for S10 RELOCATION_CANCEL_REQUEST to complete the HO-CANCEL PROCEDURE. \n", ue_context_p->mme_ue_s1ap_id, ue_context_p->imsi);
+      "Continuing with HO-CANCEL PROCEDURE. \n", ue_context_p->mme_ue_s1ap_id, ue_context_p->imsi);
+
   /**
-   * If the S10 Relocation Cancel Request arrives in time, just send the S10 CANCEL LOCATION ACKNOWLEDGEMENT.
-   * If a timeout occurs, perform an IMPLICIT DETACH after sending the S10 CANCEL LOCATION ACKNOWLEDGEMENT.
+   * Update the coll_keys with the IMSI.
    */
+  mme_ue_context_update_coll_keys (&mme_app_desc.mme_ue_contexts, ue_context_p,
+      INVALID_ENB_UE_S1AP_ID_KEY,
+      ue_context_p->mme_ue_s1ap_id,
+      ue_context_p->imsi,      /**< New IMSI. */
+      ue_context_p->mme_s11_teid,
+      0,
+      &ue_context_p->guti);
+
+  /**
+   * Not handling S10 response messages, to also drop other previous S10 messages (FW_RELOC_RSP).
+   * Send a HO-CANCEL-ACK to the source-MME. */
+  mme_app_send_s1ap_handover_cancel_acknowledge(handover_cancel_pP->mme_ue_s1ap_id, handover_cancel_pP->enb_ue_s1ap_id, handover_cancel_pP->assoc_id);
   OAILOG_FUNC_OUT (LOG_MME_APP);
 }
 
@@ -2376,7 +2393,6 @@ int EmmCbS1apRegistered(mme_ue_s1ap_id_t ueId){
       OAILOG_INFO(LOG_MME_APP, "No downlink S10-eNB-TEID is set for mmeUeS1apId " MME_UE_S1AP_ID_FMT ". \n", ueId);
 
     }
-
   }
   OAILOG_FUNC_OUT (LOG_MME_APP);
 }
@@ -2977,9 +2993,14 @@ mme_app_handle_handover_request_acknowledge(
  forward_relocation_response_p->list_of_bearers.bearer_contexts[0].eps_bearer_id = ue_context_p->pending_s1u_downlink_bearer_ebi;
  forward_relocation_response_p->list_of_bearers.num_bearer_context = 1;
 
+ teid_t local_teid = 0x0;
+ do{
+   local_teid = (teid_t)(rand() % 0xFFFFFFFF);
+ }while(mme_ue_context_exists_s10_teid(&mme_app_desc.mme_ue_contexts, local_teid) != NULL);
+
  /** Set the Source MME_S10_FTEID the same as in S11. */
  OAI_GCC_DIAG_OFF(pointer-to-int-cast);
- forward_relocation_response_p->s10_target_mme_teid.teid = (teid_t) ue_context_p; /**< This one also sets the context pointer. */
+ forward_relocation_response_p->s10_target_mme_teid.teid = local_teid; /**< This one also sets the context pointer. */
  OAI_GCC_DIAG_ON(pointer-to-int-cast);
  forward_relocation_response_p->s10_target_mme_teid.interface_type = S10_MME_GTP_C;
  mme_config_read_lock (&mme_config);
@@ -3579,15 +3600,12 @@ mme_app_handle_mme_s10_handover_completion_timer_expiry (struct ue_context_s *ue
   OAILOG_FUNC_IN (LOG_MME_APP);
   DevAssert (ue_context_p != NULL);
   MessageDef                             *message_p = NULL;
-  OAILOG_INFO (LOG_MME_APP, "Expired- MME S10 Handover Completion timer for UE " MME_UE_S1AP_ID_FMT " run out. Implicit detach (no matter what the status is). \n", ue_context_p->mme_ue_s1ap_id);
+  OAILOG_INFO (LOG_MME_APP, "Expired- MME S10 Handover Completion timer for UE " MME_UE_S1AP_ID_FMT " run out. "
+      "Performing S1AP UE Context Release Command and successive NAS implicit detach. \n", ue_context_p->mme_ue_s1ap_id);
   ue_context_p->mme_mobility_completion_timer.id = MME_APP_TIMER_INACTIVE_ID;
-  ue_context_p->ue_context_rel_cause = S1AP_NAS_DETACH;
-  /** Check if the CLR flag has been set. */
-  message_p = itti_alloc_new_message (TASK_MME_APP, NAS_IMPLICIT_DETACH_UE_IND);
-  DevAssert (message_p != NULL);
-  message_p->ittiMsg.nas_implicit_detach_ue_ind.ue_id = ue_context_p->mme_ue_s1ap_id;
-  MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME, MSC_NAS_MME, NULL, 0, "0 NAS_IMPLICIT_DETACH_UE_IND_MESSAGE");
-  itti_send_msg_to_task (TASK_NAS_MME, INSTANCE_DEFAULT, message_p);
+  ue_context_p->ue_context_rel_cause = S1AP_HANDOVER_CANCELLED;
+  /** Send a UE Context Release Command which would trigger a context release. */
+  mme_app_itti_ue_context_release(ue_context_p->mme_ue_s1ap_id, ue_context_p->enb_ue_s1ap_id, ue_context_p->ue_context_rel_cause, ue_context_p->pending_handover_target_enb_id);
   OAILOG_FUNC_OUT (LOG_MME_APP);
 }
 

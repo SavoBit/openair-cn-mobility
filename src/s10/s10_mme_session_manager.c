@@ -24,10 +24,6 @@
 * \author Dincer Beken
 * \company Blackned GmbH
 * \email: dbeken@blackned.de
-*
-* \author Andreas Eberlein
-* \company Blackned GmbH
-* \email: aeberlein@blackned.de
 */
 
 #include <stdlib.h>
@@ -313,6 +309,7 @@ s10_mme_forward_relocation_response (
    NwGtpv2cUlpApiT                         ulp_req;
    NwGtpv2cTrxnHandleT                     trxn;
    gtp_cause_t                             cause;
+   OAILOG_FUNC_IN (LOG_S10);
 
    DevAssert (forward_relocation_response_p );
    DevAssert (stack_p );
@@ -401,8 +398,8 @@ s10_mme_forward_relocation_response (
      }
    }
    /** No allocated context remains. */
-   rc = nwGtpv2cProcessUlpReq (*stack_p, &ulp_req);
-   DevAssert (NW_OK == rc);
+//   rc = nwGtpv2cProcessUlpReq (*stack_p, &ulp_req);
+//   DevAssert (NW_OK == rc);
    return RETURNok;
 }
 
@@ -1485,33 +1482,76 @@ s10_mme_relocation_cancel_request(
   NwRcT                                   rc;
   uint8_t                                 restart_counter = 0;
 
+  OAILOG_FUNC_IN (LOG_S10);
+
   DevAssert (stack_p );
   DevAssert (req_p);
   memset (&ulp_req, 0, sizeof (NwGtpv2cUlpApiT));
   ulp_req.apiType = NW_GTPV2C_ULP_API_INITIAL_REQ;
+  /** Setting the local teid twice, once here once later. */
+  ulp_req.apiInfo.initialReqInfo.teidLocal = req_p->local_teid;  /**< Used to get the local tunnel... */
+
+  hashtable_rc_t hash_rc = hashtable_ts_get(s10_mme_teid_2_gtv2c_teid_handle,
+      (hash_key_t) ulp_req.apiInfo.initialReqInfo.teidLocal, (void **)(uintptr_t)&ulp_req.apiInfo.initialReqInfo.hTunnel);
+  if (HASH_TABLE_OK != hash_rc) {
+    OAILOG_WARNING (LOG_S10, "Could not get GTPv2-C hTunnel for local TEID %X on S10 MME interface. \n", ulp_req.apiInfo.initialReqInfo.teidLocal);
+    return RETURNerror;
+  }
 
   /** Setting the destination TEID from MME_APP. */
   rc = nwGtpv2cMsgNew (*stack_p, NW_TRUE, NW_GTP_RELOCATION_CANCEL_REQ, req_p->teid, 0, &(ulp_req.hMsg));
   ulp_req.apiInfo.initialReqInfo.peerIp     = req_p->peer_ip;
 
-  OAILOG_WARNING (LOG_S10, "Sending RELOCATION_CANCEL_REQUEST TO %x. \n", ulp_req.apiInfo.initialReqInfo.peerIp);
+  /*
+   * Set the destination TEID
+   */
+  rc = nwGtpv2cMsgSetTeid (ulp_req.hMsg, req_p->teid);
+  DevAssert (NW_OK == rc);
 
-  /** Setting the local teid twice, once here once later. */
-  ulp_req.apiInfo.initialReqInfo.teidLocal = req_p->local_teid;  /**< Used to get the local tunnel... */
-  /** Get the already existing local tunnel info. */
-  hashtable_rc_t hash_rc = hashtable_ts_get(s10_mme_teid_2_gtv2c_teid_handle,
-      (hash_key_t) ulp_req.apiInfo.initialReqInfo.teidLocal, (void **)(uintptr_t)&ulp_req.apiInfo.initialReqInfo.hTunnel);
+  /** IMSI. */
+  s10_imsi_ie_set (&(ulp_req.hMsg), &req_p->imsi);
 
-  if (HASH_TABLE_OK != hash_rc) {
-    OAILOG_WARNING (LOG_S10, "Could not get GTPv2-C hTunnel for local teid for RELOCATION_CANCEL_REQUEST %X\n", ulp_req.apiInfo.initialReqInfo.teidLocal);
-    return RETURNerror;
-  }
-
+  OAILOG_WARNING (LOG_S10, "Sending RELOCATION_CANCEL_REQUEST TO %x and removing local S10 Tunnel endpoint. Transactions will timeout and should be ignored. \n", ulp_req.apiInfo.initialReqInfo.peerIp);
+  /** We assume that we already send the FW_RELOCATION_REQ. */
   MSC_LOG_TX_MESSAGE (MSC_S10_MME, MSC_SGW, NULL, 0, "0 RELOCATION_CANCEL_REQUEST local S10 teid " TEID_FMT,
       req_p->local_teid);
 
   rc = nwGtpv2cProcessUlpReq (*stack_p, &ulp_req);
   DevAssert (NW_OK == rc);
+
+  /**
+   * Remove the S10 Tunnel Endpoint to the peer.
+   * Ignore received FW_RELOC_RSP and RELOC_CANCEL_RSP messages.
+   */
+  memset (&ulp_req, 0, sizeof (NwGtpv2cUlpApiT));
+  ulp_req.apiType = NW_GTPV2C_ULP_DELETE_LOCAL_TUNNEL;
+
+  hash_rc = hashtable_ts_get(s10_mme_teid_2_gtv2c_teid_handle,
+       (hash_key_t) req_p->local_teid,
+       (void **)(uintptr_t)&ulp_req.apiInfo.deleteLocalTunnelInfo.hTunnel);
+
+  rc = nwGtpv2cProcessUlpReq (*stack_p, &ulp_req);
+  DevAssert (NW_OK == rc);
+  OAILOG_INFO(LOG_S10, "DELETED local S10 teid (TEID FOUND IN HASH_MAP)" TEID_FMT " \n", req_p->local_teid);
+
+  ulp_req.apiType = NW_GTPV2C_ULP_FIND_LOCAL_TUNNEL;
+  ulp_req.apiInfo.findLocalTunnelInfo.teidLocal = req_p->local_teid;
+  ulp_req.apiInfo.findLocalTunnelInfo.peerIp = req_p->peer_ip;
+  rc = nwGtpv2cProcessUlpReq (*stack_p, &ulp_req);
+  DevAssert (NW_OK == rc);
+  if(ulp_req.apiInfo.findLocalTunnelInfo.hTunnel){
+    OAILOG_WARNING (LOG_S10, "Could FIND A GTPv2-C hTunnel for local teid %X @ DELETION (2) \n", req_p->local_teid);
+  }else{
+    OAILOG_WARNING(LOG_S10, "Could NOT FIND A GTPv2-C hTunnel for local teid %X @ DELETION  (2) \n", req_p->local_teid);
+  }
+
+  /**
+   * hash_free_int_func is set as the freeing function.
+   * The value is removed from the map. But the value itself (int) is not freed.
+   * The Tunnels are not deallocated but just set back to the Tunnel pool.
+   */
+  hash_rc = hashtable_ts_free(s10_mme_teid_2_gtv2c_teid_handle, (hash_key_t) req_p->local_teid);
+  DevAssert (HASH_TABLE_OK == hash_rc);
   return RETURNok;
 }
 
@@ -1535,6 +1575,7 @@ s10_mme_handle_relocation_cancel_request(
   memset(req_p, 0, sizeof(*req_p));
 
   req_p->teid = nwGtpv2cMsgGetTeid(pUlpApi->hMsg);
+  req_p->trxn = (void *)pUlpApi->apiInfo.initialReqIndInfo.hTrxn;
 
   /*
    * Create a new message parser
@@ -1572,6 +1613,7 @@ s10_mme_handle_relocation_cancel_request(
   rc = nwGtpv2cMsgDelete (*stack_p, (pUlpApi->hMsg));
   DevAssert (NW_OK == rc);
 
+  /** A tunnel endpoint might or might not be created for that. */
   MSC_LOG_RX_MESSAGE (MSC_S10_MME, MSC_SGW, NULL, 0, "0 RELOCATION_CANCEL_REQUEST local S10 teid " TEID_FMT, req_p->teid);
   return itti_send_msg_to_task (TASK_MME_APP, INSTANCE_DEFAULT, message_p);
 }
@@ -1589,12 +1631,13 @@ s10_mme_relocation_cancel_response(
   NwGtpv2cTrxnHandleT                     trxn;
   gtp_cause_t                             cause;
 
+  OAILOG_FUNC_IN (LOG_S10);
+
   DevAssert (relocation_cancel_resp_p);
   DevAssert (stack_p );
   trxn = (NwGtpv2cTrxnHandleT) relocation_cancel_resp_p->trxn;
   DevAssert (trxn );
 
-  memset (&ulp_rsp, 0, sizeof (NwGtpv2cUlpApiT));
   /**
    * Prepare a context response to send to target MME.
    */
@@ -1616,6 +1659,29 @@ s10_mme_relocation_cancel_response(
 
   rc = nwGtpv2cProcessUlpReq (*stack_p, &ulp_rsp);
   DevAssert (NW_OK == rc);
+
+  /** Depending if there is a GTPv2c Tunnel or not, remove the tunnel. */
+  memset (&ulp_rsp, 0, sizeof (NwGtpv2cUlpApiT));
+  ulp_rsp.apiType = NW_GTPV2C_ULP_DELETE_LOCAL_TUNNEL;
+
+  hashtable_rc_t hash_rc = hashtable_ts_get(s10_mme_teid_2_gtv2c_teid_handle,
+      (hash_key_t) relocation_cancel_resp_p->local_teid, (void **)(uintptr_t)&ulp_rsp.apiInfo.deleteLocalTunnelInfo.hTunnel);
+  if (HASH_TABLE_OK != hash_rc) {
+    OAILOG_WARNING (LOG_S10, "Could not get GTPv2-C hTunnel for local TEID %X on S10 MME interface. \n", relocation_cancel_resp_p->local_teid);
+    return RETURNok;
+  }
+
+  rc = nwGtpv2cProcessUlpReq (*stack_p, &ulp_rsp);
+  DevAssert (NW_OK == rc);
+  OAILOG_INFO(LOG_S10, "DELETED local S10 teid (TEID FOUND IN HASH_MAP)" TEID_FMT " \n", relocation_cancel_resp_p->local_teid);
+
+  /**
+   * hash_free_int_func is set as the freeing function.
+   * The value is removed from the map. But the value itself (int) is not freed.
+   * The Tunnels are not deallocated but just set back to the Tunnel pool.
+   */
+  hash_rc = hashtable_ts_free(s10_mme_teid_2_gtv2c_teid_handle, (hash_key_t) relocation_cancel_resp_p->local_teid);
+  DevAssert (HASH_TABLE_OK == hash_rc);
   return RETURNok;
 }
 
@@ -1724,23 +1790,6 @@ s10_mme_handle_ulp_error_indicatior(
     ack_p->cause = SYSTEM_FAILURE; /**< Would mean that this message either did not come at all or could not be dealt with properly. */
   }
     break;
-  case NW_GTP_RELOCATION_CANCEL_REQ:
-   {
-     itti_s10_relocation_cancel_response_t    *rsp_p;
-     /**
-      * If RELOCATION_CANCEL_REQ is sent but no RELOCATION_CANCEL_RESP is received
-      */
-     message_p = itti_alloc_new_message (TASK_S10, S10_RELOCATION_CANCEL_RESPONSE);
-     rsp_p = &message_p->ittiMsg.s10_relocation_cancel_response;
-     memset(rsp_p, 0, sizeof(*rsp_p));
-     /** Set the destination TEID (our TEID). */
-     rsp_p->teid = pUlpApi->apiInfo.rspFailureInfo.teidLocal;
-     /** Set the transaction for the triggered acknowledgement. */
-     rsp_p->trxn = (void *)pUlpApi->apiInfo.rspFailureInfo.hUlpTrxn;
-     /** Set the cause. */
-     rsp_p->cause = SYSTEM_FAILURE; /**< Would mean that this message either did not come at all or could not be dealt with properly. */
-   }
-     break;
    /** S10 Handover Timeouts. */
   case NW_GTP_FORWARD_RELOCATION_REQ:
    {
@@ -1787,6 +1836,13 @@ s10_mme_handle_ulp_error_indicatior(
     ack_p->cause = SYSTEM_FAILURE; /**< Would mean that this message either did not come at all or could not be dealt with properly. */
   }
   break;
+  case NW_GTP_RELOCATION_CANCEL_REQ:
+   {
+     /** Respond with an S10 Relocation Cancel Response Failure. */
+     OAILOG_WARNING (LOG_S10, "Not handling timeout for relocation cancel request for local S10-TEID " TEID_FMT ". \n", pUlpApi->apiInfo.rspFailureInfo.teidLocal);
+     OAILOG_FUNC_RETURN (LOG_S10, RETURNok);
+   }
+   break;
   default:
     return RETURNerror;
   }

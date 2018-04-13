@@ -35,8 +35,8 @@
  ******************************************************************************/
 #define MME_STATISTIC_TIMER_S  (60)
 #define MME_MOBILITY_MANAGEMENT_TIMER_S      (1)
-#define MME_MOBILITY_COMPLETION_TIMER_S      (1)
-#define MME_S10_HANDOVER_COMPLETION_TIMER_S  (2)
+#define MME_MOBILITY_COMPLETION_TIMER_S      (2)
+#define MME_S10_HANDOVER_COMPLETION_TIMER_S  (20)
 #define MME_PAGING_TIMEOUT_TIMER_S           (3)
 
 /*******************************************************************************

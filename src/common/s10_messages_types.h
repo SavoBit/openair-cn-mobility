@@ -33,10 +33,6 @@
 * \company Blackned GmbH
 * \email: dbeken@blackned.de
 *
-* \author Andreas Eberlein
-* \company Blackned GmbH
-* \email: aeberlein@blackned.de
-*
 */
 
 #ifndef FILE_S10_MESSAGES_TYPES_SEEN

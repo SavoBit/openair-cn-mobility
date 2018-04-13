@@ -48,6 +48,7 @@ s11_mme_create_session_request (
   NwGtpv2cUlpApiT                         ulp_req;
   NwRcT                                   rc;
   uint8_t                                 restart_counter = 0;
+  OAILOG_FUNC_IN (LOG_S11);
 
   DevAssert (stack_p );
   DevAssert (req_p );
@@ -92,12 +93,14 @@ s11_mme_create_session_request (
    * The P-GW TEID should be present on the S11 interface.
    * * * * In case of an initial attach it should be set to 0...
    */
-/*  rc = nwGtpv2cMsgAddIeFteid ((ulp_req.hMsg), NW_GTPV2C_IE_INSTANCE_ONE,
+
+  /*  rc = nwGtpv2cMsgAddIeFteid ((ulp_req.hMsg), NW_GTPV2C_IE_INSTANCE_ONE,
                               S5_S8_PGW_GTP_C,
                               req_p->pgw_address_for_cp.teid,
                               req_p->pgw_address_for_cp.ipv4 ? ntohl(req_p->pgw_address_for_cp.ipv4_address) : 0,
                               req_p->pgw_address_for_cp.ipv6 ? req_p->pgw_address_for_cp.ipv6_address : NULL);
-*/
+
+   */
   s11_apn_plmn_ie_set (&(ulp_req.hMsg), req_p->apn, &req_p->serving_network);
   s11_serving_network_ie_set (&(ulp_req.hMsg), &req_p->serving_network);
   s11_pco_ie_set (&(ulp_req.hMsg), &req_p->pco);
@@ -404,6 +407,10 @@ s11_mme_handle_ulp_error_indicatior(
     break;
   case NW_GTP_DELETE_SESSION_REQ:
   {
+    /**
+     * We will omit the error and send success back.
+     * UE context should always be removed.
+     */
     itti_s11_delete_session_response_t            *rsp_p;
     message_p = itti_alloc_new_message (TASK_S10, S11_DELETE_SESSION_RESPONSE);
     rsp_p = &message_p->ittiMsg.s11_delete_session_response;
@@ -413,7 +420,8 @@ s11_mme_handle_ulp_error_indicatior(
     /** Set the transaction for the triggered acknowledgement. */
     rsp_p->trxn = (void *)pUlpApi->apiInfo.rspFailureInfo.hUlpTrxn;
     /** Set the cause. */
-    rsp_p->cause = SYSTEM_FAILURE; /**< Would mean that this message either did not come at all or could not be dealt with properly. */
+    rsp_p->cause = REQUEST_ACCEPTED; /**< Would mean that this message either did not come at all or could not be dealt with properly. */
+    OAILOG_ERROR (LOG_S11, "DELETE_SESSION_RESPONE could not be received for for local teid " TEID_FMT". Sending ACCEPTED back (ignoring the network failure). \n", rsp_p->teid);
   }
     break;
   default:

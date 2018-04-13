@@ -25,9 +25,6 @@
 * \company Blackned GmbH
 * \email: dbeken@blackned.de
 *
-* \author Andreas Eberlein
-* \company Blackned GmbH
-* \email: aeberlein@blackned.de
 */
 
 #ifndef FILE_MME_IE_DEFS_SEEN

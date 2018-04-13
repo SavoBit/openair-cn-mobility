@@ -1168,10 +1168,26 @@ mme_app_handle_s1ap_ue_context_release_complete (
      * This removed the MME_APP context only.
      * If the UE is DEREGISTERED, we check the s1cause.
      */
+    /**
+     * Check the UE Context cancellation type.
+     * If Handover cancelled respond with Relocation Cancel Request.
+     * The pending transaction is not expected to be anything else than for the Relocation Cancel Request.
+     * todo: if temporary session structures are implemented in MME_APP, we remove all session structures for the UE and just leave the RELOCATION_CANCEL_REQUEST.
+     */
+    if(ue_context_p->ue_context_rel_cause == S1AP_HANDOVER_CANCELLED){
+      OAILOG_DEBUG (LOG_MME_APP, "Continuing with Handover Cancellation for mme_ue_s1ap_id " MME_UE_S1AP_ID_FMT ". \n ", s1ap_ue_context_release_complete->mme_ue_s1ap_id);
+    }
+    /** No detach request will be sent, just continue to remove the MME_APP UE context. */
+    mme_app_send_delete_session_request (ue_context_p);
+    /** This should remove the tunnel endpoints for the UE.
+     * The S10 Tunnel Endpoints should be removed with the RELOCATION_CANCEL_RESPONSE.
+     * We will not deal with the response. Continuing with the MME_APP context removal.
+     */
+
+    /** Continue with the MME_APP UE context removal. */
     // Move the UE to Idle state
     // todo: this should always happen before signaling connection is ECM_IDLE..
     mme_ue_context_update_ue_sig_connection_state (&mme_app_desc.mme_ue_contexts, ue_context_p,ECM_IDLE);
-
     mme_remove_ue_context(&mme_app_desc.mme_ue_contexts, ue_context_p);
     update_mme_app_stats_connected_ue_sub();
   }  
@@ -1183,6 +1199,7 @@ mme_app_handle_s1ap_ue_context_release_complete (
      */
     if(ue_context_p->ue_context_rel_cause == S1AP_HANDOVER_CANCELLED){
       /** Don't change the signaling connection state. */
+      // todo: this case might also be a too fast handover back handover failure! don't handle it here, handle it before and immediately Deregister the UE
       mme_app_send_s1ap_handover_cancel_acknowledge(ue_context_p->mme_ue_s1ap_id, ue_context_p->enb_ue_s1ap_id, ue_context_p->sctp_assoc_id_key);
       OAILOG_DEBUG(LOG_MME_APP, "Successfully terminated the resources in the target eNB %d for UE with mme_ue_s1ap_ue_id "MME_UE_S1AP_ID_FMT " (REGISTERED). "
           "Sending HO-CANCELLATION-ACK back to the source eNB. \n", s1ap_ue_context_release_complete->enb_id, ue_context_p->mme_ue_s1ap_id, ue_context_p->mm_state);
@@ -1191,7 +1208,7 @@ mme_app_handle_s1ap_ue_context_release_complete (
       OAILOG_INFO (LOG_MME_APP, "Implicitly detaching the UE due CLR flag @ completion of MME_MOBILITY timer for UE id  %d \n", ue_context_p->mme_ue_s1ap_id);
       message_p = itti_alloc_new_message (TASK_MME_APP, NAS_IMPLICIT_DETACH_UE_IND);
       DevAssert (message_p != NULL);
-      message_p->ittiMsg.nas_implicit_detach_ue_ind.ue_id = ue_context_p->mme_ue_s1ap_id;
+      message_p->ittiMsg.nas_implicit_detach_ue_ind.ue_id = ue_context_p->mme_ue_s1ap_id; /**< Rest won't be sent, so no NAS Detach Request will be sent. */
       MSC_LOG_TX_MESSAGE (MSC_MMEAPP_MME, MSC_NAS_MME, NULL, 0, "0 NAS_IMPLICIT_DETACH_UE_IND_MESSAGE");
       itti_send_msg_to_task (TASK_NAS_MME, INSTANCE_DEFAULT, message_p);
     }else{
@@ -2192,68 +2209,86 @@ mme_app_handle_relocation_cancel_request(
  itti_s10_relocation_cancel_response_t  *relocation_cancel_response_p = NULL;
 
  OAILOG_FUNC_IN (LOG_MME_APP);
- OAILOG_DEBUG (LOG_MME_APP, "Received S10_RELOCATION_CANCEL_REQUEST from S10. \n");
+
+ IMSI_STRING_TO_IMSI64 (&relocation_cancel_request_pP->imsi, &imsi64);
+ OAILOG_DEBUG (LOG_MME_APP, "Handling S10_RELOCATION_CANCEL_REQUEST REQUEST for imsi " IMSI_64_FMT " with TEID " TEID_FMT". \n", imsi64, relocation_cancel_request_pP->teid);
 
  /** Check that the UE does exist. */
  ue_context_p = mme_ue_context_exists_s10_teid (&mme_app_desc.mme_ue_contexts, relocation_cancel_request_pP->teid); /**< Get the UE context from the local TEID. */
  if (ue_context_p == NULL) {
    MSC_LOG_RX_DISCARDED_MESSAGE (MSC_MMEAPP_MME, MSC_S10_MME, NULL, 0, "0 RELOCATION_CANCEL_REQUEST local S10 teid " TEID_FMT,
        relocation_cancel_request_pP->teid);
-   OAILOG_ERROR (LOG_MME_APP, "We didn't find this teid in list of UE: %08x\n", relocation_cancel_request_pP->teid);
-   /** No response can be sent, because we are missing the UE_CONTEXT. */
-   OAILOG_FUNC_OUT (LOG_MME_APP);
+   /** Check IMSI. */
+   ue_context_p = mme_ue_context_exists_imsi(&mme_app_desc.mme_ue_contexts, imsi64); /**< Get the UE context from the IMSI. */
+   // todo: just checking IMSI?
  }
+
+ /** Preprare the RELOCATION_CANCEL_REQUEST. */
  message_p = itti_alloc_new_message (TASK_MME_APP, S10_RELOCATION_CANCEL_RESPONSE);
  DevAssert (message_p != NULL);
  relocation_cancel_response_p = &message_p->ittiMsg.s10_relocation_cancel_response;
  memset ((void*)relocation_cancel_response_p, 0, sizeof (itti_s10_relocation_cancel_response_t));
- relocation_cancel_response_p->teid    = ue_context_p->remote_mme_s10_teid; /**< Only a single target-MME TEID can exist at a time. */
  relocation_cancel_response_p->peer_ip = mme_config.nghMme.nghMme[0].ipAddr; /**< todo: Check this is correct. */
  relocation_cancel_response_p->trxn    = relocation_cancel_request_pP->trxn;
 
- IMSI_STRING_TO_IMSI64 (&relocation_cancel_request_pP->imsi, &imsi64);
- if(ue_context_p->imsi != imsi64) {
-   OAILOG_ERROR (LOG_MME_APP, "IMSI " IMSI_64_FMT " not found for UE " MME_UE_S1AP_ID_FMT ". \n", imsi64, ue_context_p->mme_ue_s1ap_id);
-   /** Set the cause. Since the UE context state has not been changed yet, nothing to do in the context if success or failure.*/
+ if(!ue_context_p || ue_context_p->imsi != imsi64){
+   OAILOG_ERROR (LOG_MME_APP, "We didn't find this UE in list of UE: " IMSI_64_FMT". \n", imsi64);
+   /** Send a relocation cancel response with 0 TEID if remote TEID is not set yet (although spec says otherwise). It may may not be that a transaction might be removed. */
    relocation_cancel_response_p->cause = IMSI_NOT_KNOWN;
    itti_send_msg_to_task (TASK_S10, INSTANCE_DEFAULT, message_p);
    OAILOG_FUNC_OUT (LOG_MME_APP);
  }
- /** Get the EMM context, too. */
+
+ relocation_cancel_response_p->teid = ue_context_p->remote_mme_s10_teid; /**< Only a single target-MME TEID can exist at a time. */
+ /** An EMM context may not exist yet. */
  emm_data_context_t * ue_nas_ctx = emm_data_context_get_by_imsi(&_emm_data, imsi64);
- if(!ue_nas_ctx){
-   OAILOG_ERROR (LOG_MME_APP, "No EMM Data Context exists for UE with mmeUeS1apId " MME_UE_S1AP_ID_FMT " and IMSI " IMSI_64_FMT ". \n", ue_context_p->mme_ue_s1ap_id, imsi64);
-   /** Set the cause. Since the UE context state has not been changed yet, nothing to do in the context if success or failure.*/
-   relocation_cancel_response_p->cause = IMSI_NOT_KNOWN;
-   itti_send_msg_to_task (TASK_S10, INSTANCE_DEFAULT, message_p);
-   OAILOG_FUNC_OUT (LOG_MME_APP);
+ if(ue_nas_ctx){
+   OAILOG_ERROR (LOG_MME_APP, "An EMM Data Context already exists for UE with mmeUeS1apId " MME_UE_S1AP_ID_FMT " and IMSI " IMSI_64_FMT ". \n", ue_context_p->mme_ue_s1ap_id, imsi64);
+   /** Since RELOCATION_CANCEL_REQUEST is already sent when S10 Handover Cancellation is performed. If we have a NAS context, it should be an invalidated one,
+    * already purging itself.
+    */
+   if(ue_context_p->ue_context_rel_cause != S1AP_INVALIDATE_NAS){
+     OAILOG_ERROR (LOG_MME_APP, "The EMM Data Context is not invalidated. We will disregard the RELOCATION_CANCEL_REQUEST for UE with mmeUeS1apId " MME_UE_S1AP_ID_FMT " and IMSI " IMSI_64_FMT ". \n", ue_context_p->mme_ue_s1ap_id, imsi64);
+     relocation_cancel_response_p->cause = SYSTEM_FAILURE;
+     itti_send_msg_to_task (TASK_S10, INSTANCE_DEFAULT, message_p);
+     OAILOG_FUNC_OUT (LOG_MME_APP);
+   }
+   /** Continue with the cancellation procedure! Will overwrite the release cause that the UE Context is also removed.
+    */
+   OAILOG_WARNING (LOG_MME_APP, "The EMM Data Context is INVALIDATED. We will continue the RELOCATION_CANCEL_REQUEST for UE with mmeUeS1apId " MME_UE_S1AP_ID_FMT " and IMSI " IMSI_64_FMT ". \n", ue_context_p->mme_ue_s1ap_id, imsi64);
  }
- /** Not checking if EMM context and MME_APP UE context IDs match.. */
  /**
   * Lastly, check if the UE is already REGISTERED in the TARGET cell (here).
   * In that case, its too late to remove for HO-CANCELLATION.
   * Assuming that it is an error on the source side.
   */
- if(ue_context_p->mm_state == UE_REGISTERED || ue_nas_ctx->_emm_fsm_status == EMM_REGISTERED){
+ if(ue_context_p->mm_state == UE_REGISTERED){
    OAILOG_ERROR (LOG_MME_APP, "UE Context/EMM Data Context for IMSI " IMSI_64_FMT " and mmeUeS1apId " MME_UE_S1AP_ID_FMT " is already REGISTERED. "
-       "Not purging due to Handover Cancellation. \n", ue_context_p->mme_ue_s1ap_id, imsi64);
-   /** Set the cause. Since the UE context state has not been changed yet, nothing to do in the context if success or failure.*/
+       "Not purging due to RELOCATION_CANCEL_REQUEST. \n", imsi64, ue_context_p->mme_ue_s1ap_id);
+   /**
+    * This might happen only after too fast handovering the UE NAS context is not invalidated yet. */
    relocation_cancel_response_p->cause = SYSTEM_FAILURE;
    itti_send_msg_to_task (TASK_S10, INSTANCE_DEFAULT, message_p);
    OAILOG_FUNC_OUT (LOG_MME_APP);
  }
- /** Respond with a Relocation Cancel Response (without waiting for the S10-Triggered detach to complete. */
- relocation_cancel_response_p->cause = REQUEST_ACCEPTED;
- itti_send_msg_to_task (TASK_S10, INSTANCE_DEFAULT, message_p);
  /**
   * Perform an UE Context Release with cause Handover Cancellation.
   * Will also cancel all MME_APP timers and send a S1AP Release Command with HO-Cancellation cause.
+  * First the default bearers should be removed. Then the UE context in the eNodeB.
   */
- ue_context_p->ue_context_rel_cause = S1AP_HANDOVER_CANCELLED; /**< First the default bearers should be removed. Then the UE context in the eNodeB. */
- message_p = itti_alloc_new_message (TASK_MME_APP, NAS_IMPLICIT_DETACH_UE_IND);
- DevAssert (message_p != NULL);
- message_p->ittiMsg.nas_implicit_detach_ue_ind.ue_id = ue_context_p->mme_ue_s1ap_id;
- itti_send_msg_to_task (TASK_NAS_MME, INSTANCE_DEFAULT, message_p);
+ ue_context_p->ue_context_rel_cause = S1AP_HANDOVER_CANCELLED;
+
+ /**
+  * Send a S1AP Context Release Request.
+  * If no S1AP UE reference is existing, we will send a UE context release command with the MME_UE_S1AP_ID.
+  */
+ mme_app_itti_ue_context_release(ue_context_p->mme_ue_s1ap_id, ue_context_p->enb_ue_s1ap_id, ue_context_p->ue_context_rel_cause, ue_context_p->pending_handover_target_enb_id);
+
+ /**
+  * Respond with a Relocation Cancel Response (without waiting for the S10-Triggered detach to complete).
+  */
+ relocation_cancel_response_p->cause = REQUEST_ACCEPTED;
+ itti_send_msg_to_task (TASK_S10, INSTANCE_DEFAULT, message_p);
  /** Triggered an Implicit Detach Message back. */
  OAILOG_FUNC_OUT (LOG_MME_APP);
 }
@@ -2271,6 +2306,9 @@ mme_app_handle_relocation_cancel_response( /**< Will only be sent to cancel a ha
  OAILOG_DEBUG (LOG_MME_APP, "Received S10_RELOCATION_CANCEL_RESPONSE from S10. \n");
 
  /** Check that the UE does exist. */
+ if(relocation_cancel_response_pP->teid == 0){
+   OAILOG_FUNC_OUT (LOG_MME_APP);
+ }
  ue_context_p = mme_ue_context_exists_s10_teid(&mme_app_desc.mme_ue_contexts, relocation_cancel_response_pP->teid);
  if (ue_context_p == NULL) {
    OAILOG_ERROR(LOG_MME_APP, "An UE MME context does not exist for UE with s10 teid %d. \n", relocation_cancel_response_pP->teid);
@@ -2284,35 +2322,11 @@ mme_app_handle_relocation_cancel_response( /**< Will only be sent to cancel a ha
   * todo: Lionel --> this case could also be ignored.
   */
  if(relocation_cancel_response_pP->cause != REQUEST_ACCEPTED){
-   OAILOG_ERROR(LOG_MME_APP, "RELOCATION_CANCEL_REPONSE for UE with mmeUeS1apId " MME_UE_S1AP_ID_FMT " is not accepted, instead %d. \n",
+   OAILOG_WARNING(LOG_MME_APP, "RELOCATION_CANCEL_REPONSE for UE with mmeUeS1apId " MME_UE_S1AP_ID_FMT " is not accepted, instead %d. Ignoring the error and continuing with Handover Cancellation. \n",
        ue_context_p->mme_ue_s1ap_id, relocation_cancel_response_pP->cause);
-   ue_context_p->ue_context_rel_cause = S1AP_NETWORK_ERROR;
-   message_p = itti_alloc_new_message (TASK_MME_APP, NAS_IMPLICIT_DETACH_UE_IND);
-   DevAssert (message_p != NULL);
-   itti_nas_implicit_detach_ue_ind_t *nas_implicit_detach_ue_ind_p = &message_p->ittiMsg.nas_implicit_detach_ue_ind;
-   memset ((void*)nas_implicit_detach_ue_ind_p, 0, sizeof (itti_nas_implicit_detach_ue_ind_t));
-   message_p->ittiMsg.nas_implicit_detach_ue_ind.ue_id = ue_context_p->mme_ue_s1ap_id;
-   itti_send_msg_to_task (TASK_NAS_MME, INSTANCE_DEFAULT, message_p);
-   OAILOG_FUNC_OUT (LOG_MME_APP);
+ }else{
+   OAILOG_INFO(LOG_MME_APP, "RELOCATION_CANCEL_REPONSE was accepted at TARGET-MME side for UE with mmeUeS1apId " MME_UE_S1AP_ID_FMT ". \n", ue_context_p->mme_ue_s1ap_id);
  }
- OAILOG_INFO(LOG_MME_APP, "RELOCATION_CANCEL_REPONSE was accepted at TARGET-MME side for UE with mmeUeS1apId " MME_UE_S1AP_ID_FMT ". "
-     "Canelling the Handover on the target source side. \n", ue_context_p->mme_ue_s1ap_id);
-
- // todo: when to accept these values from the target-MME side.
- /**
-  * Send an handover_cancel_accept if UE is in UE_REGISTERED state, else additionally perform an implicit detach.
-  * todo: assuming that this won't crash if UE is not in EMM_REGISTERED state.
-  */
- mme_app_send_s1ap_handover_cancel_acknowledge(ue_context_p->mme_ue_s1ap_id, ue_context_p->enb_ue_s1ap_id, ue_context_p->sctp_assoc_id_key);
- if(ue_context_p->mm_state != UE_REGISTERED){
-   OAILOG_ERROR(LOG_MME_APP, "RELOCATION_CANCEL_REPONSE received by UE with mmeUeS1apId " MME_UE_S1AP_ID_FMT " not in UE_REGISTERED state, instead in %d. Performing NAS-Implicit-Detach. \n", ue_context_p->mme_ue_s1ap_id);
-   ue_context_p->ue_context_rel_cause = S1AP_NETWORK_ERROR;
-   message_p = itti_alloc_new_message (TASK_MME_APP, NAS_IMPLICIT_DETACH_UE_IND);
-   DevAssert (message_p != NULL);
-   itti_nas_implicit_detach_ue_ind_t *nas_implicit_detach_ue_ind_p = &message_p->ittiMsg.nas_implicit_detach_ue_ind;
-   memset ((void*)nas_implicit_detach_ue_ind_p, 0, sizeof (itti_nas_implicit_detach_ue_ind_t));
-   message_p->ittiMsg.nas_implicit_detach_ue_ind.ue_id = ue_context_p->mme_ue_s1ap_id;
-   itti_send_msg_to_task (TASK_NAS_MME, INSTANCE_DEFAULT, message_p);
- }
+ /** We will not wait for RELOCATION_CANCEL_REQUEST to send Handover Cancel Acknowledge back. */
  OAILOG_FUNC_OUT (LOG_MME_APP);
 }
