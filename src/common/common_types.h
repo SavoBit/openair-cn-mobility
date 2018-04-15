@@ -109,7 +109,11 @@ typedef uint64_t                 imsi64_t;
 typedef uint8_t       ksi_t;
 #define KSI_NO_KEY_AVAILABLE     0x07
 
-
+typedef struct count_s{
+  uint32_t spare:8;
+  uint32_t overflow:16;
+  uint32_t seq_num:8;
+} count_t;
 
 typedef uint8_t     AcT_t;      /* Access Technology    */
 
