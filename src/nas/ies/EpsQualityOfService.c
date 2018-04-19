@@ -18,6 +18,7 @@
  * For more information about the OpenAirInterface (OAI) Software Alliance:
  *      contact@openairinterface.org
  */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -31,6 +32,9 @@
 #include "common_types.h"
 #include "EpsQualityOfService.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 //------------------------------------------------------------------------------
 static int decode_eps_qos_bit_rates (
@@ -278,3 +282,7 @@ int qos_params_to_eps_qos(const qci_t qci, const bitrate_t mbr_dl, const bitrate
   }
   return RETURNerror;
 }
+
+#ifdef __cplusplus
+}
+#endif

@@ -25,7 +25,6 @@
   \company Eurecom
   \email: lionel.gauthier@eurecom.fr
 */
-
 #include <stdio.h>
 #include <pthread.h>
 #include <inttypes.h>
@@ -38,7 +37,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <syslog.h>
 
 #if HAVE_CONFIG_H
 #  include "config.h"
@@ -60,7 +58,6 @@
 #include "security_types.h"
 #include "common_types.h"
 #include "common_defs.h"
-#include "xml_msg_dump.h"
 #include "mme_config.h"
 
 #include "intertask_interface_init.h"
@@ -72,7 +69,6 @@
 #include "mme_app_extern.h"
 #include "nas_defs.h"
 #include "s11_mme.h"
-#include "mme_scenario_player_task.h"
 
 /* FreeDiameter headers for support of S6A interface */
 #include <freeDiameter/freeDiameter-host.h>
@@ -98,70 +94,23 @@ main (
   CHECK_INIT_RETURN (mme_config_parse_opt_line (argc, argv, &mme_config));
 
   pid_dir = bstr2cstr(mme_config.pid_dir, 1);
-  pid_dir = pid_dir ? pid_dir : "/var/run";
-  pid_file_name = get_exe_absolute_path(pid_dir);
-  bcstrfree(pid_dir);
-
-#if DAEMONIZE
-  pid_t pid, sid; // Our process ID and Session ID
-
-  // Fork off the parent process
-  pid = fork();
-  if (pid < 0) {
-    exit(EXIT_FAILURE);
-  }
-  // If we got a good PID, then we can exit the parent process.
-  if (pid > 0) {
-    exit(EXIT_SUCCESS);
-  }
-  // Change the file mode mask
-  umask(0);
-
-  // Create a new SID for the child process
-  sid = setsid();
-  if (sid < 0) {
-    exit(EXIT_FAILURE); // Log the failure
+  if (pid_dir == NULL) {
+      pid_file_name = get_exe_absolute_path("/var/run");
+  } else {
+      pid_file_name = get_exe_absolute_path(pid_dir);
+      bcstrfree(pid_dir);
   }
 
-  // Change the current working directory
-  if ((chdir("/")) < 0) {
-    // Log the failure
-    exit(EXIT_FAILURE);
-  }
-
-  /* Close out the standard file descriptors */
-  close(STDIN_FILENO);
-  close(STDOUT_FILENO);
-  close(STDERR_FILENO);
-
-
-  if (! is_pid_file_lock_success(pid_file_name)) {
-    closelog();
-    free_wrapper((void**)&pid_file_name);
-    exit (-EDEADLK);
-  }
-#else
   if (! is_pid_file_lock_success(pid_file_name)) {
     free_wrapper((void**)&pid_file_name);
     exit (-EDEADLK);
   }
-#endif
 
+  CHECK_INIT_RETURN (itti_init (TASK_MAX, THREAD_MAX, MESSAGES_ID_MAX, tasks_info, messages_info, NULL, NULL));
+  MSC_INIT (MSC_MME, THREAD_MAX + TASK_MAX);
   /*
    * Calling each layer init function
    */
-  //CHECK_INIT_RETURN (log_init (&mme_config, oai_mme_log_specific));
-  CHECK_INIT_RETURN (itti_init (TASK_MAX, THREAD_MAX, MESSAGES_ID_MAX, tasks_info, messages_info,
-#if ENABLE_ITTI_ANALYZER
-          messages_definition_xml,
-#else
-          NULL,
-#endif
-          NULL));
-  MSC_INIT (MSC_MME, THREAD_MAX + TASK_MAX);
-#if TRACE_XML
-  CHECK_INIT_RETURN (mme_scenario_player_init (&mme_config));
-#endif
   CHECK_INIT_RETURN (nas_init (&mme_config));
   CHECK_INIT_RETURN (sctp_init (&mme_config));
   CHECK_INIT_RETURN (udp_init ());
@@ -169,15 +118,13 @@ main (
   CHECK_INIT_RETURN (s1ap_mme_init());
   CHECK_INIT_RETURN (mme_app_init (&mme_config));
   CHECK_INIT_RETURN (s6a_init (&mme_config));
-  XML_MSG_DUMP_INIT();
-  OAILOG_DEBUG(LOG_MME_APP, "MME app initialization complete\n");
 
+  OAILOG_DEBUG(LOG_MME_APP, "MME app initialization complete\n");
   /*
    * Handle signals here
    */
   itti_wait_tasks_end ();
   pid_file_unlock();
   free_wrapper((void**)&pid_file_name);
-  XML_MSG_DUMP_EXIT();
   return 0;
 }

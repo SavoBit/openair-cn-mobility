@@ -18,6 +18,7 @@
  * For more information about the OpenAirInterface (OAI) Software Alliance:
  *      contact@openairinterface.org
  */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -25,10 +26,13 @@
 
 #include "bstrlib.h"
 
-#include "log.h"
 #include "TLVEncoder.h"
 #include "TLVDecoder.h"
 #include "ServiceType.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 //------------------------------------------------------------------------------
 int decode_service_type (
@@ -95,3 +99,7 @@ uint8_t encode_u8_service_type (service_type_t * servicetype)
   encoded++;
   return bufferReturn;
 }
+
+#ifdef __cplusplus
+}
+#endif

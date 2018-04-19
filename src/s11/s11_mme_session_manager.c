@@ -25,7 +25,6 @@
   \company Eurecom
   \email: lionel.gauthier@eurecom.fr
 */
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -48,9 +47,14 @@
 #include "NwGtpv2cMsg.h"
 #include "NwGtpv2cMsgParser.h"
 
+#include "s11_messages_types.h"
 #include "s11_common.h"
 #include "s11_mme_session_manager.h"
 #include "s11_ie_formatter.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 extern hash_table_ts_t                        *s11_mme_teid_2_gtv2c_teid_handle;
 
@@ -87,6 +91,9 @@ s11_mme_create_session_request (
   gtpv2c_imsi_ie_set (&(ulp_req.hMsg), &req_p->imsi);
   gtpv2c_rat_type_ie_set (&(ulp_req.hMsg), &req_p->rat_type);
   gtpv2c_pdn_type_ie_set (&(ulp_req.hMsg), &req_p->pdn_type);
+  gtpv2c_paa_ie_set (&(ulp_req.hMsg), &req_p->paa);
+  gtpv2c_apn_restriction_ie_set(&(ulp_req.hMsg), 0x01);
+
   /*
    * Sender F-TEID for Control Plane (MME S11)
    */
@@ -99,15 +106,16 @@ s11_mme_create_session_request (
    * The P-GW TEID should be present on the S11 interface.
    * * * * In case of an initial attach it should be set to 0...
    */
-  rc = nwGtpv2cMsgAddIeFteid ((ulp_req.hMsg), NW_GTPV2C_IE_INSTANCE_ONE,
+/*  rc = nwGtpv2cMsgAddIeFteid ((ulp_req.hMsg), NW_GTPV2C_IE_INSTANCE_ONE,
                               S5_S8_PGW_GTP_C,
                               req_p->pgw_address_for_cp.teid,
                               req_p->pgw_address_for_cp.ipv4 ? &req_p->pgw_address_for_cp.ipv4_address : 0,
                               req_p->pgw_address_for_cp.ipv6 ? &req_p->pgw_address_for_cp.ipv6_address : NULL);
-
-  gtpv2c_apn_ie_set (&(ulp_req.hMsg), req_p->apn);
+*/
+  gtpv2c_apn_plmn_ie_set (&(ulp_req.hMsg), req_p->apn, &req_p->serving_network);
   gtpv2c_serving_network_ie_set (&(ulp_req.hMsg), &req_p->serving_network);
   gtpv2c_pco_ie_set (&(ulp_req.hMsg), &req_p->pco);
+
   for (int i = 0; i < req_p->bearer_contexts_to_be_created.num_bearer_context; i++) {
     gtpv2c_bearer_context_to_be_created_within_create_session_request_ie_set (&(ulp_req.hMsg), &req_p->bearer_contexts_to_be_created.bearer_contexts[i]);
   }
@@ -141,8 +149,8 @@ s11_mme_handle_create_session_response (
   nw_gtpv2c_msg_parser_t                     *pMsgParser;
 
   DevAssert (stack_p );
-  message_p = itti_alloc_new_message (TASK_S11, S11_CREATE_SESSION_RESPONSE);
-  resp_p = &message_p->ittiMsg.s11_create_session_response;
+  message_p = itti_alloc_new_message_sized (TASK_S11, S11_CREATE_SESSION_RESPONSE, sizeof(itti_s11_create_session_response_t));
+  resp_p = S11_CREATE_SESSION_RESPONSE(message_p);
 
   resp_p->teid = nwGtpv2cMsgGetTeid(pUlpApi->hMsg);
 
@@ -265,7 +273,6 @@ s11_mme_delete_session_request (
 
   gtpv2c_ebi_ie_set (&(ulp_req.hMsg), (unsigned)req_p->lbi);
 
-
   if ((req_p->indication_flags.oi) || (req_p->indication_flags.si)){
     gtpv2c_indication_flags_ie_set (&(ulp_req.hMsg), &req_p->indication_flags);
   }
@@ -294,8 +301,8 @@ s11_mme_handle_delete_session_response (
   hashtable_rc_t                          hash_rc = HASH_TABLE_OK;
 
   DevAssert (stack_p );
-  message_p = itti_alloc_new_message (TASK_S11, S11_DELETE_SESSION_RESPONSE);
-  resp_p = &message_p->ittiMsg.s11_delete_session_response;
+  message_p = itti_alloc_new_message_sized (TASK_S11, S11_DELETE_SESSION_RESPONSE, sizeof(itti_s11_delete_session_response_t));
+  resp_p = S11_DELETE_SESSION_RESPONSE(message_p);
 
   resp_p->teid = nwGtpv2cMsgGetTeid(pUlpApi->hMsg);
 
@@ -371,3 +378,8 @@ s11_mme_handle_delete_session_response (
 
   return itti_send_msg_to_task (TASK_MME_APP, INSTANCE_DEFAULT, message_p);
 }
+
+#ifdef __cplusplus
+}
+#endif
+

@@ -21,19 +21,29 @@
 
 #ifndef ADDITIONAL_UPDATE_TYPE_SEEN
 #define ADDITIONAL_UPDATE_TYPE_SEEN
+#include <stdint.h>
 
 #define ADDITIONAL_UPDATE_TYPE_MINIMUM_LENGTH 1
 #define ADDITIONAL_UPDATE_TYPE_MAXIMUM_LENGTH 1
 
-typedef uint8_t additional_update_type_t;
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-#define NO_ADDITIONAL_INFORMATION 0x0
-#define SMS_ONLY                  0x1
-#define MAX                       (1 << ADDITIONAL_UPDATE_TYPE_MAXIMUM_LENGTH)
-#define SENTINEL_MAX              0xFF
+typedef enum {
+  NO_ADDITIONAL_INFORMATION = 0x0,
+  SMS_ONLY                  = 0x1,
+  MAX                       = 1 << ADDITIONAL_UPDATE_TYPE_MAXIMUM_LENGTH,
+  SENTINEL_MAX              = 0xFF
+} additional_update_type_t;
 
 int encode_additional_update_type(additional_update_type_t *additionalupdatetype, uint8_t iei, uint8_t *buffer, uint32_t len);
+
 int decode_additional_update_type(additional_update_type_t *additionalupdatetype, uint8_t iei, uint8_t *buffer, uint32_t len);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* ADDITIONAL_UPDATE_TYPE_SEEN */
 

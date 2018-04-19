@@ -36,6 +36,10 @@
 #include "3gpp_24.007.h"
 #include "3gpp_24.008.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Minimum length macro. Formed by minimum length of each mandatory field */
 #define ATTACH_ACCEPT_MINIMUM_LENGTH ( \
     EPS_ATTACH_RESULT_MINIMUM_LENGTH + \
@@ -99,7 +103,7 @@ typedef struct attach_accept_msg_tag {
   eps_protocol_discriminator_t    protocoldiscriminator:4;
   security_header_type_t          securityheadertype:4;
   message_type_t                  messagetype;
-  eps_attach_result_t                 epsattachresult;
+  eps_attach_result_t             epsattachresult;
   gprs_timer_t                    t3412value;
   tai_list_t                      tailist;
   EsmMessageContainer             esmmessagecontainer;
@@ -108,18 +112,22 @@ typedef struct attach_accept_msg_tag {
   eps_mobile_identity_t           guti;
   location_area_identification_t  locationareaidentification;
   mobile_identity_t               msidentity;
-  emm_cause_t                        emmcause;
+  emm_cause_t                     emmcause;
   gprs_timer_t                    t3402value;
   gprs_timer_t                    t3423value;
   plmn_list_t                     equivalentplmns;
   emergency_number_list_t         emergencynumberlist;
-  eps_network_feature_support_t        epsnetworkfeaturesupport;
-  additional_update_result_t          additionalupdateresult;
+  eps_network_feature_support_t   epsnetworkfeaturesupport;
+  additional_update_result_t      additionalupdateresult;
 } attach_accept_msg;
 
 int decode_attach_accept(attach_accept_msg *attachaccept, uint8_t *buffer, uint32_t len);
 
 int encode_attach_accept(attach_accept_msg *attachaccept, uint8_t *buffer, uint32_t len);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* ! defined(FILE_ATTACH_ACCEPT_SEEN) */
 

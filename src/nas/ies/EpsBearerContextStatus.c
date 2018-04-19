@@ -18,18 +18,21 @@
  * For more information about the OpenAirInterface (OAI) Software Alliance:
  *      contact@openairinterface.org
  */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <arpa/inet.h>
 
 #include "bstrlib.h"
 
-#include "log.h"
 #include "TLVEncoder.h"
 #include "TLVDecoder.h"
 #include "EpsBearerContextStatus.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 //------------------------------------------------------------------------------
 int decode_eps_bearer_context_status (
@@ -80,3 +83,8 @@ int encode_eps_bearer_context_status (
   *lenPtr = encoded - 1 - ((iei > 0) ? 1 : 0);
   return encoded;
 }
+
+#ifdef __cplusplus
+}
+#endif
+

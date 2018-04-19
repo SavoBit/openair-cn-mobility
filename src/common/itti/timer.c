@@ -1,30 +1,22 @@
 /*
- * Copyright (c) 2015, EURECOM (www.eurecom.fr)
- * All rights reserved.
+ * Licensed to the OpenAirInterface (OAI) Software Alliance under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The OpenAirInterface Software Alliance licenses this file to You under
+ * the Apache License, Version 2.0  (the "License"); you may not use this file
+ * except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * 1. Redistributions of source code must retain the above copyright notice, this
- *    list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * The views and conclusions contained in the software and documentation are those
- * of the authors and should not be interpreted as representing official policies,
- * either expressed or implied, of the FreeBSD Project.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *-------------------------------------------------------------------------------
+ * For more information about the OpenAirInterface (OAI) Software Alliance:
+ *      contact@openairinterface.org
  */
 
 #include <pthread.h>
@@ -42,6 +34,7 @@
 
 #include "intertask_interface.h"
 #include "timer.h"
+#include "timer_messages_types.h"
 #include "log.h"
 #include "queue.h"
 #include "dynamic_memory_check.h"
@@ -97,8 +90,8 @@ timer_handle_signal (
   // TMR_DEBUG("Timer with id 0x%lx has expired", (long)timer_p->timer);
   task_id = timer_p->task_id;
   instance = timer_p->instance;
-  message_p = itti_alloc_new_message (TASK_TIMER, TIMER_HAS_EXPIRED);
-  timer_expired_p = &message_p->ittiMsg.timer_has_expired;
+  message_p = itti_alloc_new_message_sized (TASK_TIMER, TIMER_HAS_EXPIRED, sizeof(timer_has_expired_t));
+  timer_expired_p = TIMER_HAS_EXPIRED(message_p);
   timer_expired_p->timer_id = (long)timer_p->timer;
   timer_expired_p->arg = timer_p->timer_arg;
 
@@ -115,7 +108,8 @@ timer_handle_signal (
     //         pthread_mutex_unlock(&timer_desc.timer_list_mutex);
     //         free_wrapper(timer_p);
     //         timer_p = NULL;
-    if (timer_remove ((long)timer_p->timer) != 0) {
+    // timer_arg saved in TIMER_HAS_EXPIRED msg
+    if (timer_remove ((long)timer_p->timer, NULL) != 0) {
       OAILOG_DEBUG (LOG_ITTI, "Failed to delete timer 0x%lx\n", (long)timer_p->timer);
     }
   }
@@ -225,9 +219,7 @@ timer_setup (
   return 0;
 }
 
-int
-timer_remove (
-  long timer_id)
+int timer_remove (long timer_id, void ** arg)
 {
   int                                     rc = 0;
   struct timer_elm_s                     *timer_p;
@@ -241,6 +233,7 @@ timer_remove (
    */
   if (timer_p == NULL) {
     pthread_mutex_unlock (&timer_desc.timer_list_mutex);
+    if (arg) *arg = NULL;
     OAILOG_ERROR (LOG_ITTI, "Didn't find timer 0x%lx in list\n", timer_id);
     return -1;
   }
@@ -248,6 +241,9 @@ timer_remove (
   STAILQ_REMOVE (&timer_desc.timer_queue, timer_p, timer_elm_s, entries);
   pthread_mutex_unlock (&timer_desc.timer_list_mutex);
 
+  // let user of API get back arg that can be an allocated memory (memory leak).
+
+  if (arg) *arg = timer_p->timer_arg;
   if (timer_delete (timer_p->timer) < 0) {
     OAILOG_ERROR (LOG_ITTI, "Failed to delete timer 0x%lx\n", (long)timer_p->timer);
     rc = -1;

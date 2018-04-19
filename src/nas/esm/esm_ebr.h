@@ -36,8 +36,12 @@ Description Defines functions used to handle state of EPS bearer contexts
         and manage ESM messages re-transmission.
 
 *****************************************************************************/
-#ifndef __ESM_EBR_H__
-#define __ESM_EBR_H__
+#ifndef ESM_EBR_SEEN
+#define ESM_EBR_SEEN
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /****************************************************************************/
 /*********************  G L O B A L    C O N S T A N T S  *******************/
@@ -78,4 +82,8 @@ esm_ebr_state esm_ebr_get_status(emm_context_t * emm_context, ebi_t ebi);
 
 bool esm_ebr_is_not_in_use(emm_context_t * emm_context, ebi_t ebi);
 
-#endif /* __ESM_EBR_H__*/
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* ESM_EBR_SEEN*/

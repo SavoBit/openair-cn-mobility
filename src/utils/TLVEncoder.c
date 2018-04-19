@@ -24,7 +24,6 @@
   \author Philippe MOREL, Sebastien ROUX, Lionel GAUTHIER
   \company Eurecom
 */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -32,6 +31,10 @@
 
 #include "TLVEncoder.h"
 #include "log.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 int                                     errorCodeEncoder = 0;
 
@@ -53,3 +56,6 @@ int encode_bstring (
   }
 }
 
+#ifdef __cplusplus
+}
+#endif

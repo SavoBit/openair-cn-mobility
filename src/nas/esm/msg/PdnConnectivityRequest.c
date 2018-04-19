@@ -34,6 +34,10 @@
 #include "TLVDecoder.h"
 #include "PdnConnectivityRequest.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int
 decode_pdn_connectivity_request (
   pdn_connectivity_request_msg * pdn_connectivity_request,
@@ -102,7 +106,14 @@ decode_pdn_connectivity_request (
        */
       pdn_connectivity_request->presencemask |= PDN_CONNECTIVITY_REQUEST_PROTOCOL_CONFIGURATION_OPTIONS_PRESENT;
       break;
-
+    
+    case PDN_CONNECTIVITY_REQUEST_DEVICE_PROPERTIES_IEI:
+    case PDN_CONNECTIVITY_REQUEST_DEVICE_PROPERTIES_LOW_PRIO_IEI:
+      // Skip this IE. Not supported. It is relevant for delay tolerant devices such as IoT devices.
+      OAILOG_INFO (LOG_NAS_ESM, "ESM-MSG - Device Properties IE in PDN Connectivity Request is not supported. Skipping this IE. IE = %x\n", ieiDecoded);
+      decoded +=1; // Device Properties is 1 byte
+      break;
+      
     default:
       errorCodeDecoder = TLV_UNEXPECTED_IEI;
       return TLV_UNEXPECTED_IEI;
@@ -157,3 +168,7 @@ encode_pdn_connectivity_request (
 
   return encoded;
 }
+
+#ifdef __cplusplus
+}
+#endif

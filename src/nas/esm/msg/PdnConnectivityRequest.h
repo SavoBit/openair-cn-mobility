@@ -34,6 +34,10 @@
 
 #include "PdnType.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Minimum length macro. Formed by minimum length of each mandatory field */
 #define PDN_CONNECTIVITY_REQUEST_MINIMUM_LENGTH ( \
     PDN_TYPE_MINIMUM_LENGTH )
@@ -55,7 +59,9 @@
 typedef enum pdn_connectivity_request_iei_tag {
   PDN_CONNECTIVITY_REQUEST_ESM_INFORMATION_TRANSFER_FLAG_IEI   = 0xD0, /* 0xD0 = 208 */
   PDN_CONNECTIVITY_REQUEST_ACCESS_POINT_NAME_IEI               = SM_ACCESS_POINT_NAME_IEI,
-  PDN_CONNECTIVITY_REQUEST_PROTOCOL_CONFIGURATION_OPTIONS_IEI  = SM_PROTOCOL_CONFIGURATION_OPTIONS_IEI
+  PDN_CONNECTIVITY_REQUEST_PROTOCOL_CONFIGURATION_OPTIONS_IEI  = SM_PROTOCOL_CONFIGURATION_OPTIONS_IEI,
+  PDN_CONNECTIVITY_REQUEST_DEVICE_PROPERTIES_IEI               = 0xC0,
+  PDN_CONNECTIVITY_REQUEST_DEVICE_PROPERTIES_LOW_PRIO_IEI      = 0xC1,          
 } pdn_connectivity_request_iei;
 
 /*
@@ -83,6 +89,10 @@ typedef struct pdn_connectivity_request_msg_tag {
 int decode_pdn_connectivity_request(pdn_connectivity_request_msg *pdnconnectivityrequest, uint8_t *buffer, uint32_t len);
 
 int encode_pdn_connectivity_request(pdn_connectivity_request_msg *pdnconnectivityrequest, uint8_t *buffer, uint32_t len);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* ! defined(PDN_CONNECTIVITY_REQUEST_H_) */
 

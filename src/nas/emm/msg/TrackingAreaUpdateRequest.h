@@ -21,7 +21,6 @@
 
 #ifndef FILE_TRACKING_AREA_UPDATE_REQUEST_SEEN
 #define FILE_TRACKING_AREA_UPDATE_REQUEST_SEEN
-
 #include "SecurityHeaderType.h"
 #include "MessageType.h"
 #include "EpsUpdateType.h"
@@ -38,6 +37,9 @@
 #include "3gpp_24.007.h"
 #include "3gpp_24.008.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* Minimum length macro. Formed by minimum length of each mandatory field */
 #define TRACKING_AREA_UPDATE_REQUEST_MINIMUM_LENGTH ( \
@@ -132,25 +134,29 @@ typedef struct tracking_area_update_request_msg_tag {
   ciphering_key_sequence_number_t          gprscipheringkeysequencenumber;
   p_tmsi_signature_t                       oldptmsisignature;
   eps_mobile_identity_t                    additionalguti;
-  nonce_t                                    nonceue;
+  nonce_t                                  nonceue;
   ue_network_capability_t                  uenetworkcapability;
   tai_t                                    lastvisitedregisteredtai;
   drx_parameter_t                          drxparameter;
   ue_radio_capability_information_update_needed_t ueradiocapabilityinformationupdateneeded;
-  eps_bearer_context_status_t                   epsbearercontextstatus;
+  eps_bearer_context_status_t              epsbearercontextstatus;
   ms_network_capability_t                  msnetworkcapability;
   location_area_identification_t           oldlocationareaidentification;
   tmsi_status_t                            tmsistatus;
   mobile_station_classmark2_t              mobilestationclassmark2;
   mobile_station_classmark3_t              mobilestationclassmark3;
   supported_codec_list_t                   supportedcodecs;
-  additional_update_type_t                     additionalupdatetype;
+  additional_update_type_t                 additionalupdatetype;
   guti_type_t                              oldgutitype;
 } tracking_area_update_request_msg;
 
 int decode_tracking_area_update_request(tracking_area_update_request_msg *trackingareaupdaterequest, uint8_t *buffer, uint32_t len);
 
 int encode_tracking_area_update_request(tracking_area_update_request_msg *trackingareaupdaterequest, uint8_t *buffer, uint32_t len);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* ! defined(FILE_TRACKING_AREA_UPDATE_REQUEST_SEEN) */
 

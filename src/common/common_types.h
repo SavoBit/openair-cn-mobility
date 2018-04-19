@@ -1,30 +1,22 @@
 /*
- * Copyright (c) 2015, EURECOM (www.eurecom.fr)
- * All rights reserved.
+ * Licensed to the OpenAirInterface (OAI) Software Alliance under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The OpenAirInterface Software Alliance licenses this file to You under
+ * the Apache License, Version 2.0  (the "License"); you may not use this file
+ * except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * 1. Redistributions of source code must retain the above copyright notice, this
- *    list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * The views and conclusions contained in the software and documentation are those
- * of the authors and should not be interpreted as representing official policies,
- * either expressed or implied, of the FreeBSD Project.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *-------------------------------------------------------------------------------
+ * For more information about the OpenAirInterface (OAI) Software Alliance:
+ *      contact@openairinterface.org
  */
 
 /*! \file common_types.c
@@ -40,8 +32,13 @@
 #include <arpa/inet.h>
 #include "bstrlib.h"
 #include "3gpp_33.401.h"
+#include "3gpp_36.401.h"
 #include "security_types.h"
+#include "common_dim.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 //------------------------------------------------------------------------------
 #define PRIORITY_LEVEL_MAX (15)
 #define PRIORITY_LEVEL_MIN (1)
@@ -64,17 +61,21 @@ typedef uint64_t                 enb_s1ap_id_key_t ;
 //------------------------------------------------------------------------------
 // UE S1AP IDs
 
-#define INVALID_ENB_UE_S1AP_ID   UINT32_MAX
+#define INVALID_ENB_UE_S1AP_ID_KEY   0xFFFFFFFFFFFFFFFF
 #define ENB_UE_S1AP_ID_MASK      0x00FFFFFF
 #define ENB_UE_S1AP_ID_FMT       "%06"PRIx32
 
 #define MME_UE_S1AP_ID_FMT       "%"PRIx32
-#define INVALID_MME_UE_S1AP_ID   0xFFFFFFFF          // You can pick any value between 0..2^32-1,
-                                                     // all values are allowed. try to find another way (boolean is_valid for example)
+
+
+/* INVALID_MME_UE_S1AP_ID 
+ * Any value between 0..2^32-1, is allowed/valid as per 3GPP spec 36.413.
+ * Here we are conisdering 0 as invalid. Don't allocate 0 and consider this as invalid 
+ */
+#define INVALID_MME_UE_S1AP_ID   0x0     
 
 //------------------------------------------------------------------------------
 // TEIDs
-
 typedef uint32_t                 teid_t;
 #define TEID_FMT                "0x%"PRIx32
 #define TEID_SCAN_FMT            SCNx32
@@ -86,7 +87,7 @@ typedef teid_t                   s1u_teid_t;
 // IMSI
 
 typedef uint64_t                 imsi64_t;
-#define IMSI_64_FMT              "%"SCNu64
+#define IMSI_64_FMT              "%015"SCNu64
 #define INVALID_IMSI64           (imsi64_t)0
 
 //------------------------------------------------------------------------------
@@ -94,7 +95,10 @@ typedef uint64_t                 imsi64_t;
 
 
 
+
 //------------------------------------------------------------------------------
+
+
 
 //------------------------------------------------------------------------------
 // GUTI
@@ -151,11 +155,12 @@ typedef uint8_t  DelayValue_t;
 typedef uint8_t  priority_level_t;
 #define PRIORITY_LEVEL_FMT                "0x%"PRIu8
 #define PRIORITY_LEVEL_SCAN_FMT            SCNu8
-
 typedef uint32_t SequenceNumber_t;
 typedef uint32_t access_restriction_t;
 typedef uint32_t context_identifier_t;
 typedef uint32_t rau_tau_timer_t;
+
+
 typedef uint32_t ard_t;
 typedef int      pdn_cid_t;  // pdn connexion identity, related to esm protocol, sometimes type is mixed with int return code!!...
 typedef uint8_t  proc_tid_t; // procedure transaction identity, related to esm protocol
@@ -178,7 +183,6 @@ typedef struct {
   bitrate_t br_ul;
   bitrate_t br_dl;
 } ambr_t;
-
 
 typedef uint8_t pdn_type_t;
 
@@ -278,6 +282,7 @@ typedef struct apn_configuration_s {
    */
   uint8_t nb_ip_address;
   ip_address_t ip_address[2];
+
 #ifdef ACCESS_POINT_NAME_MAX_LENGTH
 #define SERVICE_SELECTION_MAX_LENGTH ACCESS_POINT_NAME_MAX_LENGTH
 #else
@@ -348,4 +353,7 @@ typedef struct {
   } choice;
 } s6a_result_t;
 
+#ifdef __cplusplus
+}
+#endif
 #endif /* FILE_COMMON_TYPES_SEEN */

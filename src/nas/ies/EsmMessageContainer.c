@@ -18,18 +18,22 @@
  * For more information about the OpenAirInterface (OAI) Software Alliance:
  *      contact@openairinterface.org
  */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <arpa/inet.h>
 
 #include "bstrlib.h"
 
-#include "log.h"
 #include "TLVEncoder.h"
 #include "TLVDecoder.h"
 #include "EsmMessageContainer.h"
+#include "log.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 //------------------------------------------------------------------------------
 int decode_esm_message_container (
@@ -97,3 +101,6 @@ int encode_esm_message_container (
   return encoded;
 }
 
+#ifdef __cplusplus
+}
+#endif

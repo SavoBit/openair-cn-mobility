@@ -25,7 +25,6 @@
   \company Eurecom
   \email: lionel.gauthier@eurecom.fr
 */
-
 #if HAVE_CONFIG_H
 #  include "config.h"
 #endif
@@ -35,33 +34,37 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <pthread.h>
+#include <netinet/in.h>
 
-
-#include <libxml/xmlwriter.h>
-#include <libxml/xpath.h>
 #include "bstrlib.h"
 #include "queue.h"
 #include "tree.h"
 
+#include "intertask_interface.h"
 #include "hashtable.h"
 #include "log.h"
 #include "msc.h"
 #include "assertions.h"
-#include "conversions.h"
-#include "intertask_interface.h"
-#include "itti_free_defined_msg.h"
+#include "mme_app_statistics.h"
 #include "s1ap_mme.h"
 #include "s1ap_mme_decoder.h"
 #include "s1ap_mme_handlers.h"
+#include "s1ap_ies_defs.h"
 #include "s1ap_mme_nas_procedures.h"
 #include "s1ap_mme_retransmission.h"
 #include "s1ap_mme_itti_messaging.h"
 #include "dynamic_memory_check.h"
 #include "mme_config.h"
-#include "xml_msg_dump_itti.h"
-#include "mme_scenario_player.h"
+#include "timer.h"
+#include "sctp_messages_types.h"
+#include "s1ap_messages_types.h"
+#include "mme_app_messages_types.h"
+#include "timer_messages_types.h"
+#include "itti_free_defined_msg.h"
 
-
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #if S1AP_DEBUG_LIST
 #  define eNB_LIST_OUT(x, args...) OAILOG_DEBUG (LOG_S1AP, "[eNB]%*s"x"\n", 4*indent, "", ##args)
@@ -79,8 +82,7 @@ hash_table_ts_t g_s1ap_enb_coll = {.mutex = PTHREAD_MUTEX_INITIALIZER, 0}; // co
 hash_table_ts_t g_s1ap_mme_id2assoc_id_coll = {.mutex = PTHREAD_MUTEX_INITIALIZER, 0}; // contains sctp association id, key is mme_ue_s1ap_id;
 
 static int                              indent = 0;
-extern struct mme_config_s              mme_config;
-void *s1ap_mme_thread (void *args);
+ void *s1ap_mme_thread (void *args);
 
 //------------------------------------------------------------------------------
 static int s1ap_send_init_sctp (void)
@@ -88,22 +90,20 @@ static int s1ap_send_init_sctp (void)
   // Create and alloc new message
   MessageDef                             *message_p = NULL;
 
-  message_p = itti_alloc_new_message (TASK_S1AP, SCTP_INIT_MSG);
-  if (message_p) {
-    message_p->ittiMsg.sctpInit.port = S1AP_PORT_NUMBER;
-    message_p->ittiMsg.sctpInit.ppid = S1AP_SCTP_PPID;
-    message_p->ittiMsg.sctpInit.ipv4 = 1;
-    message_p->ittiMsg.sctpInit.ipv6 = 0;
-    message_p->ittiMsg.sctpInit.nb_ipv4_addr = 1;
-    message_p->ittiMsg.sctpInit.ipv4_address[0].s_addr = mme_config.ipv4.s1_mme.s_addr;
-    /*
-     * SR WARNING: ipv6 multi-homing fails sometimes for localhost.
-     * Disable it for now.
-     */
-    message_p->ittiMsg.sctpInit.nb_ipv6_addr = 0;
-    return itti_send_msg_to_task (TASK_SCTP, INSTANCE_DEFAULT, message_p);
-  }
-  return RETURNerror;
+  message_p = itti_alloc_new_message_sized (TASK_S1AP, SCTP_INIT_MSG, sizeof(SctpInit));
+  SCTP_INIT_MSG(message_p)->port = S1AP_PORT_NUMBER;
+  SCTP_INIT_MSG(message_p)->ppid = S1AP_SCTP_PPID;
+  SCTP_INIT_MSG(message_p)->ipv4 = 1;
+  SCTP_INIT_MSG(message_p)->ipv6 = 0;
+  SCTP_INIT_MSG(message_p)->nb_ipv4_addr = 1;
+  SCTP_INIT_MSG(message_p)->ipv4_address[0].s_addr = mme_config.ipv4.s1_mme.s_addr;
+  /*
+   * SR WARNING: ipv6 multi-homing fails sometimes for localhost.
+   * * * * Disable it for now.
+   */
+  SCTP_INIT_MSG(message_p)->nb_ipv6_addr = 0;
+  SCTP_INIT_MSG(message_p)->ipv6_address[0] = in6addr_loopback;
+  return itti_send_msg_to_task (TASK_SCTP, INSTANCE_DEFAULT, message_p);
 }
 
 //------------------------------------------------------------------------------
@@ -129,9 +129,8 @@ s1ap_mme_thread (
       }
       break;
 
-    case MESSAGE_TEST:{
-        OAI_FPRINTF_INFO("TASK_S1AP received MESSAGE_TEST\n");
-      }
+    case MESSAGE_TEST:
+      OAILOG_DEBUG (LOG_S1AP, "Received MESSAGE_TEST\n");
       break;
 
 
@@ -241,8 +240,7 @@ s1ap_mme_thread (
 }
 
 //------------------------------------------------------------------------------
-int
-s1ap_mme_init(void)
+int s1ap_mme_init(void)
 {
   OAILOG_DEBUG (LOG_S1AP, "Initializing S1AP interface\n");
 
@@ -278,12 +276,17 @@ s1ap_mme_init(void)
   OAILOG_DEBUG (LOG_S1AP, "Initializing S1AP interface: DONE\n");
   return RETURNok;
 }
+
 //------------------------------------------------------------------------------
 void s1ap_mme_exit (void)
 {
   OAILOG_DEBUG (LOG_S1AP, "Cleaning S1AP\n");
-  hashtable_ts_destroy (&g_s1ap_enb_coll);
-  hashtable_ts_destroy (&g_s1ap_mme_id2assoc_id_coll);
+  if (hashtable_ts_destroy(&g_s1ap_enb_coll) != HASH_TABLE_OK) {
+    OAI_FPRINTF_ERR("An error occured while destroying s1 eNB hash table");
+  }
+  if (hashtable_ts_destroy(&g_s1ap_mme_id2assoc_id_coll) != HASH_TABLE_OK) {
+    OAI_FPRINTF_ERR("An error occured while destroying assoc_id hash table");
+  }
   OAILOG_DEBUG (LOG_S1AP, "Cleaning S1AP: DONE\n");
 }
 
@@ -569,8 +572,6 @@ s1ap_new_ue (
   DevAssert (ue_ref != NULL);
   ue_ref->enb = enb_ref;
   ue_ref->enb_ue_s1ap_id = enb_ue_s1ap_id;
-  // Increment number of UE
-  enb_ref->nb_ue_associated++;
 
   hashtable_rc_t  hashrc = hashtable_ts_insert (&enb_ref->ue_coll, (const hash_key_t) enb_ue_s1ap_id, (void *)ue_ref);
   if (HASH_TABLE_OK != hashrc) {
@@ -579,6 +580,8 @@ s1ap_new_ue (
     return NULL;
   }
   MSC_LOG_EVENT (MSC_S1AP_MME, " Associating ue  (enb_ue_s1ap_id: " ENB_UE_S1AP_ID_FMT ") to eNB %s", ue_ref->mme_ue_s1ap_id, enb_ref->enb_name);
+  // Increment number of UE
+  enb_ref->nb_ue_associated++;
   return ue_ref;
 }
 
@@ -622,4 +625,8 @@ s1ap_remove_enb (
   hashtable_ts_free (&g_s1ap_enb_coll, enb_ref->sctp_assoc_id);
   nb_enb_associated--;
 }
+
+#ifdef __cplusplus
+}
+#endif
 

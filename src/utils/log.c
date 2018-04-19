@@ -1,30 +1,22 @@
 /*
- * Copyright (c) 2015, EURECOM (www.eurecom.fr)
- * All rights reserved.
+ * Licensed to the OpenAirInterface (OAI) Software Alliance under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The OpenAirInterface Software Alliance licenses this file to You under
+ * the Apache License, Version 2.0  (the "License"); you may not use this file
+ * except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * 1. Redistributions of source code must retain the above copyright notice, this
- *    list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * The views and conclusions contained in the software and documentation are those
- * of the authors and should not be interpreted as representing official policies,
- * either expressed or implied, of the FreeBSD Project.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *-------------------------------------------------------------------------------
+ * For more information about the OpenAirInterface (OAI) Software Alliance:
+ *      contact@openairinterface.org
  */
 
 /*! \file log.c
@@ -49,13 +41,11 @@
 #include <fcntl.h>
 #include <stdarg.h>
 #include <pthread.h>
-#include <syslog.h>
 
-#include <libxml/xmlwriter.h>
-#include <libxml/xpath.h>
 #include "intertask_interface.h"
 #include "timer.h"
 #include "log.h"
+#include "hashtable.h"
 #include "shared_ts_log.h"
 #include "assertions.h"
 #include "dynamic_memory_check.h"
@@ -85,6 +75,10 @@
 #define LOG_MAX_PORT_NUM_LENGTH                  6
 //-------------------------------
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef unsigned long                   log_message_number_t;
 
 typedef enum {
@@ -96,8 +90,6 @@ typedef enum {
   MAX_LOG_TCP_STATE
 } log_tcp_state_t;
 
-
-
 #define ANSI_CODE_MAX_LENGTH    32
 
 /*! \struct  oai_log_t
@@ -107,7 +99,6 @@ typedef struct oai_log_s {
   // may be good to use stream instead of file descriptor when
   // logging somewhere else of the console.
   FILE                                   *log_fd;                                               /*!< \brief output stream */
-  bool                                    is_output_is_fd;                                      /* We may want to not use syslog even if exe is a daemon */
   bool                                    is_output_fd_buffered;                                /* We way want no buffering */
   bool                                    is_ansi_codes;                                        /* ANSI codes for color in console output */
   bstring                                 bserver_address;                                      /*!< \brief TCP remote (or local) server hostname */
@@ -121,6 +112,7 @@ typedef struct oai_log_s {
   log_level_t                             log_level[MAX_LOG_PROTOS];                                   /*!< \brief Loglevel id of each client (protocol/layer) */
 
   log_message_number_t                    log_message_number;                                          /*!< \brief Counter of log message        */
+
   hash_table_ts_t                           *thread_context_htbl;                                         /*!< \brief Container for log_thread_ctxt_t */
 } oai_log_t;
 
@@ -157,12 +149,10 @@ void* log_task (__attribute__ ((unused)) void *args_p)
         break;
 
       case TERMINATE_MESSAGE:{
-          timer_remove (timer_id);
+          timer_remove (timer_id, NULL);
           log_exit ();
-
-          MessageDef   *terminate_message_p = itti_alloc_new_message (TASK_LOG, TERMINATE_MESSAGE);
+          MessageDef   *terminate_message_p = itti_alloc_new_message_sized (TASK_LOG, TERMINATE_MESSAGE, 0);
           rc =  itti_send_msg_to_task (TASK_SHARED_TS_LOG, INSTANCE_DEFAULT, terminate_message_p);
-
           itti_exit_task ();
         }
         break;
@@ -265,35 +255,23 @@ void log_set_config(const log_config_t * const config)
     if ((MAX_LOG_LEVEL > config->secu_log_level) && (MIN_LOG_LEVEL <= config->secu_log_level))         g_oai_log.log_level[LOG_SECU]     = config->secu_log_level;
     if ((MAX_LOG_LEVEL > config->util_log_level) && (MIN_LOG_LEVEL <= config->util_log_level))         g_oai_log.log_level[LOG_UTIL]     = config->util_log_level;
     if ((MAX_LOG_LEVEL > config->msc_log_level) && (MIN_LOG_LEVEL <= config->msc_log_level))           g_oai_log.log_level[LOG_MSC]      = config->msc_log_level;
-    if ((MAX_LOG_LEVEL > config->xml_log_level) && (MIN_LOG_LEVEL <= config->xml_log_level))           g_oai_log.log_level[LOG_XML]      = config->xml_log_level;
-    if ((MAX_LOG_LEVEL > config->mme_scenario_player_log_level) && (MIN_LOG_LEVEL <= config->mme_scenario_player_log_level))
-      g_oai_log.log_level[LOG_MME_SCENARIO_PLAYER]      = config->mme_scenario_player_log_level;
     if ((MAX_LOG_LEVEL > config->itti_log_level) && (MIN_LOG_LEVEL <= config->itti_log_level))         g_oai_log.log_level[LOG_ITTI]     = config->itti_log_level;
     if ((MAX_LOG_LEVEL > config->async_system_log_level) && (MIN_LOG_LEVEL <= config->async_system_log_level))
       g_oai_log.log_level[LOG_ASYNC_SYSTEM] = config->async_system_log_level;
 
-
     g_oai_log.is_output_fd_buffered = config->is_output_thread_safe;
-
     g_oai_log.is_ansi_codes = config->color;
 
     if (config->output) {
-      g_oai_log.log_fd = NULL;
-      g_oai_log.is_output_is_fd = false;
+      // default is STDOUT
+      g_oai_log.log_fd = stdout;
       if (1 == biseqcstrcaseless(config->output, LOG_CONFIG_STRING_OUTPUT_CONSOLE)) {
         setvbuf(stdout, NULL, _IONBF, 0);
-        g_oai_log.log_fd = stdout;
-        g_oai_log.is_output_is_fd = true;
-      } else if (1 == biseqcstrcaseless(config->output, LOG_CONFIG_STRING_OUTPUT_SYSLOG)){
-        openlog(NULL, 0, LOG_USER);
-        g_oai_log.log_fd = NULL;
-        g_oai_log.is_output_is_fd = false;
       } else {
         // if seems to be a file path
         if (('.' == bchar(config->output,0)) || ('/' == bchar(config->output,0))) {
           g_oai_log.log_fd = fopen (bdata(config->output), "w");
           AssertFatal (NULL != g_oai_log.log_fd, "Could not open log file %s : %s", bdata(config->output), strerror (errno));
-          g_oai_log.is_output_is_fd = true;
         } else {
           // may be a TCP server address host:portnum
           g_oai_log.bserver_address = bstrcpy(config->output);
@@ -308,7 +286,6 @@ void log_set_config(const log_config_t * const config)
           AssertFatal(1024 <= server_port, "Invalid Server TCP port %d/%s", server_port, bdata(g_oai_log.bserver_port));
           AssertFatal(65535 >= server_port, "Invalid Server TCP port %d/%s", server_port, bdata(g_oai_log.bserver_port));
           g_oai_log.tcp_state = LOG_TCP_STATE_NOT_CONNECTED;
-          g_oai_log.is_output_is_fd = true;
           log_connect_to_server();
         }
       }
@@ -403,9 +380,8 @@ log_init (
   snprintf (&g_oai_log.log_proto2str[LOG_UTIL][0], LOG_MAX_PROTO_NAME_LENGTH, "UTIL");
   snprintf (&g_oai_log.log_proto2str[LOG_CONFIG][0], LOG_MAX_PROTO_NAME_LENGTH, "CONFIG");
   snprintf (&g_oai_log.log_proto2str[LOG_MSC][0], LOG_MAX_PROTO_NAME_LENGTH, "MSC");
-  snprintf (&g_oai_log.log_proto2str[LOG_XML][0], LOG_MAX_PROTO_NAME_LENGTH, "XML");
-  snprintf (&g_oai_log.log_proto2str[LOG_MME_SCENARIO_PLAYER][0], LOG_MAX_PROTO_NAME_LENGTH, "MME-TEST");
   snprintf (&g_oai_log.log_proto2str[LOG_ITTI][0], LOG_MAX_PROTO_NAME_LENGTH, "ITTI");
+
   snprintf (&g_oai_log.log_proto2str[LOG_ASYNC_SYSTEM][0], LOG_MAX_PROTO_NAME_LENGTH, "CMD");
 
   snprintf (&g_oai_log.log_level2str[OAILOG_LEVEL_TRACE][0], LOG_LEVEL_NAME_MAX_LENGTH, "TRACE");
@@ -478,28 +454,24 @@ void log_flush_message (struct shared_log_queue_item_s *item_p)
   int                                     rv_put = 0;
 
   if (blength(item_p->bstr) > 0) {
-    if (g_oai_log.is_output_is_fd) {
-      if (g_oai_log.log_fd) {
-        rv_put = fputs ((const char *)item_p->bstr->data, g_oai_log.log_fd);
+    if (g_oai_log.log_fd) {
+      rv_put = fputs ((const char *)item_p->bstr->data, g_oai_log.log_fd);
 
-        if (rv_put < 0) {
-          // error occured
-          OAI_FPRINTF_ERR("Error while writing log %d\n", rv_put);
-          rv = fclose (g_oai_log.log_fd);
-          if (rv != 0) {
-            OAI_FPRINTF_ERR("Error while closing Log file stream: %s\n", strerror (errno));
-          }
-          // do not exit
-          if (LOG_TCP_STATE_DISABLED != g_oai_log.tcp_state) {
-            // Let ITTI LOG Timer do the reconnection
-            g_oai_log.tcp_state = LOG_TCP_STATE_NOT_CONNECTED;
-            return;
-          }
+      if (rv_put < 0) {
+        // error occured
+        OAI_FPRINTF_ERR("Error while writing log %d\n", rv_put);
+        rv = fclose (g_oai_log.log_fd);
+        if (rv != 0) {
+          OAI_FPRINTF_ERR("Error while closing Log file stream: %s\n", strerror (errno));
         }
-        fflush (g_oai_log.log_fd);
+        // do not exit
+        if (LOG_TCP_STATE_DISABLED != g_oai_log.tcp_state) {
+          // Let ITTI LOG Timer do the reconnection
+          g_oai_log.tcp_state = LOG_TCP_STATE_NOT_CONNECTED;
+          return;
+        }
       }
-    } else {
-      syslog (item_p->u_app_log.log.log_level ,"%s", bdata(item_p->bstr));
+      fflush (g_oai_log.log_fd);
     }
   }
 }
@@ -523,9 +495,7 @@ void log_exit (void)
       OAI_FPRINTF_ERR("Error while closing Log file: %s", strerror (errno));
     }
   }
-  if (!g_oai_log.is_output_is_fd) {
-    closelog();
-  }
+
   hashtable_ts_destroy (g_oai_log.thread_context_htbl);
   bdestroy_wrapper(&g_oai_log.bserver_address);
   bdestroy_wrapper(&g_oai_log.bserver_port);
@@ -564,7 +534,6 @@ void log_stream_hex(
     log_message_start(thread_ctxt, log_levelP, protoP, &message, source_fileP, line_numP, "hex stream (%ld bytes):", sizeP);
     if (!message) return;
   }
-
   if ((streamP) && (message)) {
     for (octet_index = 0; octet_index < sizeP; octet_index++) {
       // do not call log_message_add(), too much overhead for sizeP*3chars
@@ -671,11 +640,7 @@ void log_message_finish (struct shared_log_queue_item_s * messageP)
     if (g_oai_log.is_output_fd_buffered) {
       shared_log_item(messageP);
     } else {
-      if (g_oai_log.is_output_is_fd) {
-        fprintf(g_oai_log.log_fd, "%s", bdata(messageP->bstr));
-      } else {
-        syslog (messageP->u_app_log.log.log_level ,"%s", bdata(messageP->bstr));
-      }
+      fprintf(g_oai_log.log_fd, "%s", bdata(messageP->bstr));
       shared_log_reuse_item(messageP);
     }
   }
@@ -722,6 +687,7 @@ void log_message_start (
   if (! *messageP) {
     *messageP = get_new_log_queue_item(SH_TS_LOG_TXT);
   }
+
   if (*messageP) {
     struct timeval elapsed_time;
     (*messageP)->u_app_log.log.log_level = log_levelP;
@@ -910,11 +876,7 @@ log_message (
     if (g_oai_log.is_output_fd_buffered) {
       shared_log_item(new_item_p);
     } else {
-      if (g_oai_log.is_output_is_fd) {
-        fprintf(g_oai_log.log_fd, "%s", bdata(new_item_p->bstr));
-      } else {
-        syslog (new_item_p->u_app_log.log.log_level ,"%s", bdata(new_item_p->bstr));
-      }
+      fprintf((g_oai_log.log_fd)?g_oai_log.log_fd:stdout, "%s", bdata(new_item_p->bstr));
       shared_log_reuse_item(new_item_p);
     }
   }
@@ -925,3 +887,6 @@ error_event:
   shared_log_reuse_item(new_item_p);
 }
 
+#ifdef __cplusplus
+}
+#endif

@@ -1,30 +1,22 @@
 /*
- * Copyright (c) 2015, EURECOM (www.eurecom.fr)
- * All rights reserved.
+ * Licensed to the OpenAirInterface (OAI) Software Alliance under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The OpenAirInterface Software Alliance licenses this file to You under
+ * the Apache License, Version 2.0  (the "License"); you may not use this file
+ * except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * 1. Redistributions of source code must retain the above copyright notice, this
- *    list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * The views and conclusions contained in the software and documentation are those
- * of the authors and should not be interpreted as representing official policies,
- * either expressed or implied, of the FreeBSD Project.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *-------------------------------------------------------------------------------
+ * For more information about the OpenAirInterface (OAI) Software Alliance:
+ *      contact@openairinterface.org
  */
 
 /*! \file conversions.h
@@ -36,12 +28,15 @@
 
 #ifndef FILE_CONVERSIONS_SEEN
 #define FILE_CONVERSIONS_SEEN
-
 #include "common_types.h"
 #include "3gpp_23.003.h"
 #include "3gpp_24.008.h"
 #include "3gpp_29.274.h"
 #include "EpsQualityOfService.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* Endianness conversions for 16 and 32 bits integers from host to network order */
 #if (BYTE_ORDER == LITTLE_ENDIAN)
@@ -61,6 +56,14 @@
 #endif
 
 #define IN_ADDR_TO_BUFFER(X,bUFF) INT32_TO_BUFFER((X).s_addr,(char*)bUFF)
+
+#define BUFFER_TO_IN_ADDR(bUFF, X)                          \
+do {                                                        \
+    (X).s_addr = (((uint8_t*)(bUFF))[0])              |     \
+                 (((uint8_t*)(bUFF))[1] <<  8)        |     \
+                 (((uint8_t*)(bUFF))[2] << 16)        |     \
+                 (((uint8_t*)(bUFF))[3] << 24);             \
+} while(0)
 
 #define IN6_ADDR_TO_BUFFER(X,bUFF)                     \
     do {                                               \
@@ -329,7 +332,6 @@ do {                                                    \
 #define IMSI64_TO_STRING(iMSI64, sTRING) snprintf(sTRING, IMSI_BCD_DIGITS_MAX+1, IMSI_64_FMT, iMSI64)
 imsi64_t imsi_to_imsi64(const imsi_t * const imsi);
 
-
 #define IMSI_TO_STRING(iMsI_t_PtR,iMsI_sTr, MaXlEn) \
         do { \
           int l_i = 0; \
@@ -375,7 +377,6 @@ imsi64_t imsi_to_imsi64(const imsi_t * const imsi);
 void hexa_to_ascii(uint8_t *from, char *to, size_t length);
 
 int ascii_to_hex(uint8_t *dst, const char *h);
-
 #define UINT8_TO_BINARY_FMT "%c%c%c%c%c%c%c%c"
 #define UINT8_TO_BINARY_ARG(bYtE) \
     ((bYtE) & 0x80 ? '1':'0'),\
@@ -387,5 +388,8 @@ int ascii_to_hex(uint8_t *dst, const char *h);
     ((bYtE) & 0x02 ? '1':'0'),\
     ((bYtE) & 0x01 ? '1':'0')
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* FILE_CONVERSIONS_SEEN */

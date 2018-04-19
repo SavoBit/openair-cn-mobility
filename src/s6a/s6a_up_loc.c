@@ -46,6 +46,10 @@
 #include "s6a_messages_types.h"
 #include "mme_config.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 int
 s6a_ula_cb (
@@ -69,8 +73,8 @@ s6a_ula_cb (
    */
   CHECK_FCT (fd_msg_answ_getq (ans_p, &qry_p));
   DevAssert (qry_p );
-  message_p = itti_alloc_new_message (TASK_S6A, S6A_UPDATE_LOCATION_ANS);
-  s6a_update_location_ans_p = &message_p->ittiMsg.s6a_update_location_ans;
+  message_p = itti_alloc_new_message_sized (TASK_S6A, S6A_UPDATE_LOCATION_ANS, sizeof(s6a_update_location_ans_t));
+  s6a_update_location_ans_p = S6A_UPDATE_LOCATION_ANS(message_p);
   CHECK_FCT (fd_msg_search_avp (qry_p, s6a_fd_cnf.dataobj_s6a_user_name, &avp_p));
 
   if (avp_p) {
@@ -147,8 +151,7 @@ s6a_ula_cb (
      * * * * this is not a compliant behaviour...
      * * * * TODO: handle this case.
      */
-    OAILOG_ERROR (LOG_S6A, "ULA-Flags AVP is absent while result code indicates " "DIAMETER_SUCCESS\n");
-    goto err;
+    OAILOG_WARNING (LOG_S6A, "ULA-Flags AVP is absent while result code indicates " "DIAMETER_SUCCESS" " Ignoring\n");
   }
 
   CHECK_FCT (fd_msg_search_avp (ans_p, s6a_fd_cnf.dataobj_s6a_subscription_data, &avp_p));
@@ -214,8 +217,8 @@ s6a_generate_update_location (
   {
     bstring                                 host = bstrcpy(mme_config.s6a_config.hss_host_name);
 
-    bconchar(host, '.');
-    bconcat (host, mme_config.realm);
+    //bconchar(host, '.');
+    //bconcat (host, mme_config.realm);
 
     CHECK_FCT (fd_msg_avp_new (s6a_fd_cnf.dataobj_s6a_destination_host, 0, &avp_p));
     value.os.data = (unsigned char *)bdata(host);
@@ -248,11 +251,13 @@ s6a_generate_update_location (
    */
   {
     uint8_t                                 plmn[3];
+    plmn_t                                  plmn_mme;
 
+    plmn_mme = mme_config.gummei.gummei[0].plmn;
     CHECK_FCT (fd_msg_avp_new (s6a_fd_cnf.dataobj_s6a_visited_plmn_id, 0, &avp_p));
-    PLMN_T_TO_TBCD (ulr_pP->visited_plmn,
+    PLMN_T_TO_TBCD (plmn_mme,
                     plmn,
-                    mme_config_find_mnc_length (ulr_pP->visited_plmn.mcc_digit1, ulr_pP->visited_plmn.mcc_digit2, ulr_pP->visited_plmn.mcc_digit3, ulr_pP->visited_plmn.mnc_digit1, ulr_pP->visited_plmn.mnc_digit2, ulr_pP->visited_plmn.mnc_digit3)
+                    mme_config_find_mnc_length (plmn_mme.mcc_digit1, plmn_mme.mcc_digit2, plmn_mme.mcc_digit3, plmn_mme.mnc_digit1, plmn_mme.mnc_digit2, plmn_mme.mnc_digit3)
       );
     value.os.data = plmn;
     value.os.len = 3;
@@ -294,3 +299,8 @@ s6a_generate_update_location (
   OAILOG_DEBUG (LOG_S6A, "Sending s6a ulr for imsi=%s\n", ulr_pP->imsi);
   return RETURNok;
 }
+
+#ifdef __cplusplus
+}
+#endif
+

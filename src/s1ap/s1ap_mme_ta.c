@@ -41,6 +41,9 @@
 #include "s1ap_common.h"
 #include "s1ap_mme_ta.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 static
   int
@@ -164,3 +167,7 @@ s1ap_mme_compare_ta_lists (
 
   return TA_LIST_RET_OK;
 }
+
+#ifdef __cplusplus
+}
+#endif

@@ -25,7 +25,6 @@
   \company Eurecom
   \email: lionel.gauthier@eurecom.fr
 */
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -47,9 +46,14 @@
 #include "NwGtpv2cMsg.h"
 #include "NwGtpv2cMsgParser.h"
 
+#include "s11_messages_types.h"
 #include "s11_common.h"
 #include "s11_mme_bearer_manager.h"
 #include "s11_ie_formatter.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 extern hash_table_ts_t                        *s11_mme_teid_2_gtv2c_teid_handle;
 
@@ -107,8 +111,8 @@ s11_mme_handle_release_access_bearer_response (
   nw_gtpv2c_msg_parser_t                     *pMsgParser;
 
   DevAssert (stack_p );
-  message_p = itti_alloc_new_message (TASK_S11, S11_RELEASE_ACCESS_BEARERS_RESPONSE);
-  resp_p = &message_p->ittiMsg.s11_release_access_bearers_response;
+  message_p = itti_alloc_new_message_sized (TASK_S11, S11_RELEASE_ACCESS_BEARERS_RESPONSE, sizeof(itti_s11_release_access_bearers_response_t));
+  resp_p = S11_RELEASE_ACCESS_BEARERS_RESPONSE(message_p);
 
   resp_p->teid = nwGtpv2cMsgGetTeid(pUlpApi->hMsg);
 
@@ -187,17 +191,6 @@ s11_mme_modify_bearer_request (
     OAILOG_WARNING (LOG_S11, "Could not get GTPv2-C hTunnel for local teid %X\n", ulp_req.u_api_info.initialReqInfo.teidLocal);
     return RETURNerror;
   }
-
-  /*
-   * Sender F-TEID for Control Plane (MME S11)
-   */
-  rc = nwGtpv2cMsgAddIeFteid ((ulp_req.hMsg), NW_GTPV2C_IE_INSTANCE_ZERO,
-                              S11_MME_GTP_C,
-                              req_p->sender_fteid_for_cp.teid,
-                              req_p->sender_fteid_for_cp.ipv4 ? &req_p->sender_fteid_for_cp.ipv4_address : 0,
-                              req_p->sender_fteid_for_cp.ipv6 ? &req_p->sender_fteid_for_cp.ipv6_address : NULL);
-
-
 
   for (int i=0; i < req_p->bearer_contexts_to_be_modified.num_bearer_context; i++) {
     rc = gtpv2c_bearer_context_to_be_modified_within_modify_bearer_request_ie_set (&(ulp_req.hMsg), & req_p->bearer_contexts_to_be_modified.bearer_contexts[i]);
@@ -283,8 +276,8 @@ s11_mme_handle_modify_bearer_response (
   nw_gtpv2c_msg_parser_t                     *pMsgParser;
 
   DevAssert (stack_p );
-  message_p = itti_alloc_new_message (TASK_S11, S11_MODIFY_BEARER_RESPONSE);
-  resp_p = &message_p->ittiMsg.s11_modify_bearer_response;
+  message_p = itti_alloc_new_message_sized (TASK_S11, S11_MODIFY_BEARER_RESPONSE, sizeof(itti_s11_modify_bearer_response_t));
+  resp_p = S11_MODIFY_BEARER_RESPONSE(message_p);
 
   resp_p->teid = nwGtpv2cMsgGetTeid(pUlpApi->hMsg);
 
@@ -298,6 +291,12 @@ s11_mme_handle_modify_bearer_response (
    */
   rc = nwGtpv2cMsgParserAddIe (pMsgParser, NW_GTPV2C_IE_CAUSE, NW_GTPV2C_IE_INSTANCE_ZERO, NW_GTPV2C_IE_PRESENCE_MANDATORY, gtpv2c_cause_ie_get,
       &resp_p->cause);
+  DevAssert (NW_OK == rc);
+  /*
+   * Bearer Context IE
+   */
+  rc = nwGtpv2cMsgParserAddIe (pMsgParser, NW_GTPV2C_IE_BEARER_CONTEXT, NW_GTPV2C_IE_INSTANCE_ZERO, NW_GTPV2C_IE_PRESENCE_MANDATORY,
+      gtpv2c_bearer_context_within_create_bearer_response_ie_get, &resp_p->bearer_contexts_modified);
   DevAssert (NW_OK == rc);
   /*
    * Recovery IE
@@ -349,10 +348,10 @@ s11_mme_handle_create_bearer_request (
   nw_gtpv2c_msg_parser_t                     *pMsgParser;
 
   DevAssert (stack_p );
-  message_p = itti_alloc_new_message (TASK_S11, S11_CREATE_BEARER_REQUEST);
+  message_p = itti_alloc_new_message_sized (TASK_S11, S11_CREATE_BEARER_REQUEST, sizeof(itti_s11_create_bearer_request_t));
 
   if (message_p) {
-    req_p = &message_p->ittiMsg.s11_create_bearer_request;
+    req_p = S11_CREATE_BEARER_REQUEST(message_p);
 
     req_p->teid = nwGtpv2cMsgGetTeid(pUlpApi->hMsg);
     req_p->trxn = (void *)pUlpApi->u_api_info.initialReqIndInfo.hTrxn;
@@ -405,3 +404,8 @@ s11_mme_handle_create_bearer_request (
   }
   return RETURNerror;
 }
+
+#ifdef __cplusplus
+}
+#endif
+

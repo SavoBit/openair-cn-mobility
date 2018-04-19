@@ -42,6 +42,10 @@
 #include "log.h"
 #include "s6a_defs.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int
 s6a_parse_experimental_result (
   struct avp *avp,
@@ -137,6 +141,9 @@ retcode_2_string (
 
   case ER_DIAMETER_INVALID_AVP_VALUE:
     return "DIAMETER_INVALID_AVP_VALUE";
+  
+  case ER_DIAMETER_AUTHORIZATION_REJECTED:
+    return "DIAMETER_AUTHORIZATION_REJECTED";
 
   default:
     break;
@@ -144,3 +151,8 @@ retcode_2_string (
 
   return "DIAMETER_AVP_UNSUPPORTED";
 }
+
+#ifdef __cplusplus
+}
+#endif
+

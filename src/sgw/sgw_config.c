@@ -50,6 +50,10 @@
 #include "common_defs.h"
 #include "sgw_config.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifdef LIBCONFIG_LONG
 #  define libconfig_int long
 #else
@@ -134,7 +138,6 @@ int sgw_config_parse_file (sgw_config_t * config_pP)
     config_pP->log_config.msc_log_level      = MAX_LOG_LEVEL;
     config_pP->log_config.itti_log_level     = MAX_LOG_LEVEL;
     config_pP->log_config.async_system_log_level = MAX_LOG_LEVEL;
-
     if (subsetting) {
       if (config_setting_lookup_string (subsetting, LOG_CONFIG_STRING_OUTPUT, (const char **)&astring)) {
         if (astring != NULL) {
@@ -235,6 +238,7 @@ int sgw_config_parse_file (sgw_config_t * config_pP)
         OAILOG_INFO (LOG_SPGW_APP, "Parsing configuration file found S5_S8_up: %s/%d on %s\n",
                        inet_ntoa (in_addr_var), config_pP->ipv4.netmask_S5_S8_up, bdata(config_pP->ipv4.if_name_S5_S8_up));
 
+        bdestroy_wrapper (&cidr);
         config_pP->ipv4.if_name_S11 = bfromcstr (sgw_if_name_S11);
         cidr = bfromcstr (S11);
         list = bsplit (cidr, '/');
@@ -247,6 +251,7 @@ int sgw_config_parse_file (sgw_config_t * config_pP)
         in_addr_var.s_addr = config_pP->ipv4.S11.s_addr;
         OAILOG_INFO (LOG_SPGW_APP, "Parsing configuration file found S11: %s/%d on %s\n",
             inet_ntoa (in_addr_var), config_pP->ipv4.netmask_S11, bdata(config_pP->ipv4.if_name_S11));
+        bdestroy_wrapper (&cidr);
       }
 
       if (config_setting_lookup_int (subsetting, SGW_CONFIG_STRING_SGW_PORT_FOR_S1U_S12_S4_UP, &sgw_udp_port_S1u_S12_S4_up)
@@ -256,10 +261,30 @@ int sgw_config_parse_file (sgw_config_t * config_pP)
         config_pP->udp_port_S1u_S12_S4_up = sgw_udp_port_S1u_S12_S4_up;
       }
     }
+    #if ENABLE_OPENFLOW
+    config_setting_t* ovs_settings = config_setting_get_member (setting_sgw, SGW_CONFIG_STRING_OVS_CONFIG);
+    if (ovs_settings == NULL) {
+      AssertFatal(false, "Couldn't find OVS subsetting in spgw config\n");
+    }
+    char* ovs_bridge_name = NULL;
+    libconfig_int gtp_port_num = 0;
+    libconfig_int uplink_port_num = 0;
+    char* uplink_mac = NULL;
+    if (config_setting_lookup_string (ovs_settings, SGW_CONFIG_STRING_OVS_BRIDGE_NAME, (const char **)&ovs_bridge_name)
+        && config_setting_lookup_int (ovs_settings, SGW_CONFIG_STRING_OVS_GTP_PORT_NUM, &gtp_port_num)
+        && config_setting_lookup_int (ovs_settings, SGW_CONFIG_STRING_OVS_UPLINK_PORT_NUM, &uplink_port_num)
+        && config_setting_lookup_string (ovs_settings, SGW_CONFIG_STRING_OVS_UPLINK_MAC, (const char **)&uplink_mac)) {
+      config_pP->ovs_config.bridge_name = bfromcstr (ovs_bridge_name);
+      config_pP->ovs_config.gtp_port_num = gtp_port_num;
+      config_pP->ovs_config.uplink_port_num = uplink_port_num;
+      config_pP->ovs_config.uplink_mac = bfromcstr (uplink_mac);
+    } else {
+      AssertFatal(false, "Couldn't find all ovs settings in spgw config\n");
+    }
+    #endif
   }
 
   config_destroy (&cfg);
-  OAILOG_SET_CONFIG(&config_pP->log_config);
   return RETURNok;
 }
 
@@ -297,3 +322,7 @@ void sgw_config_display (sgw_config_t * config_p)
   OAILOG_INFO (LOG_SPGW_APP, "    MSC log level........: %s (MeSsage Chart)\n", OAILOG_LEVEL_INT2STR(config_p->log_config.msc_log_level));
   OAILOG_INFO (LOG_SPGW_APP, "    ITTI log level.......: %s (InTer-Task Interface)\n", OAILOG_LEVEL_INT2STR(config_p->log_config.itti_log_level));
 }
+
+#ifdef __cplusplus
+}
+#endif

@@ -30,6 +30,12 @@
 #define FILE_S1AP_MME_RETRANSMISSION_SEEN
 
 #include "tree.h"
+#include "timer_messages_types.h"
+#include "3gpp_36.401.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct s1ap_timer_map_s {
   long             timer_id;
@@ -47,5 +53,9 @@ int s1ap_handle_timer_expiry(timer_has_expired_t *timer_has_expired);
 int s1ap_timer_insert(const mme_ue_s1ap_id_t mme_ue_s1ap_id, const long timer_id);
 
 int s1ap_timer_remove_ue(const mme_ue_s1ap_id_t mme_ue_s1ap_id);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* FILE_S1AP_MME_RETRANSMISSION_SEEN */

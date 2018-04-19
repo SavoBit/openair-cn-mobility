@@ -715,7 +715,6 @@ static nw_rc_t nwGtpv2cHandleUlpCreateLocalTunnel (NW_IN nw_gtpv2c_stack_t * thi
     pUlpReq->u_api_info.createLocalTunnelInfo.hTunnel = (nw_gtpv2c_tunnel_handle_t) 0;
     OAILOG_FUNC_RETURN (LOG_GTPV2C, NW_FAILURE);
   }
-
   pUlpReq->u_api_info.createLocalTunnelInfo.hTunnel = (nw_gtpv2c_tunnel_handle_t) pTunnel;
   OAILOG_FUNC_RETURN (LOG_GTPV2C, NW_OK);
 }

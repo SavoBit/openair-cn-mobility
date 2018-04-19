@@ -29,11 +29,14 @@
 #include <nettle/aes.h>
 #include <nettle/ctr.h>
 #include "bstrlib.h"
-
 #include "assertions.h"
 #include "conversions.h"
 #include "secu_defs.h"
 #include "dynamic_memory_check.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 int
 nas_stream_encrypt_eea2 (
@@ -81,3 +84,8 @@ nas_stream_encrypt_eea2 (
   free_wrapper ((void**)&ctx);
   return 0;
 }
+
+#ifdef __cplusplus
+}
+#endif
+

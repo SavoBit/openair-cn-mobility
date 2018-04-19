@@ -1,55 +1,52 @@
 /*
- * Copyright (c) 2015, EURECOM (www.eurecom.fr)
- * All rights reserved.
+ * Licensed to the OpenAirInterface (OAI) Software Alliance under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The OpenAirInterface Software Alliance licenses this file to You under
+ * the Apache License, Version 2.0  (the "License"); you may not use this file
+ * except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * 1. Redistributions of source code must retain the above copyright notice, this
- *    list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * The views and conclusions contained in the software and documentation are those
- * of the authors and should not be interpreted as representing official policies,
- * either expressed or implied, of the FreeBSD Project.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *-------------------------------------------------------------------------------
+ * For more information about the OpenAirInterface (OAI) Software Alliance:
+ *      contact@openairinterface.org
  */
-
 /*! \file s11_messages_types.h
   \brief
   \author Sebastien ROUX, Lionel Gauthier
   \company Eurecom
   \email: lionel.gauthier@eurecom.fr
 */
-
 #ifndef FILE_S11_MESSAGES_TYPES_SEEN
 #define FILE_S11_MESSAGES_TYPES_SEEN
 
 #include "../sgw/sgw_ie_defs.h"
 
-#define S11_CREATE_SESSION_REQUEST(mSGpTR)         (mSGpTR)->ittiMsg.s11_create_session_request
-#define S11_CREATE_SESSION_RESPONSE(mSGpTR)        (mSGpTR)->ittiMsg.s11_create_session_response
-#define S11_CREATE_BEARER_REQUEST(mSGpTR)          (mSGpTR)->ittiMsg.s11_create_bearer_request
-#define S11_CREATE_BEARER_RESPONSE(mSGpTR)         (mSGpTR)->ittiMsg.s11_create_bearer_response
-#define S11_MODIFY_BEARER_REQUEST(mSGpTR)          (mSGpTR)->ittiMsg.s11_modify_bearer_request
-#define S11_MODIFY_BEARER_RESPONSE(mSGpTR)         (mSGpTR)->ittiMsg.s11_modify_bearer_response
-#define S11_DELETE_SESSION_REQUEST(mSGpTR)         (mSGpTR)->ittiMsg.s11_delete_session_request
-#define S11_DELETE_BEARER_COMMAND(mSGpTR)          (mSGpTR)->ittiMsg.s11_delete_bearer_command
-#define S11_DELETE_SESSION_RESPONSE(mSGpTR)        (mSGpTR)->ittiMsg.s11_delete_session_response
-#define S11_RELEASE_ACCESS_BEARERS_REQUEST(mSGpTR) (mSGpTR)->ittiMsg.s11_release_access_bearers_request
-#define S11_RELEASE_ACCESS_BEARERS_RESPONSE(mSGpTR) (mSGpTR)->ittiMsg.s11_release_access_bearers_response
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define S11_CREATE_SESSION_REQUEST(mSGpTR)         ((itti_s11_create_session_request_t*)(mSGpTR)->itti_msg)
+#define S11_CREATE_SESSION_RESPONSE(mSGpTR)        ((itti_s11_create_session_response_t*)(mSGpTR)->itti_msg)
+#define S11_CREATE_BEARER_REQUEST(mSGpTR)          ((itti_s11_create_bearer_request_t*)(mSGpTR)->itti_msg)
+#define S11_CREATE_BEARER_RESPONSE(mSGpTR)         ((itti_s11_create_bearer_response_t*)(mSGpTR)->itti_msg)
+#define S11_MODIFY_BEARER_REQUEST(mSGpTR)          ((itti_s11_modify_bearer_request_t*)(mSGpTR)->itti_msg)
+#define S11_MODIFY_BEARER_RESPONSE(mSGpTR)         ((itti_s11_modify_bearer_response_t*)(mSGpTR)->itti_msg)
+#define S11_DELETE_SESSION_REQUEST(mSGpTR)         ((itti_s11_delete_session_request_t*)(mSGpTR)->itti_msg)
+#define S11_DELETE_BEARER_COMMAND(mSGpTR)          ((itti_s11_delete_bearer_command_t*)(mSGpTR)->itti_msg)
+#define S11_DELETE_SESSION_RESPONSE(mSGpTR)        ((itti_s11_delete_session_response_t*)(mSGpTR)->itti_msg)
+#define S11_RELEASE_ACCESS_BEARERS_REQUEST(mSGpTR) ((itti_s11_release_access_bearers_request_t*)(mSGpTR)->itti_msg)
+#define S11_RELEASE_ACCESS_BEARERS_RESPONSE(mSGpTR) ((itti_s11_release_access_bearers_response_t*)(mSGpTR)->itti_msg)
+#define S11_PAGING_REQUEST(mSGpTR)                 ((itti_s11_paging_request_t*)(mSGpTR)->itti_msg)
+#define S11_PAGING_RESPONSE(mSGpTR)                ((itti_s11_paging_response_t*)(mSGpTR)->itti_msg)
+
 
 //-----------------------------------------------------------------------------
 /** @struct itti_s11_create_session_request_t
@@ -1040,6 +1037,12 @@ typedef struct itti_s11_delete_session_response_s {
 typedef struct itti_s11_release_access_bearers_request_s {
   teid_t     local_teid;               ///< not in specs for inner MME use
   teid_t     teid;                     ///< Tunnel Endpoint Identifier
+  ebi_list_t list_of_rabs;             ///< Shall be present on S4 interface when this message is
+                                       ///< used to release a subset of all active RABs according to
+                                       ///< the RAB release procedure.
+                                       ///< Several IEs with this type and instance values shall be
+                                       ///< included as necessary to represent a list of RABs to be
+                                       ///< released.
   node_type_t originating_node;        ///< This IE shall be sent on S11 interface, if ISR is active in the MME.
                                          ///< This IE shall be sent on S4 interface, if ISR is active in the SGSN
   // Private Extension Private Extension ///< optional
@@ -1090,7 +1093,27 @@ typedef struct itti_s11_delete_bearer_command_s {
   // TODO
   void           *trxn;
   struct in_addr  peer_ip;
-} itti_s11_delete_bearer_command_s;
+} itti_s11_delete_bearer_command_t;
 
+/**
+ * Message used to notify MME that a paging message should be sent to the UE
+ * at the given imsi
+ */
+typedef struct itti_s11_paging_request_s {
+  const char* imsi;
+} itti_s11_paging_request_t;
+
+/**
+ * Message used to notify SPGW that a paging 
+ */
+typedef struct itti_s11_paging_response_s {
+  const char* imsi;
+  bool successful;
+} itti_s11_paging_response_t;
+
+
+#ifdef __cplusplus
+}
+#endif
 #endif
 /* FILE_S11_MESSAGES_TYPES_SEEN */

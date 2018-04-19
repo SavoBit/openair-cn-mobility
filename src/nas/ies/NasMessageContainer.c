@@ -18,6 +18,7 @@
  * For more information about the OpenAirInterface (OAI) Software Alliance:
  *      contact@openairinterface.org
  */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -29,6 +30,10 @@
 #include "TLVEncoder.h"
 #include "TLVDecoder.h"
 #include "NasMessageContainer.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 //------------------------------------------------------------------------------
 int decode_nas_message_container (
@@ -91,3 +96,6 @@ int encode_nas_message_container (
   return encoded;
 }
 
+#ifdef __cplusplus
+}
+#endif

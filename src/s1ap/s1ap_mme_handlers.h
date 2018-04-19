@@ -19,6 +19,7 @@
  *      contact@openairinterface.org
  */
 
+
 /*! \file s1ap_mme_handlers.h
   \brief
   \author Sebastien ROUX, Lionel Gauthier
@@ -29,7 +30,12 @@
 #ifndef FILE_S1AP_MME_HANDLERS_SEEN
 #define FILE_S1AP_MME_HANDLERS_SEEN
 
+#include "sctp_messages_types.h"
+#include "s1ap_messages_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 
 /** \brief Handle decoded incoming messages from SCTP
@@ -91,5 +97,9 @@ int s1ap_mme_handle_erab_setup_response (const sctp_assoc_id_t assoc_id,
 
 int s1ap_mme_handle_erab_setup_failure (const sctp_assoc_id_t assoc_id,
     const sctp_stream_id_t stream, struct s1ap_message_s *message);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* FILE_S1AP_MME_HANDLERS_SEEN */

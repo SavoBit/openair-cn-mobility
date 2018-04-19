@@ -1,30 +1,22 @@
 /*
- * Copyright (c) 2015, EURECOM (www.eurecom.fr)
- * All rights reserved.
+ * Licensed to the OpenAirInterface (OAI) Software Alliance under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The OpenAirInterface Software Alliance licenses this file to You under
+ * the Apache License, Version 2.0  (the "License"); you may not use this file
+ * except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * 1. Redistributions of source code must retain the above copyright notice, this
- *    list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * The views and conclusions contained in the software and documentation are those
- * of the authors and should not be interpreted as representing official policies,
- * either expressed or implied, of the FreeBSD Project.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *-------------------------------------------------------------------------------
+ * For more information about the OpenAirInterface (OAI) Software Alliance:
+ *      contact@openairinterface.org
  */
 
 #include <fcntl.h>
@@ -42,12 +34,13 @@
 int    g_fd_pid_file = -1;
 
 //------------------------------------------------------------------------------
-char* get_exe_basename(void)
+char* get_exe_absolute_path(char const *basepath)
 {
 
   char   pid_file_name[256] = {0};
   char   *exe_basename      = NULL;
   int    rv                 = 0;
+  int    num_chars          = 0;
 
   // get executable name
   rv = readlink("/proc/self/exe",pid_file_name, 256);
@@ -56,7 +49,10 @@ char* get_exe_basename(void)
   }
   pid_file_name[rv] = 0;
   exe_basename = basename(pid_file_name);
-  snprintf(pid_file_name, 128, "/var/run/%s.pid", exe_basename);
+
+  // Add 6 for the other 5 characters in the path + null terminator.
+  num_chars = strlen(basepath) + strlen(exe_basename) + 6;
+  snprintf(pid_file_name, num_chars, "%s/%s.pid", basepath, exe_basename);
   return strdup(pid_file_name);
 }
 
@@ -70,7 +66,7 @@ int lockfile(int fd, int lock_type)
 //------------------------------------------------------------------------------
 bool is_pid_file_lock_success(char const *pid_file_name)
 {
-  char       pid_dec[32] = {0};
+  char       pid_dec[64] = {0};
 
   g_fd_pid_file = open(pid_file_name,
                        O_RDWR | O_CREAT,

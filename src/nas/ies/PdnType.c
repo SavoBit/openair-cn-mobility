@@ -18,6 +18,7 @@
  * For more information about the OpenAirInterface (OAI) Software Alliance:
  *      contact@openairinterface.org
  */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -25,7 +26,6 @@
 
 #include "bstrlib.h"
 
-#include "log.h"
 #include "TLVEncoder.h"
 #include "TLVDecoder.h"
 #include "3gpp_23.003.h"
@@ -34,6 +34,10 @@
 #include "security_types.h"
 #include "common_types.h"
 #include "PdnType.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 //------------------------------------------------------------------------------
 int decode_pdn_type (
@@ -101,3 +105,6 @@ uint8_t encode_u8_pdn_type (pdn_type_t * pdntype)
   return bufferReturn;
 }
 
+#ifdef __cplusplus
+}
+#endif

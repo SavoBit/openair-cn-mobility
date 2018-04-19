@@ -24,11 +24,15 @@
   \author Philippe MOREL, Sebastien ROUX, Lionel GAUTHIER
   \company Eurecom
 */
-
 #ifndef FILE_TLV_DECODER_SEEN
 #define FILE_TLV_DECODER_SEEN
 
 #include "common_defs.h"
+#include "log.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 
 #define IES_DECODE_U8(bUFFER, dECODED, vALUE) \
@@ -92,6 +96,10 @@ void tlv_decode_perror(void);
           errorCodeDecoder = TLV_UNEXPECTED_IEI;                               \
           return TLV_UNEXPECTED_IEI;                                           \
         }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* define (FILE_TLV_DECODER_SEEN) */
 

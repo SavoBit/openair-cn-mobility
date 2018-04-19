@@ -75,8 +75,6 @@ Description Defines EPS Mobility Management messages and functions used
 #include "UeNetworkCapability.h"
 #include "UeRadioCapabilityInformationUpdateNeeded.h"
 #include "UeSecurityCapability.h"
-
-
 #include "AttachAccept.h"
 #include "AttachComplete.h"
 #include "AttachReject.h"
@@ -107,6 +105,9 @@ Description Defines EPS Mobility Management messages and functions used
 #include "TrackingAreaUpdateRequest.h"
 #include "UplinkNasTransport.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /****************************************************************************/
 /*********************  G L O B A L    C O N S T A N T S  *******************/
@@ -168,5 +169,9 @@ int emm_msg_decode(EMM_msg *msg, uint8_t *buffer, uint32_t len);
 int emm_msg_encode(EMM_msg *msg, uint8_t *buffer, uint32_t len);
 
 int emm_msg_encode_header (const emm_msg_header_t * header, uint8_t * buffer, uint32_t len);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* FILE_EMM_MSG_SEEN */

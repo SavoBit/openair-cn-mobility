@@ -22,6 +22,10 @@
 #ifndef EPS_MOBILE_IDENTITY_SEEN
 #define EPS_MOBILE_IDENTITY_SEEN
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define EPS_MOBILE_IDENTITY_MINIMUM_LENGTH 3
 #define EPS_MOBILE_IDENTITY_MAXIMUM_LENGTH 13
 
@@ -83,5 +87,9 @@ int encode_eps_mobile_identity(eps_mobile_identity_t *epsmobileidentity, uint8_t
 
 int decode_eps_mobile_identity(eps_mobile_identity_t *epsmobileidentity, uint8_t iei, uint8_t *buffer, uint32_t len);
 
-#endif /* EPS MOBILE IDENTITY_SEEN */
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* EPS_MOBILE_IDENTITY_SEEN */
 

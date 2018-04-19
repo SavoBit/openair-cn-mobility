@@ -18,6 +18,7 @@
  * For more information about the OpenAirInterface (OAI) Software Alliance:
  *      contact@openairinterface.org
  */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -30,6 +31,10 @@
 #include "TLVDecoder.h"
 #include "UeNetworkCapability.h"
 
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 //------------------------------------------------------------------------------
 int decode_ue_network_capability (
@@ -143,3 +148,6 @@ int encode_ue_network_capability (
   return encoded;
 }
 
+#ifdef __cplusplus
+}
+#endif

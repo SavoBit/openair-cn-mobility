@@ -18,6 +18,7 @@
  * For more information about the OpenAirInterface (OAI) Software Alliance:
  *      contact@openairinterface.org
  */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -25,10 +26,13 @@
 
 #include "bstrlib.h"
 
-#include "log.h"
 #include "TLVEncoder.h"
 #include "TLVDecoder.h"
 #include "PdnAddress.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 //------------------------------------------------------------------------------
 int decode_pdn_address (
@@ -95,3 +99,6 @@ int encode_pdn_address (
   return encoded;
 }
 
+#ifdef __cplusplus
+}
+#endif

@@ -18,6 +18,7 @@
  * For more information about the OpenAirInterface (OAI) Software Alliance:
  *      contact@openairinterface.org
  */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -29,6 +30,10 @@
 #include "TLVEncoder.h"
 #include "TLVDecoder.h"
 #include "NasKeySetIdentifier.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 //------------------------------------------------------------------------------
 int decode_nas_key_set_identifier (
@@ -98,4 +103,6 @@ uint8_t encode_u8_nas_key_set_identifier (NasKeySetIdentifier * naskeysetidentif
   return bufferReturn;
 }
 
-
+#ifdef __cplusplus
+}
+#endif

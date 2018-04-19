@@ -1,32 +1,23 @@
 /*
- * Copyright (c) 2015, EURECOM (www.eurecom.fr)
- * All rights reserved.
+ * Licensed to the OpenAirInterface (OAI) Software Alliance under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The OpenAirInterface Software Alliance licenses this file to You under
+ * the Apache License, Version 2.0  (the "License"); you may not use this file
+ * except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * 1. Redistributions of source code must retain the above copyright notice, this
- *    list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * The views and conclusions contained in the software and documentation are those
- * of the authors and should not be interpreted as representing official policies,
- * either expressed or implied, of the FreeBSD Project.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *-------------------------------------------------------------------------------
+ * For more information about the OpenAirInterface (OAI) Software Alliance:
+ *      contact@openairinterface.org
  */
-
 
 /*! \file log.h
   \brief
@@ -34,9 +25,17 @@
   \company Eurecom
   \email: lionel.gauthier@eurecom.fr
 */
-
 #ifndef FILE_LOG_SEEN
 #define FILE_LOG_SEEN
+
+#include <stdbool.h>
+#include <pthread.h>
+
+#include "bstrlib.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* asn1c debug */
 extern int asn_debug;
@@ -92,7 +91,6 @@ extern int fd_g_debug_lvl;
 #define LOG_CONFIG_STRING_ITTI_LOG_LEVEL                 "ITTI_LOG_LEVEL"
 #define LOG_CONFIG_STRING_LOGGING                        "LOGGING"
 #define LOG_CONFIG_STRING_MME_APP_LOG_LEVEL              "MME_APP_LOG_LEVEL"
-#define LOG_CONFIG_STRING_MME_SCENARIO_PLAYER_LOG_LEVEL  "MME_SCENARIO_PLAYER_LOG_LEVEL"
 #define LOG_CONFIG_STRING_MSC_LOG_LEVEL                  "MSC_LOG_LEVEL"
 #define LOG_CONFIG_STRING_NAS_LOG_LEVEL                  "NAS_LOG_LEVEL"
 #define LOG_CONFIG_STRING_OUTPUT                         "OUTPUT"
@@ -104,11 +102,9 @@ extern int fd_g_debug_lvl;
 #define LOG_CONFIG_STRING_SCTP_LOG_LEVEL                 "SCTP_LOG_LEVEL"
 #define LOG_CONFIG_STRING_SPGW_APP_LOG_LEVEL             "SPGW_APP_LOG_LEVEL"
 #define LOG_CONFIG_STRING_SPGW_APP_LOG_LEVEL             "SPGW_APP_LOG_LEVEL"
-#define LOG_CONFIG_STRING_OUTPUT_SYSLOG                  "SYSLOG"
 #define LOG_CONFIG_STRING_OUTPUT_THREAD_SAFE             "THREAD_SAFE"
 #define LOG_CONFIG_STRING_UDP_LOG_LEVEL                  "UDP_LOG_LEVEL"
 #define LOG_CONFIG_STRING_UTIL_LOG_LEVEL                 "UTIL_LOG_LEVEL"
-#define LOG_CONFIG_STRING_XML_LOG_LEVEL                  "XML_LOG_LEVEL"
 
 typedef enum {
   MIN_LOG_ENV = 0,
@@ -150,8 +146,6 @@ typedef enum {
   LOG_UTIL,
   LOG_CONFIG,
   LOG_MSC,
-  LOG_XML,
-  LOG_MME_SCENARIO_PLAYER,
   LOG_ITTI,
   LOG_ASYNC_SYSTEM,
   MAX_LOG_PROTOS,
@@ -195,8 +189,6 @@ typedef struct log_config_s {
   log_level_t   secu_log_level;      /*!< \brief LTE security log level starting from OAILOG_LEVEL_EMERGENCY up to MAX_LOG_LEVEL (no log) */
   log_level_t   util_log_level;     /*!< \brief Misc utilities log level starting from OAILOG_LEVEL_EMERGENCY up to MAX_LOG_LEVEL (no log) */
   log_level_t   msc_log_level;      /*!< \brief MSC utility log level starting from OAILOG_LEVEL_EMERGENCY up to MAX_LOG_LEVEL (no log) */
-  log_level_t   xml_log_level;      /*!< \brief XML dump/load of messages (mainly for MME scenario player) log level starting from OAILOG_LEVEL_EMERGENCY up to MAX_LOG_LEVEL (no log) */
-  log_level_t   mme_scenario_player_log_level; /*!< \brief scenario player log level starting from OAILOG_LEVEL_EMERGENCY up to MAX_LOG_LEVEL (no log) */
   log_level_t   async_system_log_level; /*!< \brief async system log level starting from OAILOG_LEVEL_EMERGENCY up to MAX_LOG_LEVEL (no log) */
   log_level_t   itti_log_level;     /*!< \brief ITTI layer log level starting from OAILOG_LEVEL_EMERGENCY up to MAX_LOG_LEVEL (no log) */
   uint8_t       asn1_verbosity_level; /*!< \brief related to asn1c generated code for S1AP verbosity level */
@@ -217,7 +209,6 @@ int log_init(
 
 void log_itti_connect(void);
 void log_start_use(void);
-
 struct shared_log_queue_item_s;
 
 void log_flush_message (struct shared_log_queue_item_s *item_p) __attribute__ ((hot));
@@ -343,42 +334,38 @@ int log_get_start_time_sec (void);
 #    define OAILOG_DEBUG(...)                                           {void;}
 #  endif
 #  if !defined(OAILOG_TRACE)
-#    define OAILOG_TRACE(...)                                           {void;}
+#    define OAILOG_TRACE(...)
 #  endif
 #  if !defined(OAILOG_EXTERNAL)
-#    define OAILOG_EXTERNAL(...)                                        {void;}
+#    define OAILOG_EXTERNAL(...)
 #  endif
 #  if !defined(OAILOG_FUNC_IN)
-#    define OAILOG_FUNC_IN(...)                                         {void;}
+#    define OAILOG_FUNC_IN(pRoTo)
 #  endif
 #  if !defined(OAILOG_FUNC_OUT)
-#    define OAILOG_FUNC_OUT(pRoTo)                                      do{ return;} while 0
+#    define OAILOG_FUNC_OUT(pRoTo)                                      do{ return;} while (0)
 #  endif
 #  if !defined(OAILOG_FUNC_RETURN)
-#    define OAILOG_FUNC_RETURN(pRoTo, rEtUrNcOdE)                       do{ return rEtUrNcOdE;} while 0
+#    define OAILOG_FUNC_RETURN(pRoTo, rEtUrNcOdE)                       do{ return rEtUrNcOdE;} while (0)
 #  endif
 #  if !defined(OAILOG_STREAM_HEX)
-#    define OAILOG_STREAM_HEX(...)                                      {void;}
+#    define OAILOG_STREAM_HEX(...)
 #  endif
 #  if !defined(OAILOG_STREAM_HEX_ARRAY)
-#    define OAILOG_STREAM_HEX_ARRAY(...)                                {void;}
+#    define OAILOG_STREAM_HEX_ARRAY(...)
 #  endif
 
-#  if DAEMONIZE
-#    define OAI_FPRINTF_ERR(...)                                     do {syslog (LOG_ERR,   ##__VA_ARGS__);} while(0)
-#    define OAI_FPRINTF_INFO(...)                                    do {syslog (LOG_INFO , ##__VA_ARGS__);} while(0)
-#    define OAI_VFPRINTF_ERR(...)                                    do {vsyslog (LOG_ERR , ##__VA_ARGS__);} while(0)
-#    define OAI_VFPRINTF_INFO(...)                                   do {vsyslog (LOG_INFO , ##__VA_ARGS__);} while(0)
-#    if EMIT_ASN_DEBUG_EXTERN
-#      define ASN_DEBUG(...)                                         do {vsyslog (LOG_ERR , ##__VA_ARGS__);} while(0)
-#    endif
-#  else
-#    define OAI_FPRINTF_ERR(...)                                     do {fprintf (stderr,   ##__VA_ARGS__);fflush(stderr);} while(0)
-#    define OAI_FPRINTF_INFO(...)                                    do {fprintf (stdout,   ##__VA_ARGS__);fflush(stdout);} while(0)
-#    define OAI_VFPRINTF_ERR(...)                                    do {vfprintf (stderr , ##__VA_ARGS__);fflush(stderr);} while(0)
-#    define OAI_VFPRINTF_INFO(...)                                   do {vfprintf (stderr , ##__VA_ARGS__);fflush(stderr);} while(0)
-#    if EMIT_ASN_DEBUG_EXTERN
-#      define ASN_DEBUG(...)                                         do {vfprintf (stderr , ##__VA_ARGS__);fflush(stderr);} while(0)
-#    endif
+
+#  define OAI_FPRINTF_ERR(...)                                     do {fprintf (stderr,   ##__VA_ARGS__);fflush(stderr);} while(0)
+#  define OAI_FPRINTF_INFO(...)                                    do {fprintf (stdout,   ##__VA_ARGS__);fflush(stdout);} while(0)
+#  define OAI_VFPRINTF_ERR(...)                                    do {vfprintf (stderr , ##__VA_ARGS__);fflush(stderr);} while(0)
+#  define OAI_VFPRINTF_INFO(...)                                   do {vfprintf (stderr , ##__VA_ARGS__);fflush(stderr);} while(0)
+#  if EMIT_ASN_DEBUG_EXTERN
+#    define ASN_DEBUG(...)                                         do {vfprintf (stderr , ##__VA_ARGS__);fflush(stderr);} while(0)
 #  endif
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* FILE_LOG_SEEN */

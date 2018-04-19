@@ -54,6 +54,10 @@
 #include "pgw_pcef_emulation.h"
 #include "spgw_config.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifdef LIBCONFIG_LONG
 #  define libconfig_int long
 #else
@@ -76,7 +80,6 @@ int pgw_config_process (pgw_config_t * config_pP)
   struct in_addr                          addr_start, addr_mask;
   uint64_t                                counter64 = 0;
   conf_ipv4_list_elm_t                   *ip4_ref = NULL;
-
 
   async_system_command (TASK_ASYNC_SYSTEM, PGW_ABORT_ON_ERROR, "iptables -t mangle -F OUTPUT");
   async_system_command (TASK_ASYNC_SYSTEM, PGW_ABORT_ON_ERROR, "iptables -t mangle -F POSTROUTING");
@@ -190,10 +193,6 @@ int pgw_config_process (pgw_config_t * config_pP)
     if (config_pP->pcef.enabled) {
       if (config_pP->pcef.tcp_ecn_enabled) {
         async_system_command (TASK_ASYNC_SYSTEM, PGW_ABORT_ON_ERROR, "sysctl -w net.ipv4.tcp_ecn=1");
-      }
-      if (config_pP->pcef.traffic_shaping_enabled) {
-        async_system_command (TASK_ASYNC_SYSTEM, PGW_WARN_ON_ERROR, "tc qdisc del root dev %s", bdata(config_pP->ipv4.if_name_SGI));
-        async_system_command (TASK_ASYNC_SYSTEM, PGW_ABORT_ON_ERROR, "tc qdisc add dev %s root handle 1: htb default 0xFFFFFFFF", bdata(config_pP->ipv4.if_name_SGI));
       }
     }
   }
@@ -350,7 +349,6 @@ int pgw_config_parse_file (pgw_config_t * config_pP)
       config_pP->ue_mtu = 1463;
     }
     OAILOG_DEBUG (LOG_SPGW_APP, "UE MTU : %u\n", config_pP->ue_mtu);
-
     if (config_setting_lookup_string (setting_pgw, PGW_CONFIG_STRING_GTPV1U_REALIZATION, (const char **)&astring)) {
       if (strcasecmp (astring, PGW_CONFIG_STRING_NO_GTP_KERNEL_AVAILABLE) == 0) {
         config_pP->use_gtp_kernel_module = false;
@@ -371,15 +369,6 @@ int pgw_config_parse_file (pgw_config_t * config_pP)
       if ((config_setting_lookup_string (subsetting, PGW_CONFIG_STRING_PCEF_ENABLED, (const char **)&astring))) {
         if (strcasecmp (astring, "yes") == 0) {
           config_pP->pcef.enabled = true;
-
-          if (config_setting_lookup_string (subsetting, PGW_CONFIG_STRING_TRAFFIC_SHAPPING_ENABLED, (const char **)&astring)) {
-            if (strcasecmp (astring, "yes") == 0) {
-              config_pP->pcef.traffic_shaping_enabled = true;
-              OAILOG_DEBUG (LOG_SPGW_APP, "Traffic shapping enabled\n");
-            } else {
-              config_pP->pcef.traffic_shaping_enabled = false;
-            }
-          }
 
           if (config_setting_lookup_string (subsetting, PGW_CONFIG_STRING_TCP_ECN_ENABLED, (const char **)&astring)) {
             if (strcasecmp (astring, "yes") == 0) {
@@ -469,8 +458,6 @@ void pgw_config_display (pgw_config_t * config_p)
 
   OAILOG_INFO (LOG_SPGW_APP, "- PCEF support ...........: %s (in development)\n", config_p->pcef.enabled == 0 ? "false" : "true");
   if (config_p->pcef.enabled) {
-    OAILOG_INFO (LOG_SPGW_APP, "    Traffic shaping ......: %s (TODO it soon)\n",
-        config_p->pcef.traffic_shaping_enabled == 0 ? "false" : "true");
     OAILOG_INFO (LOG_SPGW_APP, "    TCP ECN  .............: %s\n", config_p->pcef.tcp_ecn_enabled == 0 ? "false" : "true");
     OAILOG_INFO (LOG_SPGW_APP, "    Push dedicated bearer SDF ID: %d (testing dedicated bearer functionality down to OAI UE/COSTS UE)\n",
         config_p->pcef.automatic_push_dedicated_bearer_sdf_identifier);
@@ -500,3 +487,7 @@ void pgw_config_display (pgw_config_t * config_p)
   OAILOG_INFO (LOG_SPGW_APP, "- Helpers:\n");
   OAILOG_INFO (LOG_SPGW_APP, "    Push PCO (DNS+MTU) ........: %s\n", config_p->force_push_pco == 0 ? "false" : "true");
 }
+
+#ifdef __cplusplus
+}
+#endif

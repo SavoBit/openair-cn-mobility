@@ -47,6 +47,11 @@ Description Defines the EMM Service Access Points at which the EPS
 #include "emm_esmDef.h"
 #include "emm_asDef.h"
 #include "emm_cnDef.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /****************************************************************************/
 /*********************  G L O B A L    C O N S T A N T S  *******************/
 /****************************************************************************/
@@ -159,5 +164,9 @@ typedef struct emm_sap_s {
 void emm_sap_initialize(void);
 
 int emm_sap_send(emm_sap_t *msg);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* FILE_EMM_SAP_SEEN*/

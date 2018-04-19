@@ -44,6 +44,10 @@
 #include "sctp_common.h"
 #include "log.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Pre-bind socket options configuration.
    See http://linux.die.net/man/7/sctp for more informations on these options.
 */
@@ -160,7 +164,7 @@ int sctp_get_peeraddresses (
 
   for (j = 0; j < nb; j++) {
     if (temp_addr_p[j].sa_family == AF_INET) {
-      char                                    address[16] = {0};
+      char                                    address[INET_ADDRSTRLEN] = {0};
       struct sockaddr_in                     *addr = NULL;
 
       addr = (struct sockaddr_in *)&temp_addr_p[j];
@@ -170,7 +174,7 @@ int sctp_get_peeraddresses (
       }
     } else {
       struct sockaddr_in6                    *addr = NULL;
-      char                                    address[40] = {0};
+      char                                    address[INET6_ADDRSTRLEN] = {0};
 
       addr = (struct sockaddr_in6 *)&temp_addr_p[j];
 
@@ -216,7 +220,7 @@ int sctp_get_localaddresses (
 
     for (j = 0; j < nb; j++) {
       if (temp_addr_p[j].sa_family == AF_INET) {
-        char                                    address[16] = {0};
+        char                                    address[INET_ADDRSTRLEN] = {0};
         struct sockaddr_in                     *addr = NULL;
 
         addr = (struct sockaddr_in *)&temp_addr_p[j];
@@ -226,7 +230,7 @@ int sctp_get_localaddresses (
         }
       } else if (temp_addr_p[j].sa_family == AF_INET6) {
         struct sockaddr_in6                    *addr = NULL;
-        char                                    address[40] = {0};
+        char                                    address[INET6_ADDRSTRLEN] = {0};
 
         addr = (struct sockaddr_in6 *)&temp_addr_p[j];
 
@@ -252,3 +256,7 @@ int sctp_get_localaddresses (
 
   return 0;
 }
+
+#ifdef __cplusplus
+}
+#endif

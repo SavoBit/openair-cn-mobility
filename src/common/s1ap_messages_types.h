@@ -1,39 +1,29 @@
 /*
- * Copyright (c) 2015, EURECOM (www.eurecom.fr)
- * All rights reserved.
+ * Licensed to the OpenAirInterface (OAI) Software Alliance under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The OpenAirInterface Software Alliance licenses this file to You under
+ * the Apache License, Version 2.0  (the "License"); you may not use this file
+ * except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * 1. Redistributions of source code must retain the above copyright notice, this
- *    list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * The views and conclusions contained in the software and documentation are those
- * of the authors and should not be interpreted as representing official policies,
- * either expressed or implied, of the FreeBSD Project.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *-------------------------------------------------------------------------------
+ * For more information about the OpenAirInterface (OAI) Software Alliance:
+ *      contact@openairinterface.org
  */
-
 /*! \file s1ap_messages_types.h
   \brief
   \author Sebastien ROUX, Lionel Gauthier
   \company Eurecom
   \email: lionel.gauthier@eurecom.fr
 */
-
 #ifndef FILE_S1AP_MESSAGES_TYPES_SEEN
 #define FILE_S1AP_MESSAGES_TYPES_SEEN
 
@@ -43,14 +33,22 @@
 #include "3gpp_23.003.h"
 #include "TrackingAreaIdentity.h"
 
-#define S1AP_ENB_DEREGISTERED_IND(mSGpTR)        (mSGpTR)->ittiMsg.s1ap_eNB_deregistered_ind
-#define S1AP_DEREGISTER_UE_REQ(mSGpTR)           (mSGpTR)->ittiMsg.s1ap_deregister_ue_req
-#define S1AP_UE_CONTEXT_RELEASE_REQ(mSGpTR)      (mSGpTR)->ittiMsg.s1ap_ue_context_release_req
-#define S1AP_UE_CONTEXT_RELEASE_COMMAND(mSGpTR)  (mSGpTR)->ittiMsg.s1ap_ue_context_release_command
-#define S1AP_UE_CONTEXT_RELEASE_COMPLETE(mSGpTR) (mSGpTR)->ittiMsg.s1ap_ue_context_release_complete
-#define S1AP_E_RAB_SETUP_REQ(mSGpTR)             (mSGpTR)->ittiMsg.s1ap_e_rab_setup_req
-#define S1AP_E_RAB_SETUP_RSP(mSGpTR)             (mSGpTR)->ittiMsg.s1ap_e_rab_setup_rsp
-#define S1AP_INITIAL_UE_MESSAGE(mSGpTR)          (mSGpTR)->ittiMsg.s1ap_initial_ue_message
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define S1AP_ENB_DEREGISTERED_IND(mSGpTR)        ((itti_s1ap_eNB_deregistered_ind_t*)(mSGpTR)->itti_msg)
+#define S1AP_ENB_INITIATED_RESET_REQ(mSGpTR)     ((itti_s1ap_enb_initiated_reset_req_t*)(mSGpTR)->itti_msg)
+#define S1AP_ENB_INITIATED_RESET_ACK(mSGpTR)     ((itti_s1ap_enb_initiated_reset_ack_t*)(mSGpTR)->itti_msg)
+#define S1AP_DEREGISTER_UE_REQ(mSGpTR)           ((itti_s1ap_deregister_ue_req_t*)(mSGpTR)->itti_msg)
+#define S1AP_UE_CONTEXT_RELEASE_REQ(mSGpTR)      ((itti_s1ap_ue_context_release_req_t*)(mSGpTR)->itti_msg)
+#define S1AP_UE_CONTEXT_RELEASE_COMMAND(mSGpTR)  ((itti_s1ap_ue_context_release_command_t*)(mSGpTR)->itti_msg)
+#define S1AP_UE_CONTEXT_RELEASE_COMPLETE(mSGpTR) ((itti_s1ap_ue_context_release_complete_t*)(mSGpTR)->itti_msg)
+#define S1AP_E_RAB_SETUP_REQ(mSGpTR)             ((itti_s1ap_e_rab_setup_req_t*)(mSGpTR)->itti_msg)
+#define S1AP_E_RAB_SETUP_RSP(mSGpTR)             ((itti_s1ap_e_rab_setup_rsp_t*)(mSGpTR)->itti_msg)
+#define S1AP_INITIAL_UE_MESSAGE(mSGpTR)          ((itti_s1ap_initial_ue_message_t*)(mSGpTR)->itti_msg)
+#define S1AP_NAS_DL_DATA_REQ(mSGpTR)             ((itti_s1ap_nas_dl_data_req_t*)(mSGpTR)->itti_msg)
+#define S1AP_UE_CAPABILITIES_IND(mSGpTR)         ((itti_s1ap_ue_cap_ind_t*)(mSGpTR)->itti_msg)
 
 // NOT a ITTI message
 typedef struct s1ap_initial_ue_message_s {
@@ -83,6 +81,43 @@ typedef struct itti_s1ap_ue_context_release_req_s {
   S1ap_Cause_t      cause;             // Should translate this S1ap_Cause_t type
 } itti_s1ap_ue_context_release_req_t;
 
+typedef enum s1ap_reset_type_e {
+  RESET_ALL = 0,
+  RESET_PARTIAL
+} s1ap_reset_type_t;
+
+typedef struct s1_sig_conn_id_s {
+  mme_ue_s1ap_id_t*  mme_ue_s1ap_id;
+  enb_ue_s1ap_id_t*  enb_ue_s1ap_id;
+} s1_sig_conn_id_t;
+
+typedef struct itti_s1ap_enb_initiated_reset_req_s {
+  uint32_t          sctp_assoc_id;
+  uint16_t          sctp_stream_id;
+  uint32_t          enb_id;
+  s1ap_reset_type_t  s1ap_reset_type;
+  uint32_t          num_ue;
+  s1_sig_conn_id_t  *ue_to_reset_list;
+} itti_s1ap_enb_initiated_reset_req_t;
+
+typedef struct itti_s1ap_enb_initiated_reset_ack_s {
+  uint32_t          sctp_assoc_id;
+  uint16_t          sctp_stream_id;
+  s1ap_reset_type_t  s1ap_reset_type;
+  uint32_t          num_ue;
+  s1_sig_conn_id_t  *ue_to_reset_list;
+} itti_s1ap_enb_initiated_reset_ack_t;
+
+// List of possible causes for MME generated UE context release command towards eNB
+enum s1cause {
+  S1AP_INVALID_CAUSE = 0,
+  S1AP_NAS_NORMAL_RELEASE,
+  S1AP_NAS_DETACH,
+  S1AP_RADIO_EUTRAN_GENERATED_REASON,
+  S1AP_IMPLICIT_CONTEXT_RELEASE,
+  S1AP_INITIAL_CONTEXT_SETUP_FAILED,
+  S1AP_SCTP_SHUTDOWN_OR_RESET
+};
 typedef struct itti_s1ap_ue_context_release_command_s {
   mme_ue_s1ap_id_t  mme_ue_s1ap_id;
   enb_ue_s1ap_id_t  enb_ue_s1ap_id:24;
@@ -96,7 +131,9 @@ typedef struct itti_s1ap_ue_context_release_complete_s {
 
 typedef struct itti_s1ap_initial_ue_message_s {
   sctp_assoc_id_t     sctp_assoc_id; // key stored in MME_APP for MME_APP forward NAS response to S1AP
+  uint32_t            enb_id; 
   enb_ue_s1ap_id_t    enb_ue_s1ap_id;
+  mme_ue_s1ap_id_t    mme_ue_s1ap_id;
   bstring             nas;
   tai_t               tai;               /* Indicating the Tracking Area from which the UE has sent the NAS message.                         */
   ecgi_t              ecgi;              /* Indicating the cell from which the UE has sent the NAS message.                         */
@@ -143,4 +180,7 @@ typedef struct itti_s1ap_e_rab_setup_rsp_s {
 
 } itti_s1ap_e_rab_setup_rsp_t;
 
+#ifdef __cplusplus
+}
+#endif
 #endif /* FILE_S1AP_MESSAGES_TYPES_SEEN */

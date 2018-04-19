@@ -18,6 +18,7 @@
  * For more information about the OpenAirInterface (OAI) Software Alliance:
  *      contact@openairinterface.org
  */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -25,10 +26,13 @@
 
 #include "bstrlib.h"
 
-#include "log.h"
 #include "TLVEncoder.h"
 #include "TLVDecoder.h"
 #include "EsmInformationTransferFlag.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 //------------------------------------------------------------------------------
 int decode_esm_information_transfer_flag (
@@ -96,3 +100,6 @@ uint8_t encode_u8_esm_information_transfer_flag (esm_information_transfer_flag_t
   return bufferReturn;
 }
 
+#ifdef __cplusplus
+}
+#endif

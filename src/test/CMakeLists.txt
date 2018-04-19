@@ -1,23 +1,32 @@
+set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/../../build/modules/")
 find_package(Check REQUIRED)
 find_package(Threads REQUIRED)
 
 include_directories(${CHECK_INCLUDE_DIRS})
+include_directories(${SRC_TOP_DIR}/mme_app)
+include_directories(${SRC_TOP_DIR}/common)
+include_directories(${SRC_TOP_DIR}/sgw)
+include_directories(${SRC_TOP_DIR}/utils)
+include_directories(${SRC_TOP_DIR}/utils/bstr)
+include_directories(${SRC_TOP_DIR}/utils/hashtable)
 
-set(MME_APP_UE_CONTEXT_IMSI_SRC   test_mme_app_ue_context.c)
+# Nas message headers are all pulled in.
+include_directories("${SRC_TOP_DIR}/nas")
+include_directories("${SRC_TOP_DIR}/nas/emm")
+include_directories("${SRC_TOP_DIR}/nas/emm/msg")
+include_directories("${SRC_TOP_DIR}/nas/emm/sap")
+include_directories("${SRC_TOP_DIR}/nas/ies")
+include_directories("${SRC_TOP_DIR}/nas/util")
+include_directories("${SRC_TOP_DIR}/nas/esm")
+include_directories("${SRC_TOP_DIR}/nas/esm/msg")
+include_directories("${SRC_TOP_DIR}/nas/api/network")
+include_directories("${SRC_TOP_DIR}/nas/api/mme")
+
+
+set(MME_APP_UE_CONTEXT_IMSI_SRC
+    test_mme_app_ue_context.c
+    )
+
 add_executable(test_mme_app_ue_context_imsi ${MME_APP_UE_CONTEXT_IMSI_SRC})
 target_link_libraries(test_mme_app_ue_context_imsi MME_APP ${CHECK_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
-
-
-#set(TEST_AES_CMAC_SRC test_aes128_cmac_encrypt.c)
-#add_executable(test_aes128_cmac ${TEST_AES_CMAC_SRC})
-#target_link_libraries(test_aes128_cmac crypt ${CRYPTO_LIBRARIES} ${OPENSSL_LIBRARIES} ${NETTLE_LIBRARIES} ${CHECK_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
-
-
-#set(TEST_AES128_DECRYPT_SRC test_aes128_ctr_decrypt.c )
-#add_executable(test_aes128_ctr_decrypt ${TEST_AES128_DECRYPT_SRC})
-#target_link_libraries(test_aes128_ctr_decrypt crypt ${CRYPTO_LIBRARIES} ${OPENSSL_LIBRARIES} ${NETTLE_LIBRARIES} ${CHECK_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
-
-
-#set(TEST_AES128_ENCRYPT_SRC test_aes128_ctr_encrypt.c )
-#add_executable(test_aes128_ctr_encrypt ${TEST_AES128_ENCRYPT_SRC})
-#target_link_libraries(test_aes128_ctr_encrypt crypt ${CRYPTO_LIBRARIES} ${OPENSSL_LIBRARIES} ${NETTLE_LIBRARIES} ${CHECK_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
+add_test(NAME test_mme_app_ue_context COMMAND test_mme_app_ue_context_imsi)

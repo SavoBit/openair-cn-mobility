@@ -18,6 +18,7 @@
  * For more information about the OpenAirInterface (OAI) Software Alliance:
  *      contact@openairinterface.org
  */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -30,6 +31,10 @@
 #include "TLVEncoder.h"
 #include "TLVDecoder.h"
 #include "TrackingAreaIdentityList.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 //------------------------------------------------------------------------------
 int decode_tracking_area_identity_list (
@@ -183,3 +188,6 @@ int encode_tracking_area_identity_list (
   return encoded;
 }
 
+#ifdef __cplusplus
+}
+#endif

@@ -22,6 +22,10 @@
 #ifndef SERVICE_TYPE_SEEN
 #define SERVICE_TYPE_SEEN
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define SERVICE_TYPE_MINIMUM_LENGTH 1
 #define SERVICE_TYPE_MAXIMUM_LENGTH 1
 
@@ -35,5 +39,9 @@ int decode_service_type(service_type_t *servicetype, uint8_t iei, uint8_t *buffe
 
 int decode_u8_service_type(service_type_t *servicetype, uint8_t iei, uint8_t value, uint32_t len);
 
-#endif /* SERVICE TYPE_H_ */
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* SERVICE_TYPE_SEEN */
 

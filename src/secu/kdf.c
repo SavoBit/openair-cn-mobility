@@ -24,11 +24,14 @@
 #include <string.h>
 
 #include <nettle/hmac.h>
-#include "bstrlib.h"
 
 #include "security_types.h"
 #include "secu_defs.h"
 #include "dynamic_memory_check.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 void
 kdf (
@@ -69,3 +72,8 @@ derive_keNB (
   kdf (kasme_32, 32, s, 7, keNB, 32);
   return 0;
 }
+
+#ifdef __cplusplus
+}
+#endif
+

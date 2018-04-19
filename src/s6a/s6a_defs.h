@@ -19,6 +19,7 @@
  *      contact@openairinterface.org
  */
 
+
 /*! \file s6a_defs.h
   \brief
   \author Sebastien ROUX
@@ -34,8 +35,12 @@
 #include <freeDiameter/freeDiameter-host.h>
 #include <freeDiameter/libfdcore.h>
 
+#include "mme_config.h"
 #include "queue.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define VENDOR_3GPP (10415)
 #define APP_S6A     (16777251)
@@ -159,9 +164,11 @@ extern s6a_fd_cnf_t s6a_fd_cnf;
 #define AVP_CODE_AUTHENTICATION_INFO               (1413)
 #define AVP_CODE_E_UTRAN_VECTOR                    (1414)
 #define AVP_CODE_NETWORK_ACCESS_MODE               (1417)
+#define AVP_CODE_ITEM_NUMBER                       (1419)
 #define AVP_CODE_CONTEXT_IDENTIFIER                (1423)
 #define AVP_CODE_SUBSCRIBER_STATUS                 (1424)
 #define AVP_CODE_ACCESS_RESTRICTION_DATA           (1426)
+#define AVP_CODE_APN_OI_REPLACEMENT                (1427)
 #define AVP_CODE_ALL_APN_CONFIG_INC_IND            (1428)
 #define AVP_CODE_APN_CONFIGURATION_PROFILE         (1429)
 #define AVP_CODE_APN_CONFIGURATION                 (1430)
@@ -174,8 +181,7 @@ extern s6a_fd_cnf_t s6a_fd_cnf;
 #define AVP_CODE_PDN_TYPE                          (1456)
 #define AVP_CODE_SUBSCRIBED_PERIODIC_RAU_TAU_TIMER (1619)
 
-struct mme_config_s;
-int s6a_init(const struct mme_config_s *mme_config);
+int s6a_init(const mme_config_t *mme_config);
 
 int s6a_fd_new_peer(void);
 
@@ -190,5 +196,8 @@ int s6a_parse_experimental_result(struct avp *avp, s6a_experimental_result_t *pt
 char *experimental_retcode_2_string(uint32_t ret_code);
 char *retcode_2_string(uint32_t ret_code);
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* S6A_DEFS_H_ */

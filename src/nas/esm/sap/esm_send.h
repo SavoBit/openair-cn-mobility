@@ -55,6 +55,11 @@ Description Defines functions executed at the ESM Service Access
 
 #include "EsmInformationRequest.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 /****************************************************************************/
 /*********************  G L O B A L    C O N S T A N T S  *******************/
 /****************************************************************************/
@@ -79,7 +84,6 @@ Description Defines functions executed at the ESM Service Access
 int esm_send_esm_information_request (pti_t pti, ebi_t ebi, esm_information_request_msg * msg);
 
 int esm_send_status(pti_t pti, ebi_t ebi, esm_status_msg *msg, int esm_cause);
-
 
 /*
  * Transaction related messages
@@ -108,5 +112,9 @@ int esm_send_activate_dedicated_eps_bearer_context_request(pti_t pti, ebi_t ebi,
 
 int esm_send_deactivate_eps_bearer_context_request(pti_t pti, ebi_t ebi,
     deactivate_eps_bearer_context_request_msg *msg, int esm_cause);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __ESM_SEND_H__*/

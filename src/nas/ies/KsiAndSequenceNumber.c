@@ -18,6 +18,7 @@
  * For more information about the OpenAirInterface (OAI) Software Alliance:
  *      contact@openairinterface.org
  */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -25,10 +26,13 @@
 
 #include "bstrlib.h"
 
-#include "log.h"
 #include "TLVEncoder.h"
 #include "TLVDecoder.h"
 #include "KsiAndSequenceNumber.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 //------------------------------------------------------------------------------
 int decode_ksi_and_sequence_number (
@@ -73,4 +77,8 @@ int encode_ksi_and_sequence_number (
   encoded++;
   return encoded;
 }
+
+#ifdef __cplusplus
+}
+#endif
 

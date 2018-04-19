@@ -22,6 +22,11 @@
 #ifndef RADIO_PRIORITY_SEEN
 #define RADIO_PRIORITY_SEEN
 
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define RADIO_PRIORITY_MINIMUM_LENGTH 1
 #define RADIO_PRIORITY_MAXIMUM_LENGTH 1
 
@@ -34,6 +39,10 @@ uint8_t encode_u8_radio_priority(radio_priority_t *radiopriority);
 int decode_radio_priority(radio_priority_t *radiopriority, uint8_t iei, uint8_t *buffer, uint32_t len);
 
 int decode_u8_radio_priority(radio_priority_t *radiopriority, uint8_t iei, uint8_t value, uint32_t len);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* RADIO PRIORITY_SEEN */
 

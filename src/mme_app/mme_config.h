@@ -1,30 +1,22 @@
 /*
- * Copyright (c) 2015, EURECOM (www.eurecom.fr)
- * All rights reserved.
+ * Licensed to the OpenAirInterface (OAI) Software Alliance under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The OpenAirInterface Software Alliance licenses this file to You under
+ * the Apache License, Version 2.0  (the "License"); you may not use this file
+ * except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * 1. Redistributions of source code must retain the above copyright notice, this
- *    list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * The views and conclusions contained in the software and documentation are those
- * of the authors and should not be interpreted as representing official policies,
- * either expressed or implied, of the FreeBSD Project.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *-------------------------------------------------------------------------------
+ * For more information about the OpenAirInterface (OAI) Software Alliance:
+ *      contact@openairinterface.org
  */
 
 /*! \file mme_config.h
@@ -44,6 +36,10 @@
 #include "common_types.h"
 #include "bstrlib.h"
 #include "log.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define MAX_GUMMEI                2
 
@@ -115,19 +111,13 @@
 #define MME_CONFIG_STRING_NAS_DISABLE_ESM_INFORMATION_PROCEDURE    "DISABLE_ESM_INFORMATION_PROCEDURE"
 #define MME_CONFIG_STRING_NAS_FORCE_PUSH_DEDICATED_BEARER "FORCE_PUSH_DEDICATED_BEARER"
 
-
 #define MME_CONFIG_STRING_ASN1_VERBOSITY                 "ASN1_VERBOSITY"
 #define MME_CONFIG_STRING_ASN1_VERBOSITY_NONE            "none"
 #define MME_CONFIG_STRING_ASN1_VERBOSITY_ANNOYING        "annoying"
 #define MME_CONFIG_STRING_ASN1_VERBOSITY_INFO            "info"
-
 #define MME_CONFIG_STRING_SGW_LIST_SELECTION             "S-GW_LIST_SELECTION"
 #define MME_CONFIG_STRING_ID                             "ID"
 
-typedef enum {
-   RUN_MODE_BASIC,
-   RUN_MODE_SCENARIO_PLAYER
-} run_mode_t;
 
 typedef struct mme_config_s {
   /* Reader/writer lock for this configuration */
@@ -138,7 +128,6 @@ typedef struct mme_config_s {
   bstring pid_dir;
   bstring realm;
 
-  run_mode_t  run_mode;
 
   uint32_t max_enbs;
   uint32_t max_ues;
@@ -192,6 +181,7 @@ typedef struct mme_config_s {
     struct in_addr s11;
     int        netmask_s11;
     uint16_t   port_s11;
+
   } ipv4;
 
   struct {
@@ -216,26 +206,17 @@ typedef struct mme_config_s {
     uint32_t t3486_sec;
     uint32_t t3489_sec;
     uint32_t t3495_sec;
-
     // non standart features
     bool     force_reject_tau;
     bool     force_reject_sr;
     bool     disable_esm_information;
   } nas_config;
-
   struct {
     int            nb_sgw_entries;
 #define MME_CONFIG_MAX_SGW 16
     bstring        sgw_id[MME_CONFIG_MAX_SGW];
     struct in_addr sgw_ip_addr[MME_CONFIG_MAX_SGW];
   } e_dns_emulation;
-
-#if TRACE_XML
-  struct {
-    bstring scenario_file;
-    bool    stop_on_error;
-  } scenario_player_config;
-#endif
 
   log_config_t log_config;
 } mme_config_t;
@@ -255,5 +236,9 @@ void mme_config_exit (void);
 #define mme_config_read_lock(mMEcONFIG)  pthread_rwlock_rdlock(&(mMEcONFIG)->rw_lock)
 #define mme_config_write_lock(mMEcONFIG) pthread_rwlock_wrlock(&(mMEcONFIG)->rw_lock)
 #define mme_config_unlock(mMEcONFIG)     pthread_rwlock_unlock(&(mMEcONFIG)->rw_lock)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* FILE_MME_CONFIG_SEEN */

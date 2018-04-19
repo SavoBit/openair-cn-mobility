@@ -33,6 +33,9 @@
 #include "as_message.h"
 #include "esm_proc.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 int nas_itti_dl_data_req(
   const mme_ue_s1ap_id_t ue_idP,
@@ -93,5 +96,9 @@ void nas_itti_dedicated_eps_bearer_complete(
 void nas_itti_dedicated_eps_bearer_reject(
     const mme_ue_s1ap_id_t ue_idP,
     const ebi_t ebiP);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* FILE_NAS_ITTI_MESSAGING_SEEN */

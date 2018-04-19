@@ -52,6 +52,10 @@ Description Defines the messages supported by the Access Stratum sublayer
 #include "TrackingAreaIdentity.h"
 #include "common_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /****************************************************************************/
 /*********************  G L O B A L    C O N S T A N T S  *******************/
 /****************************************************************************/
@@ -290,7 +294,6 @@ typedef enum as_cause_s {
   AS_CAUSE_V1020      = DELAY_TOLERANT_ACCESS_V1020
 } as_cause_t;
 
-
 /* Type of the call associated to the RRC connection establishment */
 typedef enum as_call_type_s {
   AS_TYPE_ORIGINATING_SIGNAL  = NET_ESTABLISH_TYPE_ORIGINATING_SIGNAL,
@@ -333,12 +336,12 @@ typedef struct nas_establish_ind_s {
  */
 typedef struct nas_establish_rsp_s {
   mme_ue_s1ap_id_t ue_id;         /* UE lower layer identifier   */
-  s_tmsi_t         s_tmsi;        /* UE identity                 */
   nas_error_code_t err_code;      /* Transaction status          */
   bstring          nas_msg;       /* NAS message to transfer     */
   uint32_t         nas_ul_count;  /* UL NAS COUNT                */
   uint16_t         selected_encryption_algorithm;
   uint16_t         selected_integrity_algorithm;
+  s_tmsi_t         s_tmsi;        /* UE identity                 */
 } nas_establish_rsp_t;
 
 /*
@@ -426,7 +429,12 @@ typedef struct ul_info_transfer_ind_s {
  * NAS requests the AS to transfer downlink information to the NAS that
  * operates at the UE side.
  */
-typedef ul_info_transfer_req_t dl_info_transfer_req_t;
+typedef struct dl_info_transfer_req_s {
+  mme_ue_s1ap_id_t ue_id;       /* UE lower layer identifier        */
+  s_tmsi_t         s_tmsi;      /* UE identity              */
+  bstring          nas_msg;     /* Uplink NAS message           */
+  nas_error_code_t err_code;   /* Transaction status               */
+} dl_info_transfer_req_t;
 
 /*
  * AS->NAS - Downlink data transfer confirm
@@ -567,5 +575,9 @@ int as_message_encode(char* buffer, as_message_t* msg, size_t length);
 
 /* Implemented in the network_api.c body file */
 int as_message_send(as_message_t* as_msg);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* FILE_AS_MESSAGE_H_SEEN*/

@@ -40,7 +40,6 @@
 #endif
 #include <freeDiameter/freeDiameter-host.h>
 #include <freeDiameter/libfdcore.h>
-
 #include "log.h"
 #include "assertions.h"
 #include "intertask_interface.h"
@@ -50,7 +49,11 @@
 #include "s6a_messages.h"
 #include "mme_config.h"
 #include "timer.h"
+#include "dynamic_memory_check.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define S6A_PEER_CONNECT_TIMEOUT_MICRO_SEC  (0)
 #define S6A_PEER_CONNECT_TIMEOUT_SEC        (1)
@@ -66,6 +69,7 @@ static void                             fd_gnutls_debug (
   int level,
   const char *str);
 static void s6a_exit(void);
+
 
 //------------------------------------------------------------------------------
 static void fd_gnutls_debug (
@@ -111,21 +115,19 @@ void *s6a_thread (void *args)
         OAI_FPRINTF_INFO("TASK_S6A received MESSAGE_TEST\n");
       }
       break;
-
     case S6A_AUTH_INFO_REQ:{
-        s6a_generate_authentication_info_req (&received_message_p->ittiMsg.s6a_auth_info_req);
+        s6a_generate_authentication_info_req (S6A_AUTH_INFO_REQ(received_message_p));
       }
       break;
-
     case S6A_UPDATE_LOCATION_REQ:{
-        s6a_generate_update_location (&received_message_p->ittiMsg.s6a_update_location_req);
+        s6a_generate_update_location (S6A_UPDATE_LOCATION_REQ(received_message_p));
       }
       break;
-
     case TIMER_HAS_EXPIRED:{
         /*
          * Trying to connect to peers
          */
+        timer_id = 0;
         if (s6a_fd_new_peer() != RETURNok) {
           /*
            * On failure, reschedule timer.
@@ -141,7 +143,6 @@ void *s6a_thread (void *args)
         }
       }
       break;
-
     case TERMINATE_MESSAGE:{
         s6a_exit();
         itti_free_msg_content(received_message_p);
@@ -150,7 +151,6 @@ void *s6a_thread (void *args)
         itti_exit_task ();
       }
       break;
-
     default:{
         OAILOG_DEBUG (LOG_S6A, "Unkwnon message ID %d: %s\n", ITTI_MSG_ID (received_message_p), ITTI_MSG_NAME (received_message_p));
       }
@@ -272,6 +272,12 @@ int s6a_init (
 //------------------------------------------------------------------------------
 static void s6a_exit(void)
 {
+  if (timer_id) {
+    timer_remove(timer_id, NULL);
+  }
+  // Release all resources
+  free_wrapper((void **) &fd_g_config->cnf_diamid);
+  fd_g_config->cnf_diamid_len = 0;
   int    rv = RETURNok;
   /* Initialize shutdown of the framework */
   rv = fd_core_shutdown();
@@ -285,3 +291,7 @@ static void s6a_exit(void)
     OAI_FPRINTF_ERR ("An error occurred during fd_core_wait_shutdown_complete().\n");
   }
 }
+
+#ifdef __cplusplus
+}
+#endif

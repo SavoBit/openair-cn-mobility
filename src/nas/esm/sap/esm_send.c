@@ -57,6 +57,10 @@
 #include "esm_msgDef.h"
 #include "esm_cause.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 /****************************************************************************/
 /****************  E X T E R N A L    D E F I N I T I O N S  ****************/
@@ -75,8 +79,6 @@
    Functions executed by the MME to send ESM messages
    --------------------------------------------------------------------------
 */
-
-
 int esm_send_esm_information_request (pti_t pti, ebi_t ebi, esm_information_request_msg * msg)
 {
   OAILOG_FUNC_IN (LOG_NAS_ESM);
@@ -182,7 +184,7 @@ esm_send_pdn_connectivity_reject (
    * Optional IEs
    */
   msg->presencemask = 0;
-  OAILOG_INFO (LOG_NAS_ESM, "ESM-SAP   - Send PDN Connectivity Reject message " "(pti=%d, ebi=%d)\n", msg->proceduretransactionidentity, msg->epsbeareridentity);
+  OAILOG_DEBUG (LOG_NAS_ESM, "ESM-SAP   - Send PDN Connectivity Reject message " "(pti=%d, ebi=%d)\n", msg->proceduretransactionidentity, msg->epsbeareridentity);
   OAILOG_FUNC_RETURN (LOG_NAS_ESM, RETURNok);
 }
 
@@ -331,6 +333,8 @@ esm_send_activate_default_eps_bearer_context_request (
 //#pragma message  "TEST LG FORCE APN-AMBR"
   OAILOG_INFO (LOG_NAS_ESM, "ESM-SAP   - FORCE APN-AMBR\n");
   msg->presencemask |= ACTIVATE_DEFAULT_EPS_BEARER_CONTEXT_REQUEST_APNAMBR_PRESENT;
+  // APN AMBR is hardcoded to DL AMBR = 200 Mbps and UL APN MBR = 100 Mbps - Which is ok for now for TDD 20 MHz
+  // TODO task#14477798 - need to change these to apm-subscribed values 
   msg->apnambr.apnambrfordownlink = 0xfe;       // (8640kbps)
   msg->apnambr.apnambrforuplink = 0xfe; // (8640kbps)
   msg->apnambr.apnambrfordownlink_extended = 0xde;      // (200Mbps)
@@ -463,3 +467,7 @@ esm_send_deactivate_eps_bearer_context_request (
 /****************************************************************************/
 /*********************  L O C A L    F U N C T I O N S  *********************/
 /****************************************************************************/
+#ifdef __cplusplus
+}
+#endif
+

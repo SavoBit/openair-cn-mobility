@@ -29,10 +29,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #include "bstrlib.h"
 
 #include "TLVDecoder.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 int                                     errorCodeDecoder = 0;
 
@@ -74,4 +79,6 @@ bstring dump_bstring_xml (const bstring  const bstr)
   }
 }
 
-
+#ifdef __cplusplus
+}
+#endif

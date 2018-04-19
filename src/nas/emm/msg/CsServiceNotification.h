@@ -33,6 +33,9 @@
 #include "3gpp_24.007.h"
 #include "3gpp_24.008.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* Minimum length macro. Formed by minimum length of each mandatory field */
 #define CS_SERVICE_NOTIFICATION_MINIMUM_LENGTH ( \
@@ -73,18 +76,22 @@ typedef struct cs_service_notification_msg_tag {
   eps_protocol_discriminator_t         protocoldiscriminator:4;
   security_header_type_t               securityheadertype:4;
   message_type_t                       messagetype;
-  paging_identity_t                       pagingidentity;
+  paging_identity_t                    pagingidentity;
   /* Optional fields */
   uint32_t                             presencemask;
   Cli                                  cli;
-  ss_code_t                               sscode;
-  lcs_indicator_t                         lcsindicator;
+  ss_code_t                            sscode;
+  lcs_indicator_t                      lcsindicator;
   LcsClientIdentity                    lcsclientidentity;
 } cs_service_notification_msg;
 
 int decode_cs_service_notification(cs_service_notification_msg *csservicenotification, uint8_t *buffer, uint32_t len);
 
 int encode_cs_service_notification(cs_service_notification_msg *csservicenotification, uint8_t *buffer, uint32_t len);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* ! defined(FILE_CS_SERVICE_NOTIFICATION_SEEN) */
 

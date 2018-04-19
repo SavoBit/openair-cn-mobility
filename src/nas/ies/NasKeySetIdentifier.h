@@ -22,6 +22,10 @@
 #ifndef NAS_KEY_SET_IDENTIFIER_SEEN
 #define NAS_KEY_SET_IDENTIFIER_SEEN
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define NAS_KEY_SET_IDENTIFIER_MINIMUM_LENGTH 1
 #define NAS_KEY_SET_IDENTIFIER_MAXIMUM_LENGTH 1
 
@@ -35,11 +39,15 @@ typedef struct NasKeySetIdentifier_tag {
 
 int encode_nas_key_set_identifier(NasKeySetIdentifier *naskeysetidentifier, uint8_t iei, uint8_t *buffer, uint32_t len);
 
+
 uint8_t encode_u8_nas_key_set_identifier(NasKeySetIdentifier *naskeysetidentifier);
 
 int decode_nas_key_set_identifier(NasKeySetIdentifier *naskeysetidentifier, uint8_t iei, uint8_t *buffer, uint32_t len);
 
 int decode_u8_nas_key_set_identifier(NasKeySetIdentifier *naskeysetidentifier, uint8_t iei, uint8_t value, uint32_t len);
 
-#endif /* NAS KEY SET IDENTIFIER_SEEN */
+#ifdef __cplusplus
+}
+#endif
 
+#endif /* NAS KEY SET IDENTIFIER_SEEN */

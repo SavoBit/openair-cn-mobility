@@ -18,6 +18,7 @@
  * For more information about the OpenAirInterface (OAI) Software Alliance:
  *      contact@openairinterface.org
  */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -25,10 +26,13 @@
 
 #include "bstrlib.h"
 
-#include "log.h"
 #include "TLVEncoder.h"
 #include "TLVDecoder.h"
 #include "EpsUpdateType.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 //------------------------------------------------------------------------------
 int decode_eps_update_type (
@@ -61,8 +65,8 @@ int decode_u8_eps_update_type (
   int                                     decoded = 0;
   uint8_t                                *buffer = &value;
 
-  epsupdatetype->active_flag = (*(buffer + decoded) >> 3) & 0x1;
-  epsupdatetype->eps_update_type_value = *(buffer + decoded) & 0x7;
+  epsupdatetype->active_flag = (*(buffer + decoded) >> 3) & 0x01;
+  epsupdatetype->eps_update_type_value = *(buffer + decoded) & 0x07;
   decoded++;
   return decoded;
 }
@@ -99,3 +103,6 @@ uint8_t encode_u8_eps_update_type (
   return bufferReturn;
 }
 
+#ifdef __cplusplus
+}
+#endif

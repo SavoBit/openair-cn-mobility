@@ -19,6 +19,7 @@
  *      contact@openairinterface.org
  */
 
+
 /*! \file s1ap_mme_nas_procedures.h
   \brief
   \author Sebastien ROUX, Lionel Gauthier
@@ -30,6 +31,12 @@
 #define FILE_S1AP_MME_NAS_PROCEDURES_SEEN
 
 #include "common_defs.h"
+#include "mme_app_messages_types.h"
+#include "s1ap_messages_types.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /** \brief Handle an Initial UE message.
  * \param assocId lower layer assoc id (SCTP)
@@ -70,5 +77,9 @@ int s1ap_generate_downlink_nas_transport (
   STOLEN_REF bstring *payload);
 
 int s1ap_generate_s1ap_e_rab_setup_req (itti_s1ap_e_rab_setup_req_t * const e_rab_setup_req);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* FILE_S1AP_MME_NAS_PROCEDURES_SEEN */

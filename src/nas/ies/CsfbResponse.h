@@ -22,6 +22,11 @@
 
 #ifndef CSFB_RESPONSE_SEEN
 #define CSFB_RESPONSE_SEEN
+#include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define CSFB_RESPONSE_MINIMUM_LENGTH 1
 #define CSFB_RESPONSE_MAXIMUM_LENGTH 1
@@ -36,5 +41,8 @@ int decode_csfb_response(csfb_response_t *csfbresponse, uint8_t iei, uint8_t *bu
 
 int decode_u8_csfb_response(csfb_response_t *csfbresponse, uint8_t iei, uint8_t value, uint32_t len);
 
-#endif /* CSFB RESPONSE_SEEN */
+#ifdef __cplusplus
+}
+#endif
 
+#endif /* CSFB_RESPONSE_SEEN */

@@ -24,6 +24,10 @@
 #ifndef DETACH_TYPE_SEEN
 #define DETACH_TYPE_SEEN
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define DETACH_TYPE_MINIMUM_LENGTH 1
 #define DETACH_TYPE_MAXIMUM_LENGTH 1
 
@@ -39,9 +43,6 @@ typedef struct detach_type_s {
   uint8_t  typeofdetach;
 } detach_type_t;
 
-#define DETACH_TYPE_XML_STR           "detach_type"
-#define SWITCH_OFF_ATTR_XML_STR       "switch_off"
-#define TYPE_OF_DETACH_ATTR_XML_STR   "type_of_detach"
 
 int encode_detach_type(detach_type_t *detachtype, uint8_t iei, uint8_t *buffer, uint32_t len);
 
@@ -51,5 +52,8 @@ int decode_detach_type(detach_type_t *detachtype, uint8_t iei, uint8_t *buffer, 
 
 int decode_u8_detach_type(detach_type_t *detachtype, uint8_t iei, uint8_t value, uint32_t len);
 
-#endif /* DETACH TYPE_SEEN */
+#ifdef __cplusplus
+}
+#endif
 
+#endif /* DETACH_TYPE_SEEN */

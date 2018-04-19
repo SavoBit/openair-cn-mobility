@@ -35,8 +35,12 @@ Author      Frederic Maurel
 Description Defines functions used to handle EPS bearer contexts.
 
 *****************************************************************************/
-#ifndef __ESM_EBR_CONTEXT_H__
-#define __ESM_EBR_CONTEXT_H__
+#ifndef ESM_EBR_CONTEXT_SEEN
+#define ESM_EBR_CONTEXT_SEEN
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /****************************************************************************/
 /*********************  G L O B A L    C O N S T A N T S  *******************/
@@ -67,4 +71,8 @@ ebi_t esm_ebr_context_release(emm_context_t * emm_context, ebi_t ebi, pdn_cid_t 
 
 void free_esm_ebr_context(esm_ebr_context_t * ctx);
 
-#endif /* __ESM_EBR_CONTEXT_H__ */
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* ESM_EBR_CONTEXT_SEEN */

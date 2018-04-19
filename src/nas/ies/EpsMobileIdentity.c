@@ -18,11 +18,11 @@
  * For more information about the OpenAirInterface (OAI) Software Alliance:
  *      contact@openairinterface.org
  */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <arpa/inet.h>
 
 #include "bstrlib.h"
 
@@ -30,6 +30,10 @@
 #include "TLVEncoder.h"
 #include "TLVDecoder.h"
 #include "EpsMobileIdentity.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 static int decode_guti_eps_mobile_identity (guti_eps_mobile_identity_t * guti, uint8_t * buffer);
 static int decode_imsi_eps_mobile_identity (imsi_eps_mobile_identity_t * imsi, uint8_t * buffer, uint8_t ie_len);
@@ -244,6 +248,7 @@ static int decode_imsi_eps_mobile_identity (imsi_eps_mobile_identity_t * imsi, u
       }
     }
   }
+
   OAILOG_FUNC_RETURN (LOG_NAS_EMM, decoded);
 }
 
@@ -392,3 +397,8 @@ static int encode_imei_eps_mobile_identity (imei_eps_mobile_identity_t * imei, u
   encoded++;
   return encoded;
 }
+
+#ifdef __cplusplus
+}
+#endif
+

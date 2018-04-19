@@ -1,30 +1,22 @@
 /*
- * Copyright (c) 2015, EURECOM (www.eurecom.fr)
- * All rights reserved.
+ * Licensed to the OpenAirInterface (OAI) Software Alliance under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The OpenAirInterface Software Alliance licenses this file to You under
+ * the Apache License, Version 2.0  (the "License"); you may not use this file
+ * except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * 1. Redistributions of source code must retain the above copyright notice, this
- *    list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * The views and conclusions contained in the software and documentation are those
- * of the authors and should not be interpreted as representing official policies,
- * either expressed or implied, of the FreeBSD Project.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *-------------------------------------------------------------------------------
+ * For more information about the OpenAirInterface (OAI) Software Alliance:
+ *      contact@openairinterface.org
  */
 
 /*! \file 3gpp_23.003.h
@@ -33,10 +25,11 @@
   \company Eurecom
   \email: lionel.gauthier@eurecom.fr
 */
-
 #ifndef FILE_3GPP_23_003_SEEN
 #define FILE_3GPP_23_003_SEEN
-
+#ifdef __cplusplus
+extern "C" {
+#endif
 //==============================================================================
 // 12  Identification of PLMN, RNC, Service Area, CN domain and Shared Network Area
 //==============================================================================
@@ -237,7 +230,6 @@ typedef struct msisdn_s {
 //------------------------------------------------------------------------------
 
 
-
 // 4.3 Base station identification
 // 4.3.1 Cell Identity (CI) and Cell Global Identification (CGI)
 // 4.3.2 Base Station Identify Code (BSIC)
@@ -381,7 +373,10 @@ typedef struct imeisv_s {
 // 19.4.2  Fully Qualified Domain Names (FQDNs)
 //..............................................................................
 // 19.4.2.2 Access Point Name FQDN (APN-FQDN)
+
 // 19.4.2.3  Tracking Area Identity (TAI)
+
+
 // 19.4.2.4  Mobility Management Entity (MME)
 // 19.4.2.5  Routing Area Identity (RAI) - EPC
 
@@ -395,6 +390,12 @@ typedef struct imeisv_s {
  *        of each PLMN operator. */
 typedef struct eci_s {
   uint32_t enb_id:20;
+ /* Anoop - This is correct only when eNB type is macro. In case eNB type is
+  * Home eNB then all the 28 bits are used for eNB id . This needs
+  * correction since MME uses combination of enb_id and "eNB S1AP UEid" for the
+  * key to UE context,this may not work if MME is connected to many HeNBs -
+  * which is not critical now.*/
+ 
   uint32_t cell_id:8;
   uint32_t empty:4;
 } eci_t;
@@ -414,6 +415,8 @@ typedef struct ecgi_s {
 // 23 Numbering, addressing and identification for the Relay Node OAM System
 
 
+
+
 /* Clear GUTI without free it */
 void clear_guti(guti_t * const guti);
 /* Clear IMSI without free it */
@@ -423,4 +426,7 @@ void clear_imei(imei_t * const imei);
 /* Clear IMEISV without free it */
 void clear_imeisv(imeisv_t * const imeisv);
 
+#ifdef __cplusplus
+}
+#endif
 #endif /* FILE_3GPP_23_003_SEEN */

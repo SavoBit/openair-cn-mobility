@@ -41,6 +41,10 @@
 #include "PdnType.h"
 #include "s6a_defs.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 static inline int
 s6a_parse_subscriber_status (
   struct avp_hdr *hdr_sub_status,
@@ -345,6 +349,8 @@ s6a_parse_apn_configuration (
   struct avp_hdr                         *hdr;
 
   CHECK_FCT (fd_msg_browse (avp_apn_conf_prof, MSG_BRW_FIRST_CHILD, &avp, NULL));
+  memset(apn_config, 0, sizeof *apn_config);
+  DevAssert(apn_config->nb_ip_address == 0);
 
   while (avp) {
     CHECK_FCT (fd_msg_avp_hdr (avp, &hdr));
@@ -472,6 +478,9 @@ s6a_parse_subscription_data (
       subscription_data->rau_tau_timer = hdr->avp_value->u32;
       break;
 
+    case AVP_CODE_APN_OI_REPLACEMENT:
+      break;
+
     default:
       return RETURNerror;
     }
@@ -484,3 +493,8 @@ s6a_parse_subscription_data (
 
   return RETURNok;
 }
+
+#ifdef __cplusplus
+}
+#endif
+
