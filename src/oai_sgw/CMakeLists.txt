@@ -32,11 +32,11 @@ add_executable(spgw
   ${SRC_TOP_DIR}/common/common_types.c
   ${SRC_TOP_DIR}/common/itti_free_defined_msg.c
   )
-target_link_libraries (spgw
+target_link_libraries (spgw asan
       -Wl,--start-group
       BSTR CN_UTILS GTPV1U GTPV2C HASHTABLE 
       SGW S11_SGW UDP_SERVER ${MSC_LIB} OPENFLOW_CONTROLLER ITTI  3GPP_TYPES
       -Wl,--end-group
-      pthread m rt ${LFDS} ${CONFIG_LIBRARIES} asan event
+      pthread m rt ${LFDS} ${CONFIG_LIBRARIES} event
       )
 

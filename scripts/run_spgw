@@ -162,6 +162,7 @@ function main()
   set_openair_env 
   cecho "OPENAIR_DIR    = $OPENAIR_DIR" $green
   
+  export ENABLE_"$GTPU_API"=1
 
   if [ ! -f $spgw_config_file ]; then 
     echo_error "Please provide -c|--config-file valid argument (\"$spgw_config_file\" not a valid file)"
@@ -180,29 +181,35 @@ function main()
   fi
 
 
-  if [ [ ! -z ${ENABLE_OPENFLOW+x} ]  ||  [ ! -z ${ENABLE_OPENFLOW_MOSAIC+x} ] ]; then
+  if [ -z ${ENABLE_OPENFLOW+x} ]  ||  [ -z ${ENABLE_OPENFLOW_MOSAIC+x} ]; then
     export PATH=$PATH:/usr/local/share/openvswitch/scripts
+
+    $SUDO mkdir -m 777 -p /usr/local/var/log/openvswitch/
     
     # From http://www.openvswitch.org/support/dist-docs-2.5/INSTALL.md.html
     
+    echo "Starting ovsdb-server..."
     $SUDO ovsdb-server --remote=punix:/usr/local/var/run/openvswitch/db.sock \
                  --remote=db:Open_vSwitch,Open_vSwitch,manager_options \
                  --private-key=db:Open_vSwitch,SSL,private_key \
                  --certificate=db:Open_vSwitch,SSL,certificate \
                  --bootstrap-ca-cert=db:Open_vSwitch,SSL,ca_cert \
-                 --pidfile --detach
-    [[ $? -ne 0 ]] && return $?
+                 --pidfile --detach -log-file
+    [[ $? -ne 0 ]] && echo_error "Failed to start ovsdb-server" && return $?
     
     # Then initialize the database using ovs-vsctl. This is only necessary the first
     # time after you create the database with ovsdb-tool (but running it at any time 
     # is harmless):
+    echo "Init ovs db..."
     $SUDO ovs-vsctl --no-wait init
-    #[[ $? -ne 0 ]] && return $?
+    [[ $? -ne 0 ]] && echo_error "Failed to init OVS db" && return $?
     
     # Then start the main Open vSwitch daemon, telling it to connect to the same 
     # Unix domain socket:
-    $SUDO ovs-vswitchd --pidfile --detach
-    [[ $? -ne 0 ]] && return $?
+    echo "Starting vswitchd..."
+    $SUDO ovs-vswitchd -v --pidfile --detach
+    [[ $? -ne 0 ]] && echo_error "Failed to start vswitchd" && return $?
+    echo_success "Started OVS"
     
     $SUDO ovs-vsctl --may-exist add-br $OVS_GTPU_BRIDGE_NAME
     [[ $? -ne 0 ]] && return $?
