@@ -43,7 +43,7 @@ install_liblfds7.1.0_from_source() {
   fi
   if [[ $prompt =~ [yY](es)* ]]
   then
-    step "Install liblfds7.1.0 from source"
+    echo "Install liblfds7.1.0 from source"
     # Compilers, generators, ...
     $SUDO apt-get install $OPTION build-essential
     [[ $? -ne 0 ]] && return $?
