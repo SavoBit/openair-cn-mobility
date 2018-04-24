@@ -40,8 +40,6 @@
 #include <fcntl.h>
 #include <pthread.h>
 
-#include <libxml/xmlwriter.h>
-#include <libxml/xpath.h>
 #include "bstrlib.h"
 
 #include "hashtable.h"
