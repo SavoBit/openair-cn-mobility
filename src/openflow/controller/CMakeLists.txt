@@ -18,6 +18,8 @@ include_directories("${SRC_TOP_DIR}/utils/bstr")
 include_directories("${SRC_TOP_DIR}/utils/msc")
 include_directories("${SRC_TOP_DIR}/sgw")
 include_directories("${SRC_TOP_DIR}/openflow/controller")
+include_directories("${SRC_TOP_DIR}/fluid/fluidbase")
+include_directories("${SRC_TOP_DIR}/fluid/fluidmsg/")
 
 add_library(OPENFLOW_CONTROLLER
   ControllerMain.h

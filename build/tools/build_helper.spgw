@@ -35,6 +35,45 @@ source $THIS_SCRIPT_PATH/build_helper.gtpnl
 source $THIS_SCRIPT_PATH/build_helper.ovs
 
 
+#-------------------------------------------------------------------------------
+# arg1 is force (no interactive script)
+install_libevent_2.1.x_from_source() {
+  if [ $1 -eq 0 ]; then
+    read -p "Do you want to install libevent ? <y/N> " prompt
+    OPTION=""
+  else
+    prompt='y'
+    OPTION="-y"
+  fi
+
+  echo "Install libevent-2.1.x from source"
+
+  if [[ $prompt =~ [yY](es)* ]]
+  then
+    cd /tmp
+    echo "Downloading libevent archive"
+    $SUDO rm -rf /tmp/libevent*
+    wget https://github.com/libevent/libevent/releases/download/release-2.1.8-stable/libevent-2.1.8-stable.tar.gz
+    if [ ! -f libevent-2.1.8-stable.tar.gz ]; then
+      echo_error "Could not download libevent source files"
+      cd -
+      return 1
+    fi
+    tar -xzf libevent-2.1.8-stable.tar.gz
+    [[ $? -ne 0 ]] && return $?
+    cd libevent-2.1.8-stable/
+    ./configure
+    [[ $? -ne 0 ]] && return $?
+    make
+    [[ $? -ne 0 ]] && return $?
+    #make verify
+    #[[ $? -ne 0 ]] && return $?
+    $SUDO make install
+    cd /tmp
+    rm -rf /tmp/libevent*
+  fi
+  return 0
+}
 
 
 #-------------------------------------------------------------------------------
@@ -53,24 +92,18 @@ check_install_spgw_software() {
   check_supported_distribution
   [[ $? -ne 0 ]] && return $?
 
-  gcc_version=`gcc --version | head -n1 | cut -d" " -f4`
-  if ! version_gt $gcc_version $required_gcc_version; then
-    if [ x$OPTION = x"-y" ]; then 
-    prompt='y'
-    else
-      read -p "gcc-$required_gcc_version is required. Do you want to upgrade gcc? <y/N> " prompt
-    fi
-    if [[ $prompt =~ [yY](es)* ]]; then
-      echo "Upgrade gcc"
-      add-apt-repository -y ppa:ubuntu-toolchain-r/test
-      [[ $? -ne 0 ]] && return $?
-      apt-get update
-      [[ $? -ne 0 ]] && return $?
-    else
-      return 1
-    fi
+  # prevent lock on /var/lib/dpkg/lock 
+  if [[ $OS_DISTRO == "ubuntu" ]]; then
+    #$SUDO systemctl mask apt-daily.service
+    #$SUDO systemctl mask apt-daily.timer
+    #$SUDO systemctl mask apt-daily-upgrade.service
+    #$SUDO systemctl mask apt-daily-upgrade.timer
+    $SUDO sed -i 's/1/0/g' /etc/apt/apt.conf.d/10periodic
   fi
-    
+  
+  update_package_db
+  
+  
 
   check_enable_epel_repos
 
@@ -103,8 +136,6 @@ check_install_spgw_software() {
   $SUDO $INSTALLER install $OPTION $PACKAGE_LIST
   [[ $? -ne 0 ]] && return $?
   
-  update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.9 60 --slave /usr/bin/g++ g++ /usr/bin/g++-4.9
-  update-alternatives --config gcc
 
   # Libraries
   if [[ $OS_DISTRO == "ubuntu" ]]; then
@@ -112,6 +143,7 @@ check_install_spgw_software() {
       guile-2.0-dev \
       libconfig8-dev \
       libcurl4-gnutls-dev \
+      libevent-dev \
       libgcrypt11-dev \
       libgmp-dev \
       libhogweed? \
@@ -197,7 +229,30 @@ check_install_spgw_software() {
 
   install_liblfds7.1.0_from_source $1
   [[ $? -ne 0 ]] && return $?
-    
+
+
+  gcc_version=`gcc --version | head -n1 | cut -d" " -f4`
+  if ! version_gt $gcc_version $required_gcc_version; then
+    if [ x$OPTION = x"-y" ]; then 
+      prompt='y'
+    else
+      read -p "gcc-$required_gcc_version is required. Do you want to upgrade gcc? <y/N> " prompt
+    fi
+    if [[ $prompt =~ [yY](es)* ]]; then
+      echo "Upgrade gcc"
+      $SUDO add-apt-repository -y ppa:ubuntu-toolchain-r/test
+      [[ $? -ne 0 ]] && return $?
+      $SUDO apt-get update
+      [[ $? -ne 0 ]] && return $?
+      $SUDO apt-get install gcc-`echo -n $required_gcc_version | cut -d'.' -f3 --complement`
+      [[ $? -ne 0 ]] && return $?
+      update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.9 60 --slave /usr/bin/g++ g++ /usr/bin/g++-4.9
+      [[ $? -ne 0 ]] && return $?
+      update-alternatives --config gcc
+    fi
+  fi
+
+
   if [ ! -z ${ENABLE_LIBGTPNL+x} ]; then 
     echo "Install libgtpnl"
     install_libgtpnl_from_source $1
@@ -206,16 +261,31 @@ check_install_spgw_software() {
     [[ $? -ne 0 ]] && return $?
   fi
 
-  if [ [ ! -z ${ENABLE_OPENFLOW+x} ]  ||  [ ! -z ${ENABLE_OPENFLOW_MOSAIC+x} ] ]; then
+  if [ ! -z ${ENABLE_OPENFLOW_MOSAIC+x} ]; then
     echo "Install libfluid"
     install_libfluid_from_source $1
     [[ $? -ne 0 ]] && return $?
+  fi
+
+
+  if [ [ ! -z ${ENABLE_OPENFLOW+x} ]  ||  [ ! -z ${ENABLE_OPENFLOW_MOSAIC+x} ] ]; then
     echo "Install GTP kernel module"
     install_gtp_ovs_kernel_module $1
     [[ $? -ne 0 ]] && return $?
     echo "Install ovs"
     install_ovs_gtp_kernel_space_from_source $1
     [[ $? -ne 0 ]] && return $?
+    
+    # For fluid under openair-cn/src dir
+    #install_libevent_2.1.x_from_source $1
+    #[[ $? -ne 0 ]] && return $?
+    
+    # optional but recommended for secure connection towards controller
+    $SUDO apt-get install $OPTION autoconf libtool build-essential pkg-config
+    [[ $? -ne 0 ]] && return $?
+    $SUDO apt-get install $OPTION libssl-dev
+    [[ $? -ne 0 ]] && return $?
+    
   fi
   return 0
 }

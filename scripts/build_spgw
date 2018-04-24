@@ -25,6 +25,9 @@
 # company Eurecom
 # email: lionel.gauthier@eurecom.fr
 #
+
+set -o pipefail
+
 ################################
 # include helper functions
 ################################
@@ -132,9 +135,8 @@ function main()
   fi
   
   if [ $var_check_install_oai_software -gt 0 ];then
-    update_package_db
     check_install_spgw_software  $force
-    if [ $? -ne 0 ]; then
+    if [[ $? -ne 0 ]]; then
         echo_error "Error: SPGW software installation failed"
         return 1
     else
