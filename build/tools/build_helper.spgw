@@ -39,7 +39,7 @@ source $THIS_SCRIPT_PATH/build_helper.ovs
 # arg1 is force (no interactive script)
 install_libevent_2.1.x_from_source() {
   if [ $1 -eq 0 ]; then
-    read -p "Do you want to install libevent ? <y/N> " prompt
+    read -p "Do you want to install libevent-2.1.8 ? <y/N> " prompt
     OPTION=""
   else
     prompt='y'
@@ -277,8 +277,8 @@ check_install_spgw_software() {
     [[ $? -ne 0 ]] && return $?
     
     # For fluid under openair-cn/src dir
-    #install_libevent_2.1.x_from_source $1
-    #[[ $? -ne 0 ]] && return $?
+    # install_libevent_2.1.x_from_source $1
+    # [[ $? -ne 0 ]] && return $?
     
     # optional but recommended for secure connection towards controller
     $SUDO apt-get install $OPTION autoconf libtool build-essential pkg-config
