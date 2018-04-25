@@ -265,11 +265,10 @@ function main()
     
     if [ -z $sgi_mac_nh ]; then
       if [ -z $sgi_nh ]; then
-        subnet=$(ip address show dev ${!sgi_nw_dev_string} | grep inet | grep -v inet6 | xargs| cut -d ' ' -f2 | cut -d '/' -f1 | cut -d '.' -f1-3)
+        subnet=$(ip address show dev ${!sgi_nw_dev_string} | grep inet | grep -v inet6 | xargs | cut -d ' ' -f2 | cut -d '/' -f1 | cut -d '.' -f1-3)
         [[ $? -ne 0 ]] && echo_error "Failed to get subnet of SGi interface" && return $?
         sgi_nh=$subnet'.1'
       fi
-      echo_warning "sgi_nh $sgi_nh"
       # do arp sgi_nh
       ping -c 1 $sgi_nh
       sgi_mac_nh=$(arp --device ${!sgi_nw_dev_string} --numeric | grep $sgi_nh | xargs | cut -d ' ' -f3)
@@ -277,7 +276,6 @@ function main()
     fi
     echo_info "Setting in $spgw_config_file UPLINK_MAC = $sgi_mac_nh"
     sed -i "s/.*UPLINK_MAC.*/        UPLINK_MAC = \"$sgi_mac_nh\";/" $spgw_config_file
-
   fi
 
 

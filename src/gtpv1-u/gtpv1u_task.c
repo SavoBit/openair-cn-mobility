@@ -55,6 +55,8 @@
 #include "pgw_config.h"
 #include "spgw_config.h"
 #include "gtpv1u_sgw_defs.h"
+#include "ControllerMain.h"
+#include "async_system.h"
 #include "sgw.h"
 
 #ifdef __cplusplus
@@ -141,6 +143,12 @@ int gtpv1u_init (spgw_config_t *spgw_config)
     gtp_tunnel_ops->uninit();
     return -1;
   }
+
+#if ENABLE_OPENFLOW
+  bstring command = bformat("ovs-vsctl set-controller %s tcp:%s:%u",  bdata(spgw_config->sgw_config.ovs_config.bridge_name), CONTROLLER_ADDR, CONTROLLER_PORT);
+  async_system_command (TASK_ASYNC_SYSTEM, false, bdata(command));
+  bdestroy_wrapper(&command);
+#endif
 
   OAILOG_DEBUG (LOG_GTPV1U , "Initializing GTPV1U interface: DONE\n");
   return 0;
