@@ -43,6 +43,7 @@ OPENFLOW_MOSAIC="OPENFLOW_MOSAIC"
 OPENFLOW="OPENFLOW"
 REST="REST"
 GTPU_API=$OPENFLOW
+SGI_DUMMY_MAC_NH="00.11.22.33.44.55"
 
 OVS_GTPU_BRIDGE_NAME="gtpu"
 
@@ -65,6 +66,11 @@ function help()
   echo_error "  -h, --help                          Print this help."
   echo_error "  -k, --kill                          Kill all running SPGW instances, exit script then."
   echo_error "  -m, --mscgen          directory     Generate mscgen output files in a directory"
+  echo_error "  --sgi-nh         nh                 SGi next-hop IP address (can be a gateway, router, single app server), will be arp'ed for GTP data "
+  echo_error "                                      plane if OVS is used, default is SGi network a.b.c.1 if no --sgi-mac-nh supplied."
+  echo_error "  --sgi-dum-mac-nh                    Dummy SGi next-hop L2 address for GTP data plane if OVS is used"
+  echo_error "  --sgi-mac-nh     nh                 SGi next-hop L2 address (can be a gateway, router, single app server) for GTP data plane if OVS is used"
+  echo_error "                                      --sgi-nh and --sgi-mac-nh and --sgi-dum-mac-nh are mutually exclusive if OVS is used, else don't use them."
   echo_error "  -v, --verbosity-level               Verbosity level (0,1,2)."
   echo_error "                                        0 -> ASN1 XER printf off"
   echo_error "                                        1 -> ASN1 XER printf on and ASN1 debug off"
@@ -94,6 +100,8 @@ function main()
   local -i set_network_interfaces=0
   local    exe_arguments=" "
   local    spgw_config_file=$g_spgw_default_config_file
+  local    sgi_nh
+  local    sgi_mac_nh
   local    breakpoint_location=""
   local -a gdb_args
   local -i gdb_index=0
@@ -145,6 +153,18 @@ function main()
           return -1
         fi
         ;;      
+      --sgi-dum-mac-nh)
+        sgi_mac_nh=$SGI_DUMMY_MAC_NH
+        shift;
+        ;;
+      --sgi-mac-nh)
+        sgi_mac_nh=$2
+        shift 2;
+        ;;
+      --sgi-nh)
+        sgi_nh=$2
+        shift 2;
+        ;;
       -v | --verbosity-level)
         local verbosity_level=$2
         echo "setting verbosity level to: $verbosity_level"
@@ -189,51 +209,75 @@ function main()
     # From http://www.openvswitch.org/support/dist-docs-2.5/INSTALL.md.html
     
     echo "Starting ovsdb-server..."
-    $SUDO ovsdb-server --remote=punix:/usr/local/var/run/openvswitch/db.sock \
+    pgrep ovsdb-server || $SUDO ovsdb-server --remote=punix:/usr/local/var/run/openvswitch/db.sock \
                  --remote=db:Open_vSwitch,Open_vSwitch,manager_options \
                  --private-key=db:Open_vSwitch,SSL,private_key \
                  --certificate=db:Open_vSwitch,SSL,certificate \
                  --bootstrap-ca-cert=db:Open_vSwitch,SSL,ca_cert \
-                 --pidfile --detach -log-file
+                 --pidfile --detach --log-file
     [[ $? -ne 0 ]] && echo_error "Failed to start ovsdb-server" && return $?
-    
+
     # Then initialize the database using ovs-vsctl. This is only necessary the first
     # time after you create the database with ovsdb-tool (but running it at any time 
     # is harmless):
     echo "Init ovs db..."
     $SUDO ovs-vsctl --no-wait init
     [[ $? -ne 0 ]] && echo_error "Failed to init OVS db" && return $?
-    
+
     # Then start the main Open vSwitch daemon, telling it to connect to the same 
     # Unix domain socket:
     echo "Starting vswitchd..."
-    $SUDO ovs-vswitchd -v --pidfile --detach
+    pgrep ovs-vswitchd || $SUDO ovs-vswitchd -v --pidfile --detach
     [[ $? -ne 0 ]] && echo_error "Failed to start vswitchd" && return $?
     echo_success "Started OVS"
-    
+
+    $SUDO ovs-vsctl del-br $OVS_GTPU_BRIDGE_NAME
+
     $SUDO ovs-vsctl --may-exist add-br $OVS_GTPU_BRIDGE_NAME
     [[ $? -ne 0 ]] && return $?
-    
+
     ##########################
     # GTPV1-U INTERFACE
     ##########################
     s1u_nw_dev_string="SGW_INTERFACE_NAME_FOR_S1U_S12_S4_UP"
     s1u_nw_device="`cat $spgw_config_file | cut -d "#" -f1 | grep $s1u_nw_dev_string | tr -d " " | grep "="`"
     eval $s1u_nw_device
-    
+
     # Port for GTPV1-U network device
     $SUDO ovs-vsctl add-port $OVS_GTPU_BRIDGE_NAME ${!s1u_nw_dev_string}
-    
+
     ##########################
     # SGI INTERFACE
     ##########################
     sgi_nw_dev_string="PGW_INTERFACE_NAME_FOR_SGI"
     sgi_nw_device="`cat $spgw_config_file | cut -d "#" -f1 | grep $sgi_nw_dev_string | tr -d " " | grep "="`"
     eval $sgi_nw_device
-    
+
     # Port for SGI network device
-    $SUDO ovs-vsctl add-port $OVS_GTPU_BRIDGE_NAME ${!s1u_nw_dev_string}
+    $SUDO ovs-vsctl add-port $OVS_GTPU_BRIDGE_NAME ${!sgi_nw_dev_string}
+    sgi_port=$($SUDO ovs-ofctl dump-ports-desc $OVS_GTPU_BRIDGE_NAME | grep ${!sgi_nw_dev_string} | cut -d '(' -f1)
+
+    # sed config file
+    echo_info "Setting in $spgw_config_file BRIDGE_NAME = $OVS_GTPU_BRIDGE_NAME"
+    sed -i "s/.*BRIDGE_NAME.*/        BRIDGE_NAME = \"$OVS_GTPU_BRIDGE_NAME\";/" $spgw_config_file
+    echo_info "Setting in $spgw_config_file UPLINK_PORT_NUM = $sgi_port"
+    sed -i "s/.*UPLINK_PORT_NUM.*/        UPLINK_PORT_NUM = $sgi_port;/" $spgw_config_file
     
+    if [ -z $sgi_mac_nh ]; then
+      if [ -z $sgi_nh ]; then
+        subnet=$(ip address show dev ${!sgi_nw_dev_string} | grep inet | grep -v inet6 | xargs| cut -d ' ' -f2 | cut -d '/' -f1 | cut -d '.' -f1-3)
+        [[ $? -ne 0 ]] && echo_error "Failed to get subnet of SGi interface" && return $?
+        sgi_nh=$subnet'.1'
+      fi
+      echo_warning "sgi_nh $sgi_nh"
+      # do arp sgi_nh
+      ping -c 1 $sgi_nh
+      sgi_mac_nh=$(arp --device ${!sgi_nw_dev_string} --numeric | grep $sgi_nh | xargs | cut -d ' ' -f3)
+      [[ $? -ne 0 ]] && echo_error "Failed to get L2 address of SGi next hop" && return $?
+    fi
+    echo_info "Setting in $spgw_config_file UPLINK_MAC = $sgi_mac_nh"
+    sed -i "s/.*UPLINK_MAC.*/        UPLINK_MAC = \"$sgi_mac_nh\";/" $spgw_config_file
+
   fi
 
 
