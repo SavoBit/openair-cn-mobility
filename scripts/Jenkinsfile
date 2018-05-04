@@ -1,0 +1,191 @@
+// Temporary script to build OpenAirInterface Core Network
+// Author    : Raphael Defosseux
+// Copyright : OpenAirInterface Software Alliance (2018)
+// Version   : 0.1
+
+pipeline {
+    // Currently using abeille with Raphael's credentials
+    // We need to investigate how to use Orion concurrently with development efforts
+    agent {
+        label 'abeille'
+    }
+    options {
+        disableConcurrentBuilds()
+        timestamps()
+    }
+    environment {
+        dns1 = "192.168.106.10"
+        dns2 = "192.168.106.12"
+        vm_display = "False"
+        mme_vm_template = "template${JOB_NAME}"
+        hss_vm_template = "template${JOB_NAME}"
+    }
+
+    stages {
+        stage ('Verify Parameters') {
+            steps {
+                echo 'Verify Parameters'
+                echo "Git URL    is ${GIT_URL}"
+                echo "Git Branch is ${GIT_BRANCH}"
+                echo "Git Commit is ${GIT_COMMIT}"
+//                script {
+//                    if (params.nodeToUse == '' || params.nodeToUse == null) {
+//                       echo "Node is not defined"
+//                    } else {
+//                       echo "Node is defined w/ ${params.nodeToUse}"
+//                    }
+//                }
+                sh "sudo mkdir -p ${WORKSPACE}/tmp"
+            }
+        }
+        stage ('Retrieve Source Code') {
+            steps {
+                dir ('tmp') {
+                    sh "sudo sak4ci init  --management-nw '192.168.21.0/24'"
+                    sh "sudo sak4ci scm --job-name ${JOB_NAME} --build-id ${BUILD_NUMBER} -u ${GIT_URL} -C ${GIT_COMMIT}"
+                }
+            }
+        }
+        stage ('Start MME VM') {
+            steps {
+                dir ('tmp') {
+                    timeout(time: 2, unit: 'MINUTES') {
+                        sh "sudo sak4ci install-vm --clone-template True  --snapshot yes --start-vm True --vm-display ${vm_display} --nf-type mme --job-name ${JOB_NAME} --template-domain ${mme_vm_template} --build-id ${BUILD_NUMBER} --dns1 ${dns1} --dns2 ${dns2}"
+                    }
+                }
+            }
+        }
+        stage ('Start HSS VM') {
+            steps {
+                dir ('tmp') {
+                    timeout(time: 2, unit: 'MINUTES') {
+                        sh "sudo sak4ci install-vm --clone-template True  --snapshot yes --start-vm True --vm-display ${vm_display} --nf-type hss --job-name ${JOB_NAME} --template-domain ${hss_vm_template} --build-id ${BUILD_NUMBER} --dns1 ${dns1} --dns2 ${dns2}"
+                    }
+                }
+            }
+        }
+        stage('Install libs & sw') {
+            parallel {
+                stage ('MME SW') {
+                    steps {
+                        dir ('tmp') {
+                            timeout(time: 25, unit: 'MINUTES') {
+                                sh "sudo sak4ci install-libs-packs4nf --nf-type mme --keep-vm-alive True --job-name ${JOB_NAME} --build-id ${BUILD_NUMBER}"
+                            }
+                        }
+                    }
+                }
+                stage ('HSS SW') {
+                    steps {
+                        dir ('tmp') {
+                            timeout(time: 25, unit: 'MINUTES') {
+                                sh "sudo sak4ci install-libs-packs4nf --nf-type hss --keep-vm-alive True --job-name ${JOB_NAME} --build-id ${BUILD_NUMBER}"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        stage('Build Core Network Functions') {
+            parallel {
+                stage ('Build MME') {
+                    steps {
+                        dir ('tmp') {
+                            sh "sudo sak4ci build-nf --nf-type mme --keep-vm-alive True --job-name ${JOB_NAME} --build-id ${BUILD_NUMBER}"
+                        }
+                    }
+                }
+                stage ('Build HSS') {
+                    steps {
+                        dir ('tmp') {
+                            sh "sudo sak4ci build-nf --nf-type hss --keep-vm-alive True --job-name ${JOB_NAME} --build-id ${BUILD_NUMBER}"
+                        }
+                    }
+                }
+            }
+        }
+        stage('Generate CN configs') {
+            parallel {
+                stage ('Config MME') {
+                    steps {
+                        dir ('tmp') {
+                            sh "sudo sak4ci nf-configure --nf-type mme --keep-vm-alive True --job-name ${JOB_NAME} --build-id ${BUILD_NUMBER}"
+                        }
+                    }
+                }
+                stage ('Config HSS') {
+                    steps {
+                        dir ('tmp') {
+                            sh "sudo sak4ci nf-configure --nf-type hss --keep-vm-alive True --job-name ${JOB_NAME} --build-id ${BUILD_NUMBER}"
+                        }
+                    }
+                }
+            }
+        }
+    }
+    post {
+        success {
+            script {
+                def message = "Build job #" + BUILD_ID + " completed"
+                updateGithubCommitStatus(currentBuild, message)
+            }
+        }
+        failure {
+            script {
+                def message = "Build job #" + BUILD_ID + " : One step of job failed"
+                updateGithubCommitStatus(currentBuild, message)
+            }
+        }
+        unstable {
+            script {
+                def message = "Build job #" + BUILD_ID + " : One step of job is unstable"
+                updateGithubCommitStatus(currentBuild, message)
+            }
+        }
+        aborted {
+            updateGithubCommitStatus(currentBuild, "Build job aborted: pipeline script issue?")
+            script {
+                def message = "Build job #" + BUILD_ID + " aborted: pipeline script issue?"
+                updateGithubCommitStatus(currentBuild, message)
+            }
+        }
+        cleanup {
+            dir ('tmp') {
+                sh "sudo sak4ci clean-build --job-name ${JOB_NAME} --build-id ${BUILD_NUMBER}"
+            }
+            sh "sudo rm -Rf ${WORKSPACE}/tmp"
+            sh "sudo rm -Rf /var/lib/libvirt/images/mme0${JOB_NAME}b${BUILD_NUMBER}-snap.qcow2"
+            sh "sudo rm -Rf /var/lib/libvirt/images/hss0${JOB_NAME}b${BUILD_NUMBER}-snap.qcow2"
+        }
+    }
+}
+
+def getRepoURL() {
+  sh "git config --get remote.origin.url > .git/remote-url"
+  return readFile(".git/remote-url").trim()
+}
+
+def getCommitSha() {
+  sh "git rev-parse HEAD > .git/current-commit"
+  return readFile(".git/current-commit").trim()
+}
+
+def updateGithubCommitStatus(build, jobMessage) {
+  // workaround https://issues.jenkins-ci.org/browse/JENKINS-38674
+  repoUrl = getRepoURL()
+  commitSha = getCommitSha()
+
+  step([
+    $class: 'GitHubCommitStatusSetter',
+    reposSource: [$class: "ManuallyEnteredRepositorySource", url: repoUrl],
+    commitShaSource: [$class: "ManuallyEnteredShaSource", sha: commitSha],
+    errorHandlers: [[$class: 'ShallowAnyErrorHandler']],
+    statusResultSource: [
+      $class: 'ConditionalStatusResultSource',
+      results: [
+        [$class: 'AnyBuildResult', state: build.currentResult, message: jobMessage]
+      ]
+    ]
+  ])
+}
+
