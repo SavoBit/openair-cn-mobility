@@ -17,8 +17,10 @@ pipeline {
         dns1 = "192.168.106.10"
         dns2 = "192.168.106.12"
         vm_display = "False"
+        kernel_version = "kernel-4.9"
         mme_vm_template = "template${JOB_NAME}"
         hss_vm_template = "template${JOB_NAME}"
+        spgw_vm_template = "template${JOB_NAME}-${kernel_version}"
     }
 
     stages {
@@ -64,12 +66,21 @@ pipeline {
                 }
             }
         }
+        stage ('Start SPGW VM') {
+            steps {
+                dir ('tmp') {
+                    timeout(time: 2, unit: 'MINUTES') {
+                        sh "sudo sak4ci install-vm --clone-template True  --snapshot yes --start-vm True --vm-display ${vm_display} --nf-type spgw --job-name ${JOB_NAME} --template-domain ${spgw_vm_template} --build-id ${BUILD_NUMBER} --dns1 ${dns1} --dns2 ${dns2}"
+                    }
+                }
+            }
+        }
         stage('Install libs & sw') {
             parallel {
                 stage ('MME SW') {
                     steps {
                         dir ('tmp') {
-                            timeout(time: 25, unit: 'MINUTES') {
+                            timeout(time: 15, unit: 'MINUTES') {
                                 sh "sudo sak4ci install-libs-packs4nf --nf-type mme --keep-vm-alive True --job-name ${JOB_NAME} --build-id ${BUILD_NUMBER}"
                             }
                         }
@@ -78,8 +89,17 @@ pipeline {
                 stage ('HSS SW') {
                     steps {
                         dir ('tmp') {
-                            timeout(time: 25, unit: 'MINUTES') {
+                            timeout(time: 15, unit: 'MINUTES') {
                                 sh "sudo sak4ci install-libs-packs4nf --nf-type hss --keep-vm-alive True --job-name ${JOB_NAME} --build-id ${BUILD_NUMBER}"
+                            }
+                        }
+                    }
+                }
+                stage ('SPGW SW') {
+                    steps {
+                        dir ('tmp') {
+                            timeout(time: 15, unit: 'MINUTES') {
+                                sh "sudo sak4ci install-libs-packs4nf --nf-type spgw --keep-vm-alive True --job-name ${JOB_NAME} --build-id ${BUILD_NUMBER}"
                             }
                         }
                     }
@@ -102,6 +122,13 @@ pipeline {
                         }
                     }
                 }
+                stage ('Build SPGW') {
+                    steps {
+                        dir ('tmp') {
+                            sh "sudo sak4ci build-nf --nf-type spgw --keep-vm-alive True --job-name ${JOB_NAME} --build-id ${BUILD_NUMBER}"
+                        }
+                    }
+                }
             }
         }
         stage('Generate CN configs') {
@@ -113,13 +140,21 @@ pipeline {
                         }
                     }
                 }
-//                stage ('Config HSS') {
-//                    steps {
-//                        dir ('tmp') {
+                stage ('Config HSS') {
+                    steps {
+                        dir ('tmp') {
+                            echo "HSS Configuration step is bypassed for the moment!"
 //                            sh "sudo sak4ci nf-configure --nf-type hss --keep-vm-alive True --job-name ${JOB_NAME} --build-id ${BUILD_NUMBER}"
-//                        }
-//                    }
-//                }
+                        }
+                    }
+                }
+                stage ('Config SPGW') {
+                    steps {
+                        dir ('tmp') {
+                            sh "sudo sak4ci nf-configure --nf-type spgw --keep-vm-alive True --job-name ${JOB_NAME} --build-id ${BUILD_NUMBER}"
+                        }
+                    }
+                }
             }
         }
     }
@@ -156,6 +191,8 @@ pipeline {
             sh "sudo rm -Rf ${WORKSPACE}/tmp"
             sh "sudo rm -Rf /var/lib/libvirt/images/mme0${JOB_NAME}b${BUILD_NUMBER}-snap.qcow2"
             sh "sudo rm -Rf /var/lib/libvirt/images/hss0${JOB_NAME}b${BUILD_NUMBER}-snap.qcow2"
+            sh "sudo virsh undefine mme0${JOB_NAME}b${BUILD_NUMBER}"
+            sh "sudo virsh undefine hss0${JOB_NAME}b${BUILD_NUMBER}"
         }
     }
 }
