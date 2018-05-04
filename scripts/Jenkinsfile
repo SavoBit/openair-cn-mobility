@@ -113,13 +113,13 @@ pipeline {
                         }
                     }
                 }
-                stage ('Config HSS') {
-                    steps {
-                        dir ('tmp') {
-                            sh "sudo sak4ci nf-configure --nf-type hss --keep-vm-alive True --job-name ${JOB_NAME} --build-id ${BUILD_NUMBER}"
-                        }
-                    }
-                }
+//                stage ('Config HSS') {
+//                    steps {
+//                        dir ('tmp') {
+//                            sh "sudo sak4ci nf-configure --nf-type hss --keep-vm-alive True --job-name ${JOB_NAME} --build-id ${BUILD_NUMBER}"
+//                        }
+//                    }
+//                }
             }
         }
     }
