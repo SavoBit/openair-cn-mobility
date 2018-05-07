@@ -111,21 +111,21 @@ pipeline {
                 stage ('Build MME') {
                     steps {
                         dir ('tmp') {
-                            sh "sudo sak4ci build-nf --nf-type mme --keep-vm-alive True --job-name ${JOB_NAME} --build-id ${BUILD_NUMBER} --build-type Release"
+                            sh "sudo sak4ci build-nf --nf-type mme --keep-vm-alive True --job-name ${JOB_NAME} --build-id ${BUILD_NUMBER}"
                         }
                     }
                 }
                 stage ('Build HSS') {
                     steps {
                         dir ('tmp') {
-                            sh "sudo sak4ci build-nf --nf-type hss --keep-vm-alive True --job-name ${JOB_NAME} --build-id ${BUILD_NUMBER} --build-type Release"
+                            sh "sudo sak4ci build-nf --nf-type hss --keep-vm-alive True --job-name ${JOB_NAME} --build-id ${BUILD_NUMBER}"
                         }
                     }
                 }
                 stage ('Build SPGW') {
                     steps {
                         dir ('tmp') {
-                            sh "sudo sak4ci build-nf --nf-type spgw --keep-vm-alive True --job-name ${JOB_NAME} --build-id ${BUILD_NUMBER} --build-type Release"
+                            sh "sudo sak4ci build-nf --nf-type spgw --keep-vm-alive True --job-name ${JOB_NAME} --build-id ${BUILD_NUMBER}"
                         }
                     }
                 }
