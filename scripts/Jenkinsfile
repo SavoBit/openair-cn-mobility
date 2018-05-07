@@ -111,21 +111,21 @@ pipeline {
                 stage ('Build MME') {
                     steps {
                         dir ('tmp') {
-                            sh "sudo sak4ci build-nf --nf-type mme --keep-vm-alive True --job-name ${JOB_NAME} --build-id ${BUILD_NUMBER}"
+                            sh "sudo sak4ci build-nf --nf-type mme --keep-vm-alive True --job-name ${JOB_NAME} --build-id ${BUILD_NUMBER} --build-type Release"
                         }
                     }
                 }
                 stage ('Build HSS') {
                     steps {
                         dir ('tmp') {
-                            sh "sudo sak4ci build-nf --nf-type hss --keep-vm-alive True --job-name ${JOB_NAME} --build-id ${BUILD_NUMBER}"
+                            sh "sudo sak4ci build-nf --nf-type hss --keep-vm-alive True --job-name ${JOB_NAME} --build-id ${BUILD_NUMBER} --build-type Release"
                         }
                     }
                 }
                 stage ('Build SPGW') {
                     steps {
                         dir ('tmp') {
-                            sh "sudo sak4ci build-nf --nf-type spgw --keep-vm-alive True --job-name ${JOB_NAME} --build-id ${BUILD_NUMBER}"
+                            sh "sudo sak4ci build-nf --nf-type spgw --keep-vm-alive True --job-name ${JOB_NAME} --build-id ${BUILD_NUMBER} --build-type Release"
                         }
                     }
                 }
@@ -186,15 +186,9 @@ pipeline {
         }
         cleanup {
             dir ('tmp') {
-                sh "sudo sak4ci clean-build --job-name ${JOB_NAME} --build-id ${BUILD_NUMBER}"
+                sh "sudo sak4ci clean-build --job-name ${JOB_NAME} --build-id ${BUILD_NUMBER} --complete True"
             }
             sh "sudo rm -Rf ${WORKSPACE}/tmp"
-            sh "sudo rm -Rf /var/lib/libvirt/images/mme0${JOB_NAME}b${BUILD_NUMBER}-snap.qcow2"
-            sh "sudo rm -Rf /var/lib/libvirt/images/hss0${JOB_NAME}b${BUILD_NUMBER}-snap.qcow2"
-            sh "sudo rm -Rf /var/lib/libvirt/images/spgw0${JOB_NAME}b${BUILD_NUMBER}-snap.qcow2"
-            sh "sudo virsh undefine mme0${JOB_NAME}b${BUILD_NUMBER}"
-            sh "sudo virsh undefine hss0${JOB_NAME}b${BUILD_NUMBER}"
-            sh "sudo virsh undefine spgw0${JOB_NAME}b${BUILD_NUMBER}"
         }
     }
 }
