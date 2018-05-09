@@ -32,6 +32,10 @@
 #include <net/if.h>
 #include "3gpp_23.003.h"
 
+#if ENABLE_OPENFLOW || ENABLE_OPENFLOW_MOSAIC
+#include "pgw_pcef_emulation.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -79,11 +83,16 @@ struct gtp_tunnel_ops {
   int  (*reset)(void);
 #if ENABLE_LIBGTPNL
   int  (*add_tunnel)(struct in_addr ue, struct in_addr enb, uint32_t i_tei, uint32_t o_tei, uint8_t bearer_id);
-#endif
-#if ENABLE_OPENFLOW || ENABLE_OPENFLOW_MOSAIC
-  int  (*add_tunnel)(struct in_addr ue, struct in_addr enb, uint32_t i_tei, uint32_t o_tei, imsi_t imsi);
-#endif
   int  (*del_tunnel)(struct in_addr ue, uint32_t i_tei, uint32_t o_tei);
+#endif
+#if ENABLE_OPENFLOW
+  int  (*add_tunnel)(struct in_addr ue, struct in_addr enb, uint32_t i_tei, uint32_t o_tei, imsi_t imsi, const pcc_rule_t *const rule);
+  int  (*del_tunnel)(struct in_addr ue, uint32_t i_tei, uint32_t o_tei, const pcc_rule_t *const rule);
+#endif
+#if ENABLE_OPENFLOW_MOSAIC
+  int  (*add_tunnel)(struct in_addr ue, struct in_addr enb, uint32_t i_tei, uint32_t o_tei, imsi_t imsi);
+  int  (*del_tunnel)(struct in_addr ue, uint32_t i_tei, uint32_t o_tei);
+#endif
 };
 
 uint32_t gtpv1u_new_teid(void);

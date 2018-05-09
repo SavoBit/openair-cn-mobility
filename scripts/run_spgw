@@ -71,10 +71,6 @@ function help()
   echo_error "  --sgi-dum-mac-nh                    Dummy SGi next-hop L2 address for GTP data plane if OVS is used"
   echo_error "  --sgi-mac-nh     nh                 SGi next-hop L2 address (can be a gateway, router, single app server) for GTP data plane if OVS is used"
   echo_error "                                      --sgi-nh and --sgi-mac-nh and --sgi-dum-mac-nh are mutually exclusive if OVS is used, else don't use them."
-  echo_error "  -v, --verbosity-level               Verbosity level (0,1,2)."
-  echo_error "                                        0 -> ASN1 XER printf off"
-  echo_error "                                        1 -> ASN1 XER printf on and ASN1 debug off"
-  echo_error "                                        2 -> ASN1 XER printf on and ASN1 debug on"
 }
 
 function do_msc_gen()
@@ -165,12 +161,6 @@ function main()
         sgi_nh=$2
         shift 2;
         ;;
-      -v | --verbosity-level)
-        local verbosity_level=$2
-        echo "setting verbosity level to: $verbosity_level"
-        exe_arguments="-v $verbosity_level $exe_arguments"
-        shift 2;
-        ;;
       *)   
         echo "Unknown option $1"
         help
@@ -245,6 +235,7 @@ function main()
 
     # Port for GTPV1-U network device
     $SUDO ovs-vsctl add-port $OVS_GTPU_BRIDGE_NAME ${!s1u_nw_dev_string}
+    gtpu_port=$($SUDO ovs-ofctl dump-ports-desc $OVS_GTPU_BRIDGE_NAME | grep ${!s1u_nw_dev_string} | cut -d '(' -f1)
 
     ##########################
     # SGI INTERFACE

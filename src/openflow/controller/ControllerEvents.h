@@ -24,6 +24,7 @@
 #include <arpa/inet.h>
 #include <fluid/OFServer.hh>
 #include <fluid/ofcommon/openflow-common.hh>
+#include "pgw_pcef_emulation.h"
 
 using namespace fluid_msg;
 
@@ -35,7 +36,9 @@ enum ControllerEventType {
   EVENT_SWITCH_UP,
   EVENT_ERROR,
   EVENT_ADD_GTP_TUNNEL,
-  EVENT_DELETE_GTP_TUNNEL
+  EVENT_DELETE_GTP_TUNNEL,
+  EVENT_ADD_SDF_FILTER,
+  EVENT_DELETE_SDF_FILTER
 };
 
 /**
@@ -155,13 +158,15 @@ public:
     const struct in_addr enb_ip,
     const uint32_t in_tei,
     const uint32_t out_tei,
-    const char* imsi_);
+    const char* imsi,
+    const pcc_rule_t *const rule);
 
     const struct in_addr& get_ue_ip() const;
     const struct in_addr& get_enb_ip() const;
     const uint32_t get_in_tei() const;
     const uint32_t get_out_tei() const;
     const std::string& get_imsi() const;
+    const pcc_rule_t *const  get_rule() const;
 
 private:
   const struct in_addr ue_ip_;
@@ -169,6 +174,7 @@ private:
   const uint32_t in_tei_;
   const uint32_t out_tei_;
   const std::string imsi_;
+  const pcc_rule_t *const rule_;
 };
 
 /*
@@ -178,14 +184,17 @@ class DeleteGTPTunnelEvent : public ExternalEvent {
 public:
   DeleteGTPTunnelEvent(
     const struct in_addr ue_ip,
-    const uint32_t in_tei);
+    const uint32_t in_tei,
+    const pcc_rule_t *const rule);
 
     const struct in_addr& get_ue_ip() const;
     const uint32_t get_in_tei() const;
+    const pcc_rule_t *const  get_rule() const;
 
 private:
   const struct in_addr ue_ip_;
   const uint32_t in_tei_;
+  const pcc_rule_t *const rule_;
 };
 
 }

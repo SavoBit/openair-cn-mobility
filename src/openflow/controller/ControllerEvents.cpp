@@ -104,9 +104,10 @@ AddGTPTunnelEvent::AddGTPTunnelEvent(
     const struct in_addr enb_ip,
     const uint32_t in_tei,
     const uint32_t out_tei,
-    const char* imsi) :
+    const char* imsi,
+    const pcc_rule_t *const rule) :
     ue_ip_(ue_ip), enb_ip_(enb_ip), in_tei_(in_tei), out_tei_(out_tei),
-    imsi_(imsi),
+    imsi_(imsi), rule_(rule),
     ExternalEvent(EVENT_ADD_GTP_TUNNEL) {}
 
 const struct in_addr& AddGTPTunnelEvent::get_ue_ip() const {
@@ -129,10 +130,15 @@ const std::string& AddGTPTunnelEvent::get_imsi() const {
   return imsi_;
 }
 
+const pcc_rule_t *const AddGTPTunnelEvent::get_rule() const {
+  return rule_;
+}
+
 DeleteGTPTunnelEvent::DeleteGTPTunnelEvent(
     const struct in_addr ue_ip,
-    const uint32_t in_tei) :
-    ue_ip_(ue_ip), in_tei_(in_tei),
+    const uint32_t in_tei,
+    const pcc_rule_t *const rule) :
+    ue_ip_(ue_ip), in_tei_(in_tei), rule_(rule),
     ExternalEvent(EVENT_DELETE_GTP_TUNNEL) {}
 
 const struct in_addr& DeleteGTPTunnelEvent::get_ue_ip() const {
@@ -141,6 +147,10 @@ const struct in_addr& DeleteGTPTunnelEvent::get_ue_ip() const {
 
 const uint32_t DeleteGTPTunnelEvent::get_in_tei() const {
   return in_tei_;
+}
+
+const pcc_rule_t *const DeleteGTPTunnelEvent::get_rule() const {
+  return rule_;
 }
 
 }

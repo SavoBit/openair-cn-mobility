@@ -51,7 +51,7 @@ void BaseApplication::install_default_flow(fluid_base::OFConnection* ofconn,
   of13::GoToTable inst(NEXT_TABLE);
   fm.add_instruction(inst);
   messenger.send_of_msg(fm, ofconn);
-  OAILOG_DEBUG(LOG_GTPV1U, "Default table 0 flow added\n");
+  OAILOG_DEBUG(LOG_GTPV1U, "Default table %d flow added\n", NEXT_TABLE);
 }
 
 void BaseApplication::remove_all_flows(fluid_base::OFConnection* ofconn,

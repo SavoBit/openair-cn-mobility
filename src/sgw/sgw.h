@@ -81,6 +81,7 @@ struct ipv4_list_elm_s {
 typedef struct pgw_app_s {
   STAILQ_HEAD(ipv4_list_free_head_s,     ipv4_list_elm_s)  ipv4_list_free;
   STAILQ_HEAD(ipv4_list_allocated_head_s, ipv4_list_elm_s) ipv4_list_allocated;
+  // TODO clarify deactivated_predefined_pcc_rules versus predefined_pcc_rules
   hash_table_ts_t                                         *deactivated_predefined_pcc_rules;
   hash_table_ts_t                                         *predefined_pcc_rules;
 } pgw_app_t;

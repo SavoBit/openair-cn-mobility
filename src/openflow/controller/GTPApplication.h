@@ -77,6 +77,7 @@ private:
 private:
   static const uint32_t DEFAULT_PRIORITY = 10;
   static const std::string GTP_PORT_MAC;
+  static const uint16_t TABLE = 0;
   static const uint16_t NEXT_TABLE = 1;
 
   const std::string uplink_mac_;

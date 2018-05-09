@@ -44,6 +44,7 @@ int start_of_controller(void) {
     std::string(bdata(spgw_config.sgw_config.ovs_config.uplink_mac)),
     spgw_config.sgw_config.ovs_config.gtp_port_num
   );
+
   // Base app registers first, because it deletes/creates default flow
   ctrl.register_for_event(&base_app, openflow::EVENT_SWITCH_UP);
   ctrl.register_for_event(&base_app, openflow::EVENT_ERROR);
@@ -73,15 +74,17 @@ static void* external_event_callback(std::shared_ptr<void> data) {
 
 int openflow_controller_add_gtp_tunnel(struct in_addr ue, struct in_addr enb,
                                        uint32_t i_tei, uint32_t o_tei,
-                                       const char* imsi) {
+                                       const char* imsi, const pcc_rule_t *const rule) {
   auto add_tunnel = std::make_shared<openflow::AddGTPTunnelEvent>(
-    ue, enb, i_tei, o_tei, imsi);
+    ue, enb, i_tei, o_tei, imsi, rule);
   ctrl.inject_external_event(add_tunnel, external_event_callback);
   return 0;
 }
 
-int openflow_controller_del_gtp_tunnel(struct in_addr ue, uint32_t i_tei) {
-  auto del_tunnel = std::make_shared<openflow::DeleteGTPTunnelEvent>(ue, i_tei);
+int openflow_controller_del_gtp_tunnel(struct in_addr ue, uint32_t i_tei, const pcc_rule_t *const rule) {
+  auto del_tunnel = std::make_shared<openflow::DeleteGTPTunnelEvent>(ue, i_tei, rule);
   ctrl.inject_external_event(del_tunnel, external_event_callback);
   return 0;
 }
+
+

@@ -62,18 +62,18 @@ int openflow_reset(void)
 }
 
 int openflow_add_tunnel(struct in_addr ue, struct in_addr enb,
-                        uint32_t i_tei, uint32_t o_tei, imsi_t imsi)
+                        uint32_t i_tei, uint32_t o_tei, imsi_t imsi, const pcc_rule_t *const rule)
 {
   char imsi_str[IMSI_BCD_DIGITS_MAX + 1] = {0};
   IMSI_TO_STRING((&imsi), imsi_str, IMSI_BCD_DIGITS_MAX + 1);
 
   return openflow_controller_add_gtp_tunnel(ue, enb, i_tei, o_tei,
-                                            (const char*) imsi_str);
+                                            (const char*) imsi_str, rule);
 }
 
-int openflow_del_tunnel(struct in_addr ue, uint32_t i_tei, uint32_t o_tei)
+int openflow_del_tunnel(struct in_addr ue, uint32_t i_tei, uint32_t o_tei, const pcc_rule_t *const rule)
 {
-  return openflow_controller_del_gtp_tunnel(ue, i_tei);
+  return openflow_controller_del_gtp_tunnel(ue, i_tei, rule);
 }
 
 static const struct gtp_tunnel_ops openflow_ops = {

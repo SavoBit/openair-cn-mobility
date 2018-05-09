@@ -128,11 +128,110 @@ void GTPApplication::delete_uplink_tunnel_flow(
   messenger.send_of_msg(uplink_fm, ev.get_connection());
 }
 
+
+void sdf_filter2of_matching_rule(of13::FlowMod& fm, const sdf_filter_t& sdf_filter) {
+  uint8_t next_header = 0;
+  if (TRAFFIC_FLOW_TEMPLATE_IPV4_REMOTE_ADDR_FLAG & sdf_filter.packetfiltercontents.flags) {
+    bstring ip_addr = bformat("%d.%d.%d.%d",
+      sdf_filter.packetfiltercontents.ipv4remoteaddr[0], sdf_filter.packetfiltercontents.ipv4remoteaddr[1],
+      sdf_filter.packetfiltercontents.ipv4remoteaddr[2], sdf_filter.packetfiltercontents.ipv4remoteaddr[3]);
+    if ((TRAFFIC_FLOW_TEMPLATE_DOWNLINK_ONLY == sdf_filter.direction) || (TRAFFIC_FLOW_TEMPLATE_BIDIRECTIONAL == sdf_filter.direction)){
+      of13::IPv4Src match(IPAddress(bdata(ip_addr)));
+      fm.add_oxm_field(match);
+    }
+    bdestroy(ip_addr);
+  }
+  if (TRAFFIC_FLOW_TEMPLATE_IPV4_LOCAL_ADDR_FLAG & sdf_filter.packetfiltercontents.flags) {
+    bstring ip_addr = bformat("%d.%d.%d.%d",
+      sdf_filter.packetfiltercontents.ipv4remoteaddr[0], sdf_filter.packetfiltercontents.ipv4remoteaddr[1],
+      sdf_filter.packetfiltercontents.ipv4remoteaddr[2], sdf_filter.packetfiltercontents.ipv4remoteaddr[3]);
+    if ((TRAFFIC_FLOW_TEMPLATE_DOWNLINK_ONLY == sdf_filter.direction) || (TRAFFIC_FLOW_TEMPLATE_BIDIRECTIONAL == sdf_filter.direction)){
+      of13::IPv4Dst match(IPAddress(bdata(ip_addr)));
+      fm.add_oxm_field(match);
+    }
+    bdestroy(ip_addr);
+  }
+  if (TRAFFIC_FLOW_TEMPLATE_IPV6_REMOTE_ADDR_FLAG & sdf_filter.packetfiltercontents.flags) {
+    // TODO
+  }
+  if (TRAFFIC_FLOW_TEMPLATE_IPV6_REMOTE_ADDR_PREFIX_FLAG & sdf_filter.packetfiltercontents.flags) {
+    // TODO
+  }
+  if (TRAFFIC_FLOW_TEMPLATE_IPV6_LOCAL_ADDR_PREFIX_FLAG & sdf_filter.packetfiltercontents.flags) {
+    // TODO
+  }
+  if (TRAFFIC_FLOW_TEMPLATE_PROTOCOL_NEXT_HEADER_FLAG & sdf_filter.packetfiltercontents.flags) {
+    of13::IPProto match(sdf_filter.packetfiltercontents.protocolidentifier_nextheader);
+    fm.add_oxm_field(match);
+    next_header = sdf_filter.packetfiltercontents.protocolidentifier_nextheader;
+  }
+  if ((TRAFFIC_FLOW_TEMPLATE_SINGLE_LOCAL_PORT_FLAG & sdf_filter.packetfiltercontents.flags) && (next_header)) {
+    if ((TRAFFIC_FLOW_TEMPLATE_DOWNLINK_ONLY == sdf_filter.direction) || (TRAFFIC_FLOW_TEMPLATE_BIDIRECTIONAL == sdf_filter.direction)){
+      switch (next_header) {
+      case IPPROTO_TCP: {
+          of13::TCPDst tcp_match(sdf_filter.packetfiltercontents.singlelocalport);
+          fm.add_oxm_field(tcp_match);
+        }
+        break;
+      case IPPROTO_UDP: {
+          of13::UDPDst udp_match(sdf_filter.packetfiltercontents.singlelocalport);
+          fm.add_oxm_field(udp_match);
+        }
+        break;
+      case IPPROTO_SCTP: {
+          of13::SCTPDst sctp_match(sdf_filter.packetfiltercontents.singlelocalport);
+          fm.add_oxm_field(sctp_match);
+        }
+        break;
+      default:;
+      }
+    }
+  }
+  if (TRAFFIC_FLOW_TEMPLATE_LOCAL_PORT_RANGE_FLAG & sdf_filter.packetfiltercontents.flags) {
+    // TODO
+  }
+  if (TRAFFIC_FLOW_TEMPLATE_SINGLE_REMOTE_PORT_FLAG & sdf_filter.packetfiltercontents.flags) {
+    switch (next_header) {
+    case IPPROTO_TCP: {
+        of13::TCPSrc tcp_match(sdf_filter.packetfiltercontents.singleremoteport);
+        fm.add_oxm_field(tcp_match);
+      }
+      break;
+    case IPPROTO_UDP: {
+        of13::UDPSrc udp_match(sdf_filter.packetfiltercontents.singleremoteport);
+        fm.add_oxm_field(udp_match);
+      }
+      break;
+    case IPPROTO_SCTP: {
+        of13::SCTPSrc sctp_match(sdf_filter.packetfiltercontents.singleremoteport);
+        fm.add_oxm_field(sctp_match);
+      }
+      break;
+    default:;
+    }
+  }
+  if (TRAFFIC_FLOW_TEMPLATE_REMOTE_PORT_RANGE_FLAG & sdf_filter.packetfiltercontents.flags) {
+    // TODO
+  }
+  if (TRAFFIC_FLOW_TEMPLATE_SECURITY_PARAMETER_INDEX_FLAG & sdf_filter.packetfiltercontents.flags) {
+    // TODO
+  }
+  if (TRAFFIC_FLOW_TEMPLATE_TYPE_OF_SERVICE_TRAFFIC_CLASS_FLAG & sdf_filter.packetfiltercontents.flags) {
+    // TODO
+  }
+  if (TRAFFIC_FLOW_TEMPLATE_FLOW_LABEL_FLAG & sdf_filter.packetfiltercontents.flags) {
+    of13::IPV6Flabel match(sdf_filter.packetfiltercontents.flowlabel);
+    fm.add_oxm_field(match);
+  }
+}
+
+
 /*
  * Helper method to add matching for adding/deleting the downlink flow
  */
 void add_downlink_match(of13::FlowMod& downlink_fm,
-                        const struct in_addr& ue_ip) {
+    const struct in_addr& ue_ip,
+    const sdf_filter_t &sdf_filter) {
   // Set match on uplink port and IP eth type
   of13::InPort uplink_port_match(of13::OFPP_LOCAL);
   downlink_fm.add_oxm_field(uplink_port_match);
@@ -142,55 +241,67 @@ void add_downlink_match(of13::FlowMod& downlink_fm,
   // Match UE IP destination
   of13::IPv4Dst ip_match(ue_ip.s_addr);
   downlink_fm.add_oxm_field(ip_match);
+
+  sdf_filter2of_matching_rule(downlink_fm, sdf_filter);
 }
 
 void GTPApplication::add_downlink_tunnel_flow(
     const AddGTPTunnelEvent &ev,
     const OpenflowMessenger& messenger) {
-  of13::FlowMod downlink_fm = messenger.create_default_flow_mod(
-    0,
-    of13::OFPFC_ADD,
-    DEFAULT_PRIORITY);
 
-  add_downlink_match(downlink_fm, ev.get_ue_ip());
+  const pcc_rule_t *const rule = ev.get_rule();
 
-  of13::ApplyActions apply_dl_inst;
+  for (int sdff_i = 0; sdff_i < rule->sdf_template.number_of_packet_filters; sdff_i++) {
 
-  // Set outgoing tunnel id and tunnel destination ip
-  of13::SetFieldAction set_out_tunnel(new of13::TUNNELId(ev.get_out_tei()));
-  apply_dl_inst.add_action(set_out_tunnel);
-  of13::SetFieldAction set_tunnel_dst(
-    new of13::TunnelIPv4Dst(ev.get_enb_ip().s_addr));
-  apply_dl_inst.add_action(set_tunnel_dst);
+    of13::FlowMod downlink_fm = messenger.create_default_flow_mod(
+      TABLE,
+      of13::OFPFC_ADD,
+      DEFAULT_PRIORITY + (255 - rule->sdf_template.sdf_filter[sdff_i].eval_precedence));
 
-  // add imsi to packet metadata to pass to other tables
-  add_imsi_metadata(apply_dl_inst, ev.get_imsi());
+    add_downlink_match(downlink_fm, ev.get_ue_ip(), rule->sdf_template.sdf_filter[sdff_i]);
 
-  // Output to inout table
-  of13::GoToTable goto_inst(NEXT_TABLE);
+    of13::ApplyActions apply_dl_inst;
 
-  downlink_fm.add_instruction(apply_dl_inst);
-  downlink_fm.add_instruction(goto_inst);
+    // Set outgoing tunnel id and tunnel destination ip
+    of13::SetFieldAction set_out_tunnel(new of13::TUNNELId(ev.get_out_tei()));
+    apply_dl_inst.add_action(set_out_tunnel);
+    of13::SetFieldAction set_tunnel_dst(
+      new of13::TunnelIPv4Dst(ev.get_enb_ip().s_addr));
+    apply_dl_inst.add_action(set_tunnel_dst);
 
-  // Finally, send flow mod
-  messenger.send_of_msg(downlink_fm, ev.get_connection());
+    // add imsi to packet metadata to pass to other tables
+    add_imsi_metadata(apply_dl_inst, ev.get_imsi());
+
+    // Output to inout table
+    of13::GoToTable goto_inst(NEXT_TABLE);
+
+    downlink_fm.add_instruction(apply_dl_inst);
+    downlink_fm.add_instruction(goto_inst);
+
+    // Finally, send flow mod
+    messenger.send_of_msg(downlink_fm, ev.get_connection());
+  }
   OAILOG_DEBUG(LOG_GTPV1U, "Downlink flow added\n");
 }
 
 void GTPApplication::delete_downlink_tunnel_flow(
     const DeleteGTPTunnelEvent &ev,
     const OpenflowMessenger& messenger) {
-  of13::FlowMod downlink_fm = messenger.create_default_flow_mod(
-    0,
-    of13::OFPFC_DELETE,
-    0);
-  // match all ports and groups
-  downlink_fm.out_port(of13::OFPP_ANY);
-  downlink_fm.out_group(of13::OFPG_ANY);
 
-  add_downlink_match(downlink_fm, ev.get_ue_ip());
+  const pcc_rule_t *const rule = ev.get_rule();
 
-  messenger.send_of_msg(downlink_fm, ev.get_connection());
+  for (int sdff_i = 0; sdff_i < rule->sdf_template.number_of_packet_filters; sdff_i++) {
+    of13::FlowMod downlink_fm = messenger.create_default_flow_mod(
+        TABLE,
+        of13::OFPFC_DELETE,
+        0);
+    // match all ports and groups
+    downlink_fm.out_port(of13::OFPP_ANY);
+    downlink_fm.out_group(of13::OFPG_ANY);
+
+    add_downlink_match(downlink_fm, ev.get_ue_ip(), rule->sdf_template.sdf_filter[sdff_i]);
+    messenger.send_of_msg(downlink_fm, ev.get_connection());
+  }
 }
 
 }

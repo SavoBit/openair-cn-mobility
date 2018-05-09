@@ -25,6 +25,8 @@
 extern "C" {
 #endif
 
+#include "pgw_pcef_emulation.h"
+
 #define CONTROLLER_ADDR "127.0.0.1"
 #define CONTROLLER_PORT 6654
 #define NUM_WORKERS 2
@@ -35,9 +37,9 @@ int stop_of_controller(void);
 
 int openflow_controller_add_gtp_tunnel(struct in_addr ue, struct in_addr enb,
                                        uint32_t i_tei, uint32_t o_tei,
-                                       const char* imsi);
+                                       const char* imsi, const pcc_rule_t *const rule);
 
-int openflow_controller_del_gtp_tunnel(struct in_addr ue, uint32_t i_tei);
+int openflow_controller_del_gtp_tunnel(struct in_addr ue, uint32_t i_tei, const pcc_rule_t *const rule);
 
 #ifdef __cplusplus
 }

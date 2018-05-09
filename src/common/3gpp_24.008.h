@@ -29,6 +29,7 @@
 #define FILE_3GPP_24_008_SEEN
 
 #include "3gpp_23.003.h"
+#include "bstrlib.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -857,7 +858,10 @@ int decode_packet_flow_identifier_ie(packet_flow_identifier_t *packetflowidentif
  */
 
 #define TRAFFIC_FLOW_TEMPLATE_IPV4_REMOTE_ADDR              0b00010000
+#define TRAFFIC_FLOW_TEMPLATE_IPV4_LOCAL_ADDR               0b00010001
 #define TRAFFIC_FLOW_TEMPLATE_IPV6_REMOTE_ADDR              0b00100000
+#define TRAFFIC_FLOW_TEMPLATE_IPV6_REMOTE_ADDR_PREFIX       0b00100001
+#define TRAFFIC_FLOW_TEMPLATE_IPV6_LOCAL_ADDR_PREFIX        0b00100011
 #define TRAFFIC_FLOW_TEMPLATE_PROTOCOL_NEXT_HEADER          0b00110000
 #define TRAFFIC_FLOW_TEMPLATE_SINGLE_LOCAL_PORT             0b01000000
 #define TRAFFIC_FLOW_TEMPLATE_LOCAL_PORT_RANGE              0b01000001
@@ -867,32 +871,50 @@ int decode_packet_flow_identifier_ie(packet_flow_identifier_t *packetflowidentif
 #define TRAFFIC_FLOW_TEMPLATE_TYPE_OF_SERVICE_TRAFFIC_CLASS 0b01110000
 #define TRAFFIC_FLOW_TEMPLATE_FLOW_LABEL                    0b10000000
 
+// The description and valid combinations of packet filter component type identifiers in
+// a packet filter are defined in 3GPP TS 23.060 subclause 15.3.2.
+
 /*
  * Packet filter content
  * ---------------------
  */
 typedef struct packet_filter_contents_s {
 #define TRAFFIC_FLOW_TEMPLATE_IPV4_REMOTE_ADDR_FLAG              (1<<0)
-#define TRAFFIC_FLOW_TEMPLATE_IPV6_REMOTE_ADDR_FLAG              (1<<1)
-#define TRAFFIC_FLOW_TEMPLATE_PROTOCOL_NEXT_HEADER_FLAG          (1<<2)
-#define TRAFFIC_FLOW_TEMPLATE_SINGLE_LOCAL_PORT_FLAG             (1<<3)
-#define TRAFFIC_FLOW_TEMPLATE_LOCAL_PORT_RANGE_FLAG              (1<<4)
-#define TRAFFIC_FLOW_TEMPLATE_SINGLE_REMOTE_PORT_FLAG            (1<<5)
-#define TRAFFIC_FLOW_TEMPLATE_REMOTE_PORT_RANGE_FLAG             (1<<6)
-#define TRAFFIC_FLOW_TEMPLATE_SECURITY_PARAMETER_INDEX_FLAG      (1<<7)
-#define TRAFFIC_FLOW_TEMPLATE_TYPE_OF_SERVICE_TRAFFIC_CLASS_FLAG (1<<8)
-#define TRAFFIC_FLOW_TEMPLATE_FLOW_LABEL_FLAG                    (1<<9)
+#define TRAFFIC_FLOW_TEMPLATE_IPV4_LOCAL_ADDR_FLAG               (1<<1)
+#define TRAFFIC_FLOW_TEMPLATE_IPV6_REMOTE_ADDR_FLAG              (1<<2)
+#define TRAFFIC_FLOW_TEMPLATE_IPV6_REMOTE_ADDR_PREFIX_FLAG       (1<<3)
+#define TRAFFIC_FLOW_TEMPLATE_IPV6_LOCAL_ADDR_PREFIX_FLAG        (1<<4)
+#define TRAFFIC_FLOW_TEMPLATE_PROTOCOL_NEXT_HEADER_FLAG          (1<<5)
+#define TRAFFIC_FLOW_TEMPLATE_SINGLE_LOCAL_PORT_FLAG             (1<<6)
+#define TRAFFIC_FLOW_TEMPLATE_LOCAL_PORT_RANGE_FLAG              (1<<7)
+#define TRAFFIC_FLOW_TEMPLATE_SINGLE_REMOTE_PORT_FLAG            (1<<8)
+#define TRAFFIC_FLOW_TEMPLATE_REMOTE_PORT_RANGE_FLAG             (1<<9)
+#define TRAFFIC_FLOW_TEMPLATE_SECURITY_PARAMETER_INDEX_FLAG      (1<<10)
+#define TRAFFIC_FLOW_TEMPLATE_TYPE_OF_SERVICE_TRAFFIC_CLASS_FLAG (1<<11)
+#define TRAFFIC_FLOW_TEMPLATE_FLOW_LABEL_FLAG                    (1<<12)
   uint16_t flags;
 #define TRAFFIC_FLOW_TEMPLATE_IPV4_ADDR_SIZE  4
   struct {
     uint8_t addr;
     uint8_t mask;
   } ipv4remoteaddr[TRAFFIC_FLOW_TEMPLATE_IPV4_ADDR_SIZE];
+  struct {
+    uint8_t addr;
+    uint8_t mask;
+  } ipv4localaddr[TRAFFIC_FLOW_TEMPLATE_IPV4_ADDR_SIZE];
 #define TRAFFIC_FLOW_TEMPLATE_IPV6_ADDR_SIZE  16
   struct {
     uint8_t addr;
     uint8_t mask;
   } ipv6remoteaddr[TRAFFIC_FLOW_TEMPLATE_IPV6_ADDR_SIZE];
+  struct {
+    uint8_t addr[TRAFFIC_FLOW_TEMPLATE_IPV6_ADDR_SIZE];
+    uint8_t prefix;
+  } ipv6remoteaddrprefix;
+  struct {
+    uint8_t addr[TRAFFIC_FLOW_TEMPLATE_IPV6_ADDR_SIZE];
+    uint8_t prefix;
+  } ipv6localaddrprefix;
   uint8_t protocolidentifier_nextheader;
   uint16_t singlelocalport;
   struct {

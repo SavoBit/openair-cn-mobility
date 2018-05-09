@@ -81,12 +81,14 @@ int pgw_config_process (pgw_config_t * config_pP)
   uint64_t                                counter64 = 0;
   conf_ipv4_list_elm_t                   *ip4_ref = NULL;
 
+#if ENABLE_LIBGTPNL
   async_system_command (TASK_ASYNC_SYSTEM, PGW_ABORT_ON_ERROR, "iptables -t mangle -F OUTPUT");
   async_system_command (TASK_ASYNC_SYSTEM, PGW_ABORT_ON_ERROR, "iptables -t mangle -F POSTROUTING");
 
   if (config_pP->masquerade_SGI) {
     async_system_command (TASK_ASYNC_SYSTEM, PGW_ABORT_ON_ERROR, "iptables -t nat -F PREROUTING");
   }
+#endif
 
   // Get ipv4 address
   char str[INET_ADDRSTRLEN];
@@ -172,9 +174,13 @@ int pgw_config_process (pgw_config_t * config_pP)
 
     //---------------
     if (config_pP->masquerade_SGI) {
+#if ENABLE_LIBGTPNL
       async_system_command (TASK_ASYNC_SYSTEM, PGW_ABORT_ON_ERROR, "iptables -t nat -I POSTROUTING -s %s/%d -o %s  ! --protocol sctp -j SNAT --to-source %s",
           inet_ntoa(config_pP->ue_pool_addr[i]), config_pP->ue_pool_mask[i],
           bdata(config_pP->ipv4.if_name_SGI), str_sgi);
+#else
+      OAILOG_WARNING (LOG_SPGW_APP, "Masquerade of SGi will not be activated\n");
+#endif
     }
 
     uint32_t min_mtu = config_pP->ipv4.mtu_SGI;
@@ -183,16 +189,24 @@ int pgw_config_process (pgw_config_t * config_pP)
       min_mtu = config_pP->ipv4.mtu_S5_S8 - 36;
     }
     if (config_pP->ue_tcp_mss_clamp) {
+#if ENABLE_LIBGTPNL
       async_system_command (TASK_ASYNC_SYSTEM, PGW_ABORT_ON_ERROR, "iptables -t mangle -I FORWARD -s %s/%d   -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss %u",
           inet_ntoa(config_pP->ue_pool_addr[i]), config_pP->ue_pool_mask[i], min_mtu - 40);
 
       async_system_command (TASK_ASYNC_SYSTEM, PGW_ABORT_ON_ERROR, "iptables -t mangle -I FORWARD -d %s/%d -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss %u",
           inet_ntoa(config_pP->ue_pool_addr[i]), config_pP->ue_pool_mask[i], min_mtu - 40);
+#else
+      OAILOG_WARNING (LOG_SPGW_APP, "TCP MSS clamping will not be activated\n");
+#endif
     }
 
     if (config_pP->pcef.enabled) {
       if (config_pP->pcef.tcp_ecn_enabled) {
+#if ENABLE_LIBGTPNL
         async_system_command (TASK_ASYNC_SYSTEM, PGW_ABORT_ON_ERROR, "sysctl -w net.ipv4.tcp_ecn=1");
+#else
+        OAILOG_WARNING (LOG_SPGW_APP, "TCP ECN will not be activated\n");
+#endif
       }
     }
   }

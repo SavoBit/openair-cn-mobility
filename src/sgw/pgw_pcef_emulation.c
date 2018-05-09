@@ -19,7 +19,7 @@
  *      contact@openairinterface.org
  */
 
-/*! \file sgw_handlers.c
+/*! \file pgw_pcef_emulation.c
   \brief
   \author Lionel Gauthier
   \company Eurecom
@@ -402,6 +402,15 @@ static void free_pcc_rule (void ** rule)
       free_wrapper(rule);
     }
   }
+}
+
+//------------------------------------------------------------------------------
+pcc_rule_t* pgw_pcef_get_rule_by_id(const sdf_id_t sdf_id)
+{
+  pcc_rule_t* rule = NULL;
+  //hashtable_rc_t hrc =
+  hashtable_ts_get(pgw_app.deactivated_predefined_pcc_rules, sdf_id, (void**)&rule);
+  return rule;
 }
 
 #ifdef __cplusplus

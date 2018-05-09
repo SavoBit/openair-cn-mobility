@@ -641,6 +641,21 @@ static int decode_traffic_flow_template_packet_filter (
       decoded += TRAFFIC_FLOW_TEMPLATE_IPV4_ADDR_SIZE;
       break;
 
+    case TRAFFIC_FLOW_TEMPLATE_IPV4_LOCAL_ADDR:
+      /*
+       * IPv4 local address type
+       */
+      packetfilter->packetfiltercontents.flags |= TRAFFIC_FLOW_TEMPLATE_IPV4_LOCAL_ADDR_FLAG;
+
+      for (j = 0; j < TRAFFIC_FLOW_TEMPLATE_IPV4_ADDR_SIZE; j++) {
+        packetfilter->packetfiltercontents.ipv4localaddr[j].addr = *(buffer + decoded);
+        packetfilter->packetfiltercontents.ipv4localaddr[j].mask = *(buffer + decoded + TRAFFIC_FLOW_TEMPLATE_IPV4_ADDR_SIZE);
+        decoded++;
+      }
+
+      decoded += TRAFFIC_FLOW_TEMPLATE_IPV4_ADDR_SIZE;
+      break;
+
     case TRAFFIC_FLOW_TEMPLATE_IPV6_REMOTE_ADDR:
       /*
        * IPv6 remote address type
@@ -924,6 +939,20 @@ static int encode_traffic_flow_template_packet_filter (
       for (j = 0; j < TRAFFIC_FLOW_TEMPLATE_IPV4_ADDR_SIZE; j++) {
         *(buffer + encoded) = packetfilter->packetfiltercontents.ipv4remoteaddr[j].addr;
         *(buffer + encoded + TRAFFIC_FLOW_TEMPLATE_IPV4_ADDR_SIZE) = packetfilter->packetfiltercontents.ipv4remoteaddr[j].mask;
+      }
+
+      encoded += TRAFFIC_FLOW_TEMPLATE_IPV4_ADDR_SIZE * 2;
+      break;
+
+    case TRAFFIC_FLOW_TEMPLATE_IPV4_LOCAL_ADDR_FLAG:
+      /*
+       * IPv4 local address type
+       */
+      IES_ENCODE_U8 (buffer, encoded, TRAFFIC_FLOW_TEMPLATE_IPV4_LOCAL_ADDR);
+
+      for (j = 0; j < TRAFFIC_FLOW_TEMPLATE_IPV4_ADDR_SIZE; j++) {
+        *(buffer + encoded) = packetfilter->packetfiltercontents.ipv4localaddr[j].addr;
+        *(buffer + encoded + TRAFFIC_FLOW_TEMPLATE_IPV4_ADDR_SIZE) = packetfilter->packetfiltercontents.ipv4localaddr[j].mask;
       }
 
       encoded += TRAFFIC_FLOW_TEMPLATE_IPV4_ADDR_SIZE * 2;
