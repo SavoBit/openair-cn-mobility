@@ -582,4 +582,3 @@ function handle_ctrl_c(){
     fi
   done
 }
-
