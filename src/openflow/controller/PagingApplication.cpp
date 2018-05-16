@@ -78,7 +78,7 @@ void PagingApplication::handle_paging_message(
    * The clamping time is necessary to prevent packets from continually hitting
    * userspace, and as a retry time if paging fails
    */
-  of13::FlowMod fm = messenger.create_default_flow_mod(0, of13::OFPFC_ADD,
+  of13::FlowMod fm = messenger.create_default_flow_mod(TABLE, of13::OFPFC_ADD,
                                                             MID_PRIORITY + 1);
   fm.hard_timeout(CLAMPING_TIMEOUT);
   of13::EthType type_match(IP_ETH_TYPE);
@@ -98,7 +98,7 @@ void PagingApplication::install_default_flow(
   // Get assigned IP block from mobilityd
   struct in_addr netaddr;
   uint32_t prefix;
-  int ret = get_assigned_ipv4_block(0, &netaddr, &prefix);
+  int ret = get_paa_ipv4_pool(0, &netaddr, &prefix);
 
   // Convert to string for logging
   char ip_str[INET_ADDRSTRLEN];
@@ -107,7 +107,7 @@ void PagingApplication::install_default_flow(
               "Setting default paging flow for UE IP block %s/%d\n",
               ip_str, prefix);
 
-  of13::FlowMod fm = messenger.create_default_flow_mod(0, of13::OFPFC_ADD,
+  of13::FlowMod fm = messenger.create_default_flow_mod(TABLE, of13::OFPFC_ADD,
                                                             MID_PRIORITY);
   // IP eth type
   of13::EthType type_match(IP_ETH_TYPE);

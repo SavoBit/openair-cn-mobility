@@ -148,10 +148,19 @@ int get_assigned_ipv4_block(const int block, struct in_addr * const netaddr, uin
   if (RETURNok != (rc = pgw_get_free_ipv4_paa_address(netaddr))) {
     return rc;
   }
+   // Only one block supported now (have to process the release in right pool)
+   DevAssert(block == 0);
+   *prefix = spgw_config.pgw_config.ue_pool_mask[block];
+  return rc;
+}
+
+int get_paa_ipv4_pool(const int block, struct in_addr * const netaddr, uint32_t * const prefix)
+{
   // Only one block supported now (have to process the release in right pool)
   DevAssert(block == 0);
+  *netaddr = spgw_config.pgw_config.ue_pool_addr[block];
   *prefix = spgw_config.pgw_config.ue_pool_mask[block];
-  return rc;
+  return RETURNok;
 }
 
 #ifdef __cplusplus

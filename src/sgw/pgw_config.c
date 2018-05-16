@@ -92,26 +92,12 @@ int pgw_config_process (pgw_config_t * config_pP)
 
   // Get ipv4 address
   char str[INET_ADDRSTRLEN];
-  char str_sgi[INET_ADDRSTRLEN];
 
   // GET SGi informations
   {
     struct ifreq ifr;
     memset(&ifr, 0, sizeof(ifr));
     int fd = socket(AF_INET, SOCK_DGRAM, 0);
-    ifr.ifr_addr.sa_family = AF_INET;
-    strncpy(ifr.ifr_name, (const char *)config_pP->ipv4.if_name_SGI->data, IFNAMSIZ-1);
-    if (ioctl(fd, SIOCGIFADDR, &ifr)) {
-      OAILOG_CRITICAL(LOG_SPGW_APP, "Failed to read SGI ip addresses: error %s\n", strerror(errno));
-      return RETURNerror;
-    }
-    struct sockaddr_in* ipaddr = (struct sockaddr_in*)&ifr.ifr_addr;
-    if (inet_ntop(AF_INET, (const void *)&ipaddr->sin_addr, str_sgi, INET_ADDRSTRLEN) == NULL) {
-      OAILOG_ERROR (LOG_SPGW_APP, "inet_ntop");
-      return RETURNerror;
-    }
-    config_pP->ipv4.SGI.s_addr = ipaddr->sin_addr.s_addr;
-
     ifr.ifr_addr.sa_family = AF_INET;
     strncpy(ifr.ifr_name, (const char *)config_pP->ipv4.if_name_SGI->data, IFNAMSIZ-1);
     if (ioctl(fd, SIOCGIFMTU, &ifr)) {
@@ -222,6 +208,7 @@ int pgw_config_parse_file (pgw_config_t * config_pP)
   config_setting_t                       *sub2setting = NULL;
   char                                   *if_S5_S8 = NULL;
   char                                   *if_SGI = NULL;
+  char                                   *SGI = NULL;
   char                                   *masquerade_SGI = NULL;
   char                                   *ue_tcp_mss_clamping = NULL;
   char                                   *default_dns = NULL;
@@ -237,6 +224,7 @@ int pgw_config_parse_file (pgw_config_t * config_pP)
   bstring                                 system_cmd = NULL;
   libconfig_int                           mtu = 0;
   int                                     prefix_mask = 0;
+  struct in_addr                          in_addr_var = {0};
 
 
   config_init (&cfg);
@@ -268,13 +256,24 @@ int pgw_config_parse_file (pgw_config_t * config_pP)
     if (subsetting) {
       if ((config_setting_lookup_string (subsetting, PGW_CONFIG_STRING_PGW_INTERFACE_NAME_FOR_S5_S8, (const char **)&if_S5_S8)
            && config_setting_lookup_string (subsetting, PGW_CONFIG_STRING_PGW_INTERFACE_NAME_FOR_SGI, (const char **)&if_SGI)
+           && config_setting_lookup_string (subsetting, PGW_CONFIG_STRING_PGW_IPV4_ADDRESS_FOR_SGI, (const char **)&SGI)
            && config_setting_lookup_string (subsetting, PGW_CONFIG_STRING_PGW_MASQUERADE_SGI, (const char **)&masquerade_SGI)
            && config_setting_lookup_string (subsetting, PGW_CONFIG_STRING_UE_TCP_MSS_CLAMPING, (const char **)&ue_tcp_mss_clamping)
           )
         ) {
         config_pP->ipv4.if_name_S5_S8 = bfromcstr(if_S5_S8);
         config_pP->ipv4.if_name_SGI = bfromcstr (if_SGI);
-        OAILOG_DEBUG (LOG_SPGW_APP, "Parsing configuration file found SGI: on %s\n", bdata(config_pP->ipv4.if_name_SGI));
+        cidr = bfromcstr (SGI);
+        struct bstrList *list = bsplit (cidr, '/');
+        AssertFatal(2 == list->qty, "Bad CIDR address %s", bdata(cidr));
+        address = list->entry[0];
+        mask    = list->entry[1];
+        IPV4_STR_ADDR_TO_INADDR (bdata(address), config_pP->ipv4.SGI, "BAD IP ADDRESS FORMAT FOR S1u_S12_S4 !\n");
+        config_pP->ipv4.mask_sgi = atoi ((const char*)mask->data);
+        bstrListDestroy(list);
+        in_addr_var.s_addr = config_pP->ipv4.SGI.s_addr;
+        OAILOG_INFO (LOG_SPGW_APP, "Parsing configuration file found SGi: %s/%d on %s\n",
+                       inet_ntoa (in_addr_var), config_pP->ipv4.mask_sgi, bdata(config_pP->ipv4.if_name_SGI));
 
         if (strcasecmp (masquerade_SGI, "yes") == 0) {
           config_pP->masquerade_SGI = true;
@@ -290,6 +289,16 @@ int pgw_config_parse_file (pgw_config_t * config_pP)
           config_pP->ue_tcp_mss_clamp = false;
           OAILOG_DEBUG (LOG_SPGW_APP, "NO CLAMP TCP MSS\n");
         }
+#if ! ENABLE_LIBGTPNL
+        if (config_pP->masquerade_SGI) {
+          OAILOG_DEBUG (LOG_SPGW_APP, "No Masquerade SGI in this configuration\n");
+          config_pP->masquerade_SGI = false;
+        }
+        if (config_pP->ue_tcp_mss_clamp) {
+          OAILOG_DEBUG (LOG_SPGW_APP, "No TCP MSS clamping in this configuration\n");
+          config_pP->ue_tcp_mss_clamp = false;
+        }
+#endif
       } else {
         OAILOG_WARNING (LOG_SPGW_APP, "CONFIG P-GW / NETWORK INTERFACES parsing failed\n");
       }

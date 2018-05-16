@@ -28,6 +28,7 @@ namespace openflow {
 
 class PagingApplication: public Application {
 private:
+  static const uint16_t TABLE = 0;
   static const int MID_PRIORITY = 5;
   // TODO: move to config file
   static const int CLAMPING_TIMEOUT = 30; // seconds

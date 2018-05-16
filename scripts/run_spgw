@@ -223,30 +223,71 @@ function main()
 
     $SUDO ovs-vsctl del-br $OVS_GTPU_BRIDGE_NAME
 
-    $SUDO ovs-vsctl --may-exist add-br $OVS_GTPU_BRIDGE_NAME
-    [[ $? -ne 0 ]] && return $?
+    ##########################
+    # SGI INTERFACE
+    # SGi interface may be the same as S1-U interface in tiny setups
+    ##########################
+    if [ -z $sgi_mac_nh ]; then
+      if [ -z $sgi_nh ]; then
+        subnet=$(ip address show dev ${!sgi_nw_dev_string} | grep inet | grep -v inet6 | xargs | cut -d ' ' -f2 | cut -d '/' -f1 | cut -d '.' -f1-3)
+        [[ $? -ne 0 ]] && echo_error "Failed to get subnet of SGi interface" && return $?
+        sgi_nh=$subnet'.1'
+         echo "Set SGi next hop to $sgi_nh"
+      fi
+      # do arp sgi_nh
+      echo "@0" ${!sgi_nw_dev_string}
+      ping -I ${!sgi_nw_dev_string} -c 1 $sgi_nh
+      # May be configured to not reply to ping
+      # Assume default route is through SGi
+      [[ $? -ne 0 ]] && ping -I ${!sgi_nw_dev_string} -c 1 www.google.com
+      [[ $? -ne 0 ]] && return $?
+      sgi_mac_nh=$(arp --device ${!sgi_nw_dev_string} --numeric | grep $sgi_nh | xargs | cut -d ' ' -f3)
+      [[ $? -ne 0 ]] && echo_error "Failed to get L2 address of SGi next hop" && return $?
+    fi
+    echo "Set SGi next hop L2 address to $sgi_mac_nh"
+        
+    sgi_nw_dev_string="PGW_INTERFACE_NAME_FOR_SGI"
+    sgi_nw_device="`cat $spgw_config_file | cut -d "#" -f1 | grep $sgi_nw_dev_string | tr -d " " | grep "="`"
+    eval $sgi_nw_device
+
 
     ##########################
     # GTPV1-U INTERFACE
+    # By default we assign the S1U IP address to the GTPU bridge
     ##########################
     s1u_nw_dev_string="SGW_INTERFACE_NAME_FOR_S1U_S12_S4_UP"
     s1u_nw_device="`cat $spgw_config_file | cut -d "#" -f1 | grep $s1u_nw_dev_string | tr -d " " | grep "="`"
     eval $s1u_nw_device
 
+    s1u_ip_string="SGW_IPV4_ADDRESS_FOR_S1U_S12_S4_UP"
+    s1u_ip="`cat $spgw_config_file | cut -d "#" -f1 | grep $s1u_ip_string | tr -d " " | grep "="`"
+    eval $s1u_ip
+
+    ##########################
+    # Bridge configuration
+    ##########################
+    $SUDO ovs-vsctl --may-exist add-br $OVS_GTPU_BRIDGE_NAME
+    [[ $? -ne 0 ]] && return $?
+
     # Port for GTPV1-U network device
     $SUDO ovs-vsctl add-port $OVS_GTPU_BRIDGE_NAME ${!s1u_nw_dev_string}
     gtpu_port=$($SUDO ovs-ofctl dump-ports-desc $OVS_GTPU_BRIDGE_NAME | grep ${!s1u_nw_dev_string} | cut -d '(' -f1)
+    echo "Set GTPU port switch to $gtpu_port"
 
-    ##########################
-    # SGI INTERFACE
-    ##########################
-    sgi_nw_dev_string="PGW_INTERFACE_NAME_FOR_SGI"
-    sgi_nw_device="`cat $spgw_config_file | cut -d "#" -f1 | grep $sgi_nw_dev_string | tr -d " " | grep "="`"
-    eval $sgi_nw_device
+    $SUDO ifconfig  ${!s1u_nw_dev_string} 0
+    $SUDO ip link set dev $OVS_GTPU_BRIDGE_NAME up
+    $SUDO ip addr add ${!s1u_ip_string} dev $OVS_GTPU_BRIDGE_NAME 
 
-    # Port for SGI network device
-    $SUDO ovs-vsctl add-port $OVS_GTPU_BRIDGE_NAME ${!sgi_nw_dev_string}
-    sgi_port=$($SUDO ovs-ofctl dump-ports-desc $OVS_GTPU_BRIDGE_NAME | grep ${!sgi_nw_dev_string} | cut -d '(' -f1)
+
+    if [ "${!sgi_nw_dev_string}" != "${!s1u_nw_dev_string}" ]; then
+      $SUDO ifconfig  ${!sgi_nw_dev_string} 0
+      # Port for SGI network device
+      $SUDO ovs-vsctl add-port $OVS_GTPU_BRIDGE_NAME ${!sgi_nw_dev_string}
+      sgi_port=$($SUDO ovs-ofctl dump-ports-desc $OVS_GTPU_BRIDGE_NAME | grep ${!sgi_nw_dev_string} | cut -d '(' -f1)
+    else
+      sgi_port=$gtpu_port
+    fi
+    echo "Set SGi port switch to $sgi_port"
 
     # sed config file
     echo_info "Setting in $spgw_config_file BRIDGE_NAME = $OVS_GTPU_BRIDGE_NAME"
@@ -254,17 +295,6 @@ function main()
     echo_info "Setting in $spgw_config_file UPLINK_PORT_NUM = $sgi_port"
     sed -i "s/.*UPLINK_PORT_NUM.*/        UPLINK_PORT_NUM = $sgi_port;/" $spgw_config_file
     
-    if [ -z $sgi_mac_nh ]; then
-      if [ -z $sgi_nh ]; then
-        subnet=$(ip address show dev ${!sgi_nw_dev_string} | grep inet | grep -v inet6 | xargs | cut -d ' ' -f2 | cut -d '/' -f1 | cut -d '.' -f1-3)
-        [[ $? -ne 0 ]] && echo_error "Failed to get subnet of SGi interface" && return $?
-        sgi_nh=$subnet'.1'
-      fi
-      # do arp sgi_nh
-      ping -c 1 $sgi_nh
-      sgi_mac_nh=$(arp --device ${!sgi_nw_dev_string} --numeric | grep $sgi_nh | xargs | cut -d ' ' -f3)
-      [[ $? -ne 0 ]] && echo_error "Failed to get L2 address of SGi next hop" && return $?
-    fi
     echo_info "Setting in $spgw_config_file UPLINK_MAC = $sgi_mac_nh"
     sed -i "s/.*UPLINK_MAC.*/        UPLINK_MAC = \"$sgi_mac_nh\";/" $spgw_config_file
   fi
