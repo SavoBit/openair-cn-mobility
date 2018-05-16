@@ -268,7 +268,7 @@ check_install_spgw_software() {
   fi
 
 
-  if [ [ ! -z ${ENABLE_OPENFLOW+x} ]  ||  [ ! -z ${ENABLE_OPENFLOW_MOSAIC+x} ] ]; then
+  if [ ! -z ${ENABLE_OPENFLOW+x} ]  ||  [ ! -z ${ENABLE_OPENFLOW_MOSAIC+x} ]; then
     echo "Install GTP kernel module"
     install_gtp_ovs_kernel_module $1
     [[ $? -ne 0 ]] && return $?
