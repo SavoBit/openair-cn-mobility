@@ -266,16 +266,19 @@ function main()
     ##########################
     # Bridge configuration
     ##########################
+    $SUDO ovs-vsctl del-br $OVS_GTPU_BRIDGE_NAME
     $SUDO ovs-vsctl --may-exist add-br $OVS_GTPU_BRIDGE_NAME
     [[ $? -ne 0 ]] && return $?
 
     # Port for GTPV1-U network device
     $SUDO ovs-vsctl add-port $OVS_GTPU_BRIDGE_NAME ${!s1u_nw_dev_string}
     gtpu_port=$($SUDO ovs-ofctl dump-ports-desc $OVS_GTPU_BRIDGE_NAME | grep ${!s1u_nw_dev_string} | cut -d '(' -f1)
-    echo "Set GTPU port switch to $gtpu_port"
+    gtpu_mac=$($SUDO ovs-ofctl dump-ports-desc $OVS_GTPU_BRIDGE_NAME | grep ${!s1u_nw_dev_string} | cut -d ':' -f3-8)
+    echo "Set GTPU port switch to $gtpu_port L2 $gtpu_mac"
 
     $SUDO ifconfig  ${!s1u_nw_dev_string} 0
     $SUDO ip link set dev $OVS_GTPU_BRIDGE_NAME up
+    echo "Set $OVS_GTPU_BRIDGE_NAME port switch to L3 ${!s1u_ip_string}"
     $SUDO ip addr add ${!s1u_ip_string} dev $OVS_GTPU_BRIDGE_NAME 
 
 
@@ -284,16 +287,24 @@ function main()
       # Port for SGI network device
       $SUDO ovs-vsctl add-port $OVS_GTPU_BRIDGE_NAME ${!sgi_nw_dev_string}
       sgi_port=$($SUDO ovs-ofctl dump-ports-desc $OVS_GTPU_BRIDGE_NAME | grep ${!sgi_nw_dev_string} | cut -d '(' -f1)
+      sgi_mac=$($SUDO ovs-ofctl dump-ports-desc $OVS_GTPU_BRIDGE_NAME | grep ${!sgi_nw_dev_string} | cut -d ':' -f3-8)
     else
       sgi_port=$gtpu_port
+      sgi_mac=$gtpu_mac
     fi
-    echo "Set SGi port switch to $sgi_port"
+    echo "Set SGi port switch to $sgi_port L2 $sgi_mac"
 
     # sed config file
     echo_info "Setting in $spgw_config_file BRIDGE_NAME = $OVS_GTPU_BRIDGE_NAME"
     sed -i "s/.*BRIDGE_NAME.*/        BRIDGE_NAME = \"$OVS_GTPU_BRIDGE_NAME\";/" $spgw_config_file
-    echo_info "Setting in $spgw_config_file UPLINK_PORT_NUM = $sgi_port"
-    sed -i "s/.*UPLINK_PORT_NUM.*/        UPLINK_PORT_NUM = $sgi_port;/" $spgw_config_file
+    echo_info "Setting in $spgw_config_file L2_EGRESS_PORT. = $sgi_mac"
+    sed -i "s/.*L2_EGRESS_PORT.*/        L2_EGRESS_PORT = \"$sgi_mac\";/" $spgw_config_file
+    echo_info "Setting in $spgw_config_file EGRESS_PORT_NUM. = $sgi_port"
+    sed -i "s/.*EGRESS_PORT_NUM.*/        EGRESS_PORT_NUM = $sgi_port;/" $spgw_config_file
+    echo_info "Setting in $spgw_config_file L2_INGRESS_PORT. = $gtpu_mac"
+    sed -i "s/.*L2_INGRESS_PORT.*/        L2_INGRESS_PORT = \"$gtpu_mac\";/" $spgw_config_file
+    echo_info "Setting in $spgw_config_file INGRESS_PORT_NUM. = $gtpu_port"
+    sed -i "s/.*INGRESS_PORT_NUM.*/        INGRESS_PORT_NUM = $gtpu_port;/" $spgw_config_file
     
     echo_info "Setting in $spgw_config_file UPLINK_MAC = $sgi_mac_nh"
     sed -i "s/.*UPLINK_MAC.*/        UPLINK_MAC = \"$sgi_mac_nh\";/" $spgw_config_file

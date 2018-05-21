@@ -159,42 +159,36 @@ int pgw_config_process (pgw_config_t * config_pP)
     } while (counter64 > 0);
 
     //---------------
-    if (config_pP->masquerade_SGI) {
 #if ENABLE_LIBGTPNL
+    if (config_pP->masquerade_SGI) {
       async_system_command (TASK_ASYNC_SYSTEM, PGW_ABORT_ON_ERROR, "iptables -t nat -I POSTROUTING -s %s/%d -o %s  ! --protocol sctp -j SNAT --to-source %s",
           inet_ntoa(config_pP->ue_pool_addr[i]), config_pP->ue_pool_mask[i],
           bdata(config_pP->ipv4.if_name_SGI), str_sgi);
-#else
-      OAILOG_WARNING (LOG_SPGW_APP, "Masquerade of SGi will not be activated\n");
-#endif
     }
+#endif
 
     uint32_t min_mtu = config_pP->ipv4.mtu_SGI;
     // 36 = GTPv1-U min header size
     if ((config_pP->ipv4.mtu_S5_S8 - 36) < min_mtu) {
       min_mtu = config_pP->ipv4.mtu_S5_S8 - 36;
     }
-    if (config_pP->ue_tcp_mss_clamp) {
 #if ENABLE_LIBGTPNL
+    if (config_pP->ue_tcp_mss_clamp) {
       async_system_command (TASK_ASYNC_SYSTEM, PGW_ABORT_ON_ERROR, "iptables -t mangle -I FORWARD -s %s/%d   -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss %u",
           inet_ntoa(config_pP->ue_pool_addr[i]), config_pP->ue_pool_mask[i], min_mtu - 40);
 
       async_system_command (TASK_ASYNC_SYSTEM, PGW_ABORT_ON_ERROR, "iptables -t mangle -I FORWARD -d %s/%d -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss %u",
           inet_ntoa(config_pP->ue_pool_addr[i]), config_pP->ue_pool_mask[i], min_mtu - 40);
-#else
-      OAILOG_WARNING (LOG_SPGW_APP, "TCP MSS clamping will not be activated\n");
-#endif
     }
+#endif
 
+#if ENABLE_LIBGTPNL
     if (config_pP->pcef.enabled) {
       if (config_pP->pcef.tcp_ecn_enabled) {
-#if ENABLE_LIBGTPNL
         async_system_command (TASK_ASYNC_SYSTEM, PGW_ABORT_ON_ERROR, "sysctl -w net.ipv4.tcp_ecn=1");
-#else
-        OAILOG_WARNING (LOG_SPGW_APP, "TCP ECN will not be activated\n");
-#endif
       }
     }
+#endif
   }
   return 0;
 }
@@ -275,6 +269,7 @@ int pgw_config_parse_file (pgw_config_t * config_pP)
         OAILOG_INFO (LOG_SPGW_APP, "Parsing configuration file found SGi: %s/%d on %s\n",
                        inet_ntoa (in_addr_var), config_pP->ipv4.mask_sgi, bdata(config_pP->ipv4.if_name_SGI));
 
+#if ENABLE_LIBGTPNL
         if (strcasecmp (masquerade_SGI, "yes") == 0) {
           config_pP->masquerade_SGI = true;
           OAILOG_DEBUG (LOG_SPGW_APP, "Masquerade SGI\n");
@@ -288,15 +283,6 @@ int pgw_config_parse_file (pgw_config_t * config_pP)
         } else {
           config_pP->ue_tcp_mss_clamp = false;
           OAILOG_DEBUG (LOG_SPGW_APP, "NO CLAMP TCP MSS\n");
-        }
-#if ! ENABLE_LIBGTPNL
-        if (config_pP->masquerade_SGI) {
-          OAILOG_DEBUG (LOG_SPGW_APP, "No Masquerade SGI in this configuration\n");
-          config_pP->masquerade_SGI = false;
-        }
-        if (config_pP->ue_tcp_mss_clamp) {
-          OAILOG_DEBUG (LOG_SPGW_APP, "No TCP MSS clamping in this configuration\n");
-          config_pP->ue_tcp_mss_clamp = false;
         }
 #endif
       } else {
@@ -470,8 +456,10 @@ void pgw_config_display (pgw_config_t * config_p)
   OAILOG_INFO (LOG_SPGW_APP, "    SGi iface ............: %s\n", bdata(config_p->ipv4.if_name_SGI));
   OAILOG_INFO (LOG_SPGW_APP, "    SGi ip  (read)........: %s\n", inet_ntoa (*((struct in_addr *)&config_p->ipv4.SGI)));
   OAILOG_INFO (LOG_SPGW_APP, "    SGi MTU (read)........: %u\n", config_p->ipv4.mtu_SGI);
+#if ENABLE_LIBGTPNL
   OAILOG_INFO (LOG_SPGW_APP, "    User TCP MSS clamping : %s\n", config_p->ue_tcp_mss_clamp == 0 ? "false" : "true");
   OAILOG_INFO (LOG_SPGW_APP, "    User IP masquerading  : %s\n", config_p->masquerade_SGI == 0 ? "false" : "true");
+#endif
   if (config_p->use_gtp_kernel_module) {
     OAILOG_INFO (LOG_SPGW_APP, "- GTPv1U .................: Enabled (Linux kernel module)\n");
     OAILOG_INFO (LOG_SPGW_APP, "    Load/unload module....: %s\n", (config_p->enable_loading_gtp_kernel_module) ? "enabled" : "disabled");

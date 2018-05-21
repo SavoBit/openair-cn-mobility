@@ -20,30 +20,54 @@
  */
 
 #pragma once
-
 #include <memory>
 
 #include "OpenflowController.h"
 #include "PacketInSwitchApplication.h"
 
 namespace openflow {
+#define ETH_ALEN           6
+#define ETH_P_ARP 0x0806    /* Address Resolution packet  */
 #define ETH_HEADER_LENGTH 14
+#define ARP_REPLY_LENGTH  28
+#define ARPHRD_ETHER  1   /* Ethernet 10/100Mbps.  */
+#define ETH_P_IP  0x0800    /* Internet Protocol packet */
 
-class PagingApplication: public PacketInApplication {
+typedef struct ethhdr {
+  unsigned char h_dest[ETH_ALEN]; /* destination eth addr */
+  unsigned char h_source[ETH_ALEN]; /* source ether addr  */
+  uint16_t    h_proto;    /* packet type ID field  big endian */
+} ethhdr_t __attribute__((packed));
+
+typedef struct arphdr {
+  unsigned short int ar_hrd;    /* Format of hardware address.  */
+  unsigned short int ar_pro;    /* Format of protocol address.  */
+  unsigned char ar_hln;   /* Length of hardware address.  */
+  unsigned char ar_pln;   /* Length of protocol address.  */
+  unsigned short int ar_op;   /* ARP opcode (command).  */
+} arphdr_t;
+
+typedef struct  ether_arp {
+  struct  arphdr ea_hdr;    /* fixed-size header */
+  u_int8_t arp_sha[ETH_ALEN]; /* sender hardware address */
+  u_int8_t arp_spa[4];    /* sender protocol address */
+  u_int8_t arp_tha[ETH_ALEN]; /* target hardware address */
+  u_int8_t arp_tpa[4];    /* target protocol address */
+} ether_arp_t;
+
+
+class ArpApplication: public PacketInApplication {
 
 public:
-  PagingApplication(PacketInSwitchApplication& pin_sw_app);
+  ArpApplication(PacketInSwitchApplication& pin_sw_app, const int in_port, const std::string l2, const struct in_addr l3);
 
 private:
-  static const uint16_t TABLE = 0;
-  static const int PAGING_IN_PROGRESS_UE_PRIORITY = 8;
-  static const int PAGING_POOL_PRIORITY = 5;
-  // TODO: move to config file
-  static const int CLAMPING_TIMEOUT = 30; // seconds
 
-  virtual void packet_in_callback(const PacketInEvent& pin_ev,
+  void packet_in_callback(const PacketInEvent& pin_ev,
       of13::PacketIn& ofpi,
       const OpenflowMessenger& messenger);
+
+  void  send_arp_reply(const PacketInEvent& pi, of13::PacketIn& ofpi, const OpenflowMessenger& messenger);
 
 
   /**
@@ -53,7 +77,7 @@ private:
    *
    * @param ev (in) - pointer to some subclass of ControllerEvent that occurred
    */
-  virtual void event_callback(const ControllerEvent& ev,
+  void event_callback(const ControllerEvent& ev,
                               const OpenflowMessenger& messenger);
 
   /**
@@ -64,19 +88,25 @@ private:
    * @param ofconn (in) - given connection to OVS switch
    * @param data (in) - the ethernet packet received by the switch
    */
-  void handle_paging_message(fluid_base::OFConnection* ofconn, uint8_t* data,
+  void handle_arp_request_message(fluid_base::OFConnection* ofconn, uint8_t* data,
                              const OpenflowMessenger& messenger);
 
   /**
-   * Creates the default paging flow, which sends a packet intended for an
-   * idle UE to this application
+   * Creates the flow
    */
-  void install_default_flow(fluid_base::OFConnection* ofconn,
-                            const OpenflowMessenger& messenger);
-  void install_test_flow(fluid_base::OFConnection* ofconn,
-                            const OpenflowMessenger& messenger);
+  void install_switch_arp_flow(fluid_base::OFConnection* ofconn,
+      const OpenflowMessenger& messenger);
+
+  void install_arp_flow(fluid_base::OFConnection* ofconn,
+      const OpenflowMessenger& messenger);
+
 
   PacketInSwitchApplication& pin_sw_app_;
+  const int in_port_;
+  struct in_addr l3_;
+  std::string l2_;
+  //uint8_t arp_ha_[ETH_ALEN];
+  //uint8_t arp_pa_[4];
 };
 
 }

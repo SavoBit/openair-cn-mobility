@@ -350,7 +350,7 @@ int s11_sgw_init (sgw_config_t * config_p)
 
   DevAssert (NW_OK == nwGtpv2cSetLogLevel (s11_sgw_stack_handle, NW_LOG_LEVEL_DEBG));
   sgw_config_read_lock (config_p);
-  s11_send_init_udp (&config_p->ipv4.S11, 2123);
+  s11_send_init_udp (&config_p->ipv4.S11, config_p->udp_port_S11);
   sgw_config_unlock (config_p);
   OAILOG_DEBUG (LOG_S11, "Initializing S11 interface: DONE\n");
   return ret;

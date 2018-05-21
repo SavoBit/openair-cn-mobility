@@ -20,31 +20,34 @@
  */
 
 #pragma once
-
-#include <memory>
+#include <unordered_map>
+#include <mutex>
 
 #include "OpenflowController.h"
-#include "PacketInSwitchApplication.h"
 
 namespace openflow {
 #define ETH_HEADER_LENGTH 14
 
-class PagingApplication: public PacketInApplication {
-
+class PacketInApplication : public Application {
 public:
-  PagingApplication(PacketInSwitchApplication& pin_sw_app);
-
-private:
-  static const uint16_t TABLE = 0;
-  static const int PAGING_IN_PROGRESS_UE_PRIORITY = 8;
-  static const int PAGING_POOL_PRIORITY = 5;
-  // TODO: move to config file
-  static const int CLAMPING_TIMEOUT = 30; // seconds
-
   virtual void packet_in_callback(const PacketInEvent& pin_ev,
       of13::PacketIn& ofpi,
-      const OpenflowMessenger& messenger);
+      const OpenflowMessenger& messenger) = 0;
+  virtual ~PacketInApplication() {};
+};
 
+class PacketInSwitchApplication: public Application {
+
+public:
+  PacketInSwitchApplication(void);
+
+  void register_for_cookie(
+      PacketInApplication* app,
+      uint64_t cookie);
+
+  uint64_t generate_cookie(void);
+
+private:
 
   /**
    * Main callback event required by inherited Application class. Whenever
@@ -56,27 +59,11 @@ private:
   virtual void event_callback(const ControllerEvent& ev,
                               const OpenflowMessenger& messenger);
 
-  /**
-   * Handles downlink data intended for a UE in idle mode, then forwards the
-   * paging request to SPGW. After initiating the paging process, it also clamps
-   * on the destination IP, to prevent multiple packet-in messages
-   *
-   * @param ofconn (in) - given connection to OVS switch
-   * @param data (in) - the ethernet packet received by the switch
-   */
-  void handle_paging_message(fluid_base::OFConnection* ofconn, uint8_t* data,
-                             const OpenflowMessenger& messenger);
 
-  /**
-   * Creates the default paging flow, which sends a packet intended for an
-   * idle UE to this application
-   */
-  void install_default_flow(fluid_base::OFConnection* ofconn,
-                            const OpenflowMessenger& messenger);
-  void install_test_flow(fluid_base::OFConnection* ofconn,
-                            const OpenflowMessenger& messenger);
-
-  PacketInSwitchApplication& pin_sw_app_;
+private:
+  std::unordered_map<uint64_t, PacketInApplication*> packet_in_event_listeners;
+  uint64_t uid_cookie;
+  std::mutex    muid;
 };
 
 }

@@ -107,11 +107,13 @@ typedef struct pgw_config_s {
     struct in_addr default_dns_sec;
   } ipv4;
 
+#if ENABLE_LIBGTPNL
   bool      ue_tcp_mss_clamp; // for UE TCP traffic
   bool      masquerade_SGI;
+#endif
 
   int              num_ue_pool;
-#define PGW_NUM_UE_POOL_MAX 16
+#define PGW_NUM_UE_POOL_MAX 96
   uint8_t          ue_pool_mask[PGW_NUM_UE_POOL_MAX];
   struct in_addr   ue_pool_addr[PGW_NUM_UE_POOL_MAX];
 

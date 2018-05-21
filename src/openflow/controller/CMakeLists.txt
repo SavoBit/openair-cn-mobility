@@ -22,10 +22,14 @@ include_directories("${SRC_TOP_DIR}/fluid/fluidbase")
 include_directories("${SRC_TOP_DIR}/fluid/fluidmsg")
 
 add_library(OPENFLOW_CONTROLLER
+  ArpApplication.h
+  ArpApplication.cpp
   ControllerMain.h
   ControllerMain.cpp
   OpenflowController.h
   OpenflowController.cpp
+  PacketInSwitchApplication.h
+  PacketInSwitchApplication.cpp
   PagingApplication.h
   PagingApplication.cpp
   ControllerEvents.h

@@ -254,7 +254,7 @@ int sgw_config_parse_file (sgw_config_t * config_pP)
         bdestroy_wrapper (&cidr);
       }
 
-      if (config_setting_lookup_int (subsetting, SGW_CONFIG_STRING_SGW_PORT_FOR_S1U_S12_S4_UP, &sgw_udp_port_S1u_S12_S4_up)
+      if (config_setting_lookup_int (subsetting, SGW_CONFIG_STRING_SGW_UDP_PORT_FOR_S1U_S12_S4_UP, &sgw_udp_port_S1u_S12_S4_up)
         ) {
         config_pP->udp_port_S1u_S12_S4_up = sgw_udp_port_S1u_S12_S4_up;
       } else {
@@ -267,19 +267,45 @@ int sgw_config_parse_file (sgw_config_t * config_pP)
       AssertFatal(false, "Couldn't find OVS subsetting in spgw config\n");
     }
     char* ovs_bridge_name = NULL;
-    libconfig_int gtp_port_num = 0;
-    libconfig_int uplink_port_num = 0;
+    char* l2_egress_port = NULL;
+    char* l2_ingress_port = NULL;
+    libconfig_int gtpu_udp_port_num = 0;
+    libconfig_int egress_port_num = 0;
+    libconfig_int ingress_port_num = 0;
     char* uplink_mac = NULL;
     if (config_setting_lookup_string (ovs_settings, SGW_CONFIG_STRING_OVS_BRIDGE_NAME, (const char **)&ovs_bridge_name)
-        && config_setting_lookup_int (ovs_settings, SGW_CONFIG_STRING_OVS_GTP_PORT_NUM, &gtp_port_num)
-        && config_setting_lookup_int (ovs_settings, SGW_CONFIG_STRING_OVS_UPLINK_PORT_NUM, &uplink_port_num)
-        && config_setting_lookup_string (ovs_settings, SGW_CONFIG_STRING_OVS_UPLINK_MAC, (const char **)&uplink_mac)) {
+        && config_setting_lookup_int (ovs_settings, SGW_CONFIG_STRING_OVS_UDP_PORT_FOR_S1U, &gtpu_udp_port_num)
+        && config_setting_lookup_int (ovs_settings, SGW_CONFIG_STRING_OVS_EGRESS_PORT_NUM, &egress_port_num)
+        && config_setting_lookup_int (ovs_settings, SGW_CONFIG_STRING_OVS_INGRESS_PORT_NUM, &ingress_port_num)
+        && config_setting_lookup_string (ovs_settings, SGW_CONFIG_STRING_OVS_L2_EGRESS_PORT, (const char **)&l2_egress_port)
+        && config_setting_lookup_string (ovs_settings, SGW_CONFIG_STRING_OVS_L2_INGRESS_PORT, (const char **)&l2_ingress_port)
+        && config_setting_lookup_string (ovs_settings, SGW_CONFIG_STRING_OVS_UPLINK_MAC, (const char **)&uplink_mac)
+        ) {
       config_pP->ovs_config.bridge_name = bfromcstr (ovs_bridge_name);
-      config_pP->ovs_config.gtp_port_num = gtp_port_num;
-      config_pP->ovs_config.uplink_port_num = uplink_port_num;
+      config_pP->ovs_config.gtpu_udp_port_num = gtpu_udp_port_num;
+      config_pP->ovs_config.egress_port_num = egress_port_num;
+      config_pP->ovs_config.ingress_port_num = ingress_port_num;
       config_pP->ovs_config.uplink_mac = bfromcstr (uplink_mac);
+      config_pP->ovs_config.l2_egress_port = bfromcstr (l2_egress_port);
+      config_pP->ovs_config.l2_ingress_port = bfromcstr (l2_ingress_port);
     } else {
       AssertFatal(false, "Couldn't find all ovs settings in spgw config\n");
+    }
+    config_pP->ovs_config.arp_daemon_egress = false;
+    config_pP->ovs_config.arp_daemon_ingress = false;
+    if (config_setting_lookup_string (ovs_settings, SGW_CONFIG_STRING_OVS_ARP_DAEMON_EGRESS, (const char **)&astring)) {
+      if (astring != NULL) {
+        if (strcasecmp (astring, "yes") == 0) {
+          config_pP->ovs_config.arp_daemon_egress = true;
+        }
+      }
+    }
+    if (config_setting_lookup_string (ovs_settings, SGW_CONFIG_STRING_OVS_ARP_DAEMON_INGRESS, (const char **)&astring)) {
+      if (astring != NULL) {
+        if (strcasecmp (astring, "yes") == 0) {
+          config_pP->ovs_config.arp_daemon_ingress = true;
+        }
+      }
     }
     #endif
   }
@@ -309,6 +335,21 @@ void sgw_config_display (sgw_config_t * config_p)
   OAILOG_INFO (LOG_SPGW_APP, "- ITTI:\n");
   OAILOG_INFO (LOG_SPGW_APP, "    queue size .......: %u (bytes)\n", config_p->itti_config.queue_size);
   OAILOG_INFO (LOG_SPGW_APP, "    log file .........: %s\n", bdata(config_p->itti_config.log_file));
+
+#if ENABLE_OPENFLOW
+  OAILOG_INFO (LOG_SPGW_APP, "- OpenVSwitch:\n");
+  OAILOG_INFO (LOG_SPGW_APP, "    bridge_name .........: %s\n", bdata(config_p->ovs_config.bridge_name));
+  OAILOG_INFO (LOG_SPGW_APP, "    gtpu_udp_port_num ...: %d\n", config_p->ovs_config.gtpu_udp_port_num);
+  OAILOG_INFO (LOG_SPGW_APP, "    egress_port_num .....: %d\n", config_p->ovs_config.egress_port_num);
+  OAILOG_INFO (LOG_SPGW_APP, "    ingress_port_num ....: %d\n", config_p->ovs_config.ingress_port_num);
+  OAILOG_INFO (LOG_SPGW_APP, "    uplink_mac ..........: %s\n", bdata(config_p->ovs_config.uplink_mac));
+  OAILOG_INFO (LOG_SPGW_APP, "    l2_egress_port ......: %s\n", bdata(config_p->ovs_config.l2_egress_port));
+  OAILOG_INFO (LOG_SPGW_APP, "    l2_ingress_port .....: %s\n", bdata(config_p->ovs_config.l2_ingress_port));
+  OAILOG_INFO (LOG_SPGW_APP, "    arp_daemon_egress....: %s\n", (config_p->ovs_config.arp_daemon_egress) ? "true":"false");
+  OAILOG_INFO (LOG_SPGW_APP, "    arp_daemon_ingress...: %s\n", (config_p->ovs_config.arp_daemon_ingress) ? "true":"false");
+  OAILOG_INFO (LOG_SPGW_APP, "    Output thread-safe...: %s\n", (config_p->log_config.is_output_thread_safe) ? "true":"false");
+#endif
+
 
   OAILOG_INFO (LOG_SPGW_APP, "- Logging:\n");
   OAILOG_INFO (LOG_SPGW_APP, "    Output ..............: %s\n", bdata(config_p->log_config.output));

@@ -20,6 +20,8 @@
  */
 
 #include <netinet/ip.h>
+//#include <netinet/ether.h>
+//#include <netinet/if_ether.h>
 #include <arpa/inet.h>
 #include "OpenflowController.h"
 #include "PagingApplication.h"
@@ -34,13 +36,15 @@ using namespace fluid_msg;
 
 namespace openflow {
 
-uint32_t prefix2mask(int prefix) {
-  if (prefix) {
-    return htonl(~((1 << (32 - prefix)) - 1));
-  } else {
-    return htonl(0);
-  }
+PagingApplication::PagingApplication(PacketInSwitchApplication& pin_sw_app) : pin_sw_app_(pin_sw_app) {};
+
+
+void PagingApplication::packet_in_callback(const PacketInEvent& pin_ev,
+    of13::PacketIn& ofpi,
+    const OpenflowMessenger& messenger) {
+
 }
+
 
 void PagingApplication::event_callback(const ControllerEvent& ev,
                                        const OpenflowMessenger& messenger) {
@@ -49,12 +53,23 @@ void PagingApplication::event_callback(const ControllerEvent& ev,
     const PacketInEvent& pi = static_cast<const PacketInEvent&>(ev);
     of13::PacketIn ofpi;
     ofpi.unpack(const_cast<uint8_t*>(pi.get_data()));
-    handle_paging_message(ev.get_connection(),
-                          static_cast<uint8_t*>(ofpi.data()),
-                          messenger);
+
+
+    int      num_addr_pools = get_num_paa_ipv4_pool();
+    struct in_addr netaddr;
+    struct in_addr netmask;
+
+    for (int pidx = 0; pidx < num_addr_pools; pidx++) {
+      int ret = get_paa_ipv4_pool(pidx, &netaddr, &netmask);
+
+      //handle_paging_message(ev.get_connection(),
+      //                    static_cast<uint8_t*>(ofpi.data()),
+      //                    messenger);
+    }
   }
   else if (ev.get_type() == EVENT_SWITCH_UP) {
     install_default_flow(ev.get_connection(), messenger);
+    install_test_flow(ev.get_connection(), messenger);
   }
 }
 
@@ -79,7 +94,7 @@ void PagingApplication::handle_paging_message(
    * userspace, and as a retry time if paging fails
    */
   of13::FlowMod fm = messenger.create_default_flow_mod(TABLE, of13::OFPFC_ADD,
-                                                            MID_PRIORITY + 1);
+                                                            PAGING_IN_PROGRESS_UE_PRIORITY);
   fm.hard_timeout(CLAMPING_TIMEOUT);
   of13::EthType type_match(IP_ETH_TYPE);
   fm.add_oxm_field(type_match);
@@ -97,34 +112,54 @@ void PagingApplication::install_default_flow(
     const OpenflowMessenger& messenger) {
   // Get assigned IP block from mobilityd
   struct in_addr netaddr;
-  uint32_t prefix;
-  int ret = get_paa_ipv4_pool(0, &netaddr, &prefix);
+  struct in_addr netmask;
+  int      num_addr_pools = get_num_paa_ipv4_pool();
 
-  // Convert to string for logging
-  char ip_str[INET_ADDRSTRLEN];
-  inet_ntop(AF_INET, &(netaddr.s_addr), ip_str, INET_ADDRSTRLEN);
-  OAILOG_INFO(LOG_GTPV1U,
-              "Setting default paging flow for UE IP block %s/%d\n",
-              ip_str, prefix);
+  for (int pidx = 0; pidx < num_addr_pools; pidx++) {
+    int ret = get_paa_ipv4_pool(pidx, &netaddr, &netmask);
+    // Convert to string for logging
+    char ip_str[INET_ADDRSTRLEN];
+    char net_str[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &(netaddr.s_addr), ip_str, INET_ADDRSTRLEN);
+    inet_ntop(AF_INET, &(netmask.s_addr), net_str, INET_ADDRSTRLEN);
+    OAILOG_INFO(LOG_GTPV1U,
+                "Setting default paging flow for UE IP block %s/%s\n",
+                ip_str, net_str);
 
-  of13::FlowMod fm = messenger.create_default_flow_mod(TABLE, of13::OFPFC_ADD,
-                                                            MID_PRIORITY);
-  // IP eth type
-  of13::EthType type_match(IP_ETH_TYPE);
-  fm.add_oxm_field(type_match);
+    of13::FlowMod fm = messenger.create_default_flow_mod(TABLE, of13::OFPFC_ADD,
+                                                              PAGING_POOL_PRIORITY);
+    // IP eth type
+    of13::EthType type_match(IP_ETH_TYPE);
+    fm.add_oxm_field(type_match);
 
-  // Match on ip dest equalling assigned ue ip block
-  of13::IPv4Dst ip_match(netaddr.s_addr, prefix2mask(prefix));
-  fm.add_oxm_field(ip_match);
+    // Match on ip dest equalling assigned ue ip block
+    of13::IPv4Dst ip_match(netaddr.s_addr, netmask.s_addr);
+    fm.add_oxm_field(ip_match);
 
-  // Output to controller
-  of13::OutputAction act(of13::OFPP_CONTROLLER, of13::OFPCML_NO_BUFFER);
-  of13::ApplyActions inst;
-  inst.add_action(act);
-  fm.add_instruction(inst);
+    // Output to controller
+    of13::OutputAction act(of13::OFPP_CONTROLLER, of13::OFPCML_NO_BUFFER);
+    of13::ApplyActions inst;
+    inst.add_action(act);
+    fm.add_instruction(inst);
 
-  messenger.send_of_msg(fm, ofconn);
-  OAILOG_DEBUG(LOG_GTPV1U, "Default paging flow added\n");
+    messenger.send_of_msg(fm, ofconn);
+  }
+}
+
+void PagingApplication::install_test_flow(
+    fluid_base::OFConnection* ofconn,
+    const OpenflowMessenger& messenger) {
+
+    of13::FlowMod fm = messenger.create_default_flow_mod(TABLE, of13::OFPFC_ADD,
+                                                              PAGING_POOL_PRIORITY);
+
+    // Output to controller
+    of13::OutputAction act(of13::OFPP_LOCAL, of13::OFPCML_NO_BUFFER);
+    of13::ApplyActions inst;
+    inst.add_action(act);
+    fm.add_instruction(inst);
+
+    messenger.send_of_msg(fm, ofconn);
 }
 
 }

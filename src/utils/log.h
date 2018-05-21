@@ -33,6 +33,8 @@
 
 #include "bstrlib.h"
 
+#include "gcc_diag.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
