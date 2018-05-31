@@ -182,13 +182,14 @@ int pgw_config_process (pgw_config_t * config_pP)
     }
 #endif
 
-#if ENABLE_LIBGTPNL
     if (config_pP->pcef.enabled) {
+#if ENABLE_LIBGTPNL
       if (config_pP->pcef.tcp_ecn_enabled) {
         async_system_command (TASK_ASYNC_SYSTEM, PGW_ABORT_ON_ERROR, "sysctl -w net.ipv4.tcp_ecn=1");
       }
-    }
 #endif
+      pgw_pcef_emulation_init(config_pP);
+    }
   }
   return 0;
 }

@@ -135,6 +135,7 @@ function main()
   fi
   
   if [ $var_check_install_oai_software -gt 0 ];then
+    disable_ipv6
     check_install_spgw_software  $force
     if [[ $? -ne 0 ]]; then
         echo_error "Error: SPGW software installation failed"

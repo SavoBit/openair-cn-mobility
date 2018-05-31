@@ -148,6 +148,129 @@ install_ovs_gtp_user_space_from_source(){
   return 1
 }
 
+#-------------------------------------------------------------------------------
+ovs_load_kernel_modules(){
+  $SUDO modprobe udp_tunnel
+  $SUDO modprobe ip6_udp_tunnel
+  $SUDO modprobe gtp
+  [[ $? -ne 0 ]] && return $?
+  #$SUDO modprobe gre
+  #$SUDO modprobe ip_gre
+  #$SUDO modprobe ip6_gre
+  #$SUDO modprobe geneve
+  #$SUDO modprobe vxlan
+  sync
+  $SUDO modprobe nf_conntrack
+  $SUDO modprobe nf_defrag_ipv6
+  
+  $SUDO modprobe libcrc32c
+  $SUDO modprobe nf_nat 
+  $SUDO modprobe nf_nat_ipv4 
+  $SUDO modprobe nf_nat_ipv6 
+  
+  #$SUDO modprobe openvswitch
+  $SUDO insmod /lib/modules/`uname -r`/extra/openvswitch.ko
+  [[ $? -ne 0 ]] && return $?
+  sync
+  #sleep 7
+  #sync
+  #$SUDO insmod /lib/modules/`uname -r`/extra/vport-gtp.ko
+  #[[ $? -ne 0 ]] && return $?
+  #$SUDO insmod /lib/modules/`uname -r`/extra/vport-geneve.ko
+  #$SUDO insmod /lib/modules/`uname -r`/extra/vport-gre.ko
+  #$SUDO insmod /lib/modules/`uname -r`/extra/vport-lisp.ko
+  #$SUDO insmod /lib/modules/`uname -r`/extra/vport-stt.ko
+  #$SUDO insmod /lib/modules/`uname -r`/extra/vport-vxlan.ko
+  return 0
+}
+
+#-------------------------------------------------------------------------------
+ovs_unload_kernel_modules(){
+  $SUDO modprobe --quiet --remove vport_gtp
+  $SUDO modprobe --quiet --remove vport-geneve
+  $SUDO modprobe --quiet --remove vport-gre  
+  $SUDO modprobe --quiet --remove vport-lisp
+  $SUDO modprobe --quiet --remove vport-stt
+  $SUDO modprobe --quiet --remove vport-vxlan
+  $SUDO modprobe --quiet --remove openvswitch
+  $SUDO modprobe --quiet --remove gtp
+  $SUDO modprobe --quiet --remove gre
+  $SUDO modprobe --quiet --remove ip_gre
+  $SUDO modprobe --quiet --remove ip6_gre
+  $SUDO modprobe --quiet --remove geneve
+  $SUDO modprobe --quiet --remove vxlan
+  return 0
+}
+
+#-------------------------------------------------------------------------------
+ovs_stop() {
+  $SUDO pkill ovs-vswitchd
+  [[ $? -eq 0 ]] || echo_success "killed ovsdb-vswitchd"
+  $SUDO pkill ovsdb-server
+  [[ $? -eq 0 ]] || echo_success "killed ovsdb-server"
+  ovs_unload_kernel_modules
+}
+
+#-------------------------------------------------------------------------------
+# arg1 is init requested
+ovs_start() {
+  ovs_load_kernel_modules
+  [[ $? -ne 0 ]] && return $?
+  
+   export PATH=$PATH:/usr/local/share/openvswitch/scripts
+
+  $SUDO mkdir -m 777 -p /usr/local/var/log/openvswitch/
+  
+  # From http://www.openvswitch.org/support/dist-docs-2.5/INSTALL.md.html
+  
+  echo "Starting ovsdb-server..."
+  pgrep ovsdb-server || $SUDO ovsdb-server --remote=punix:/usr/local/var/run/openvswitch/db.sock \
+                 --remote=db:Open_vSwitch,Open_vSwitch,manager_options \
+                 --private-key=db:Open_vSwitch,SSL,private_key \
+                 --certificate=db:Open_vSwitch,SSL,certificate \
+                 --bootstrap-ca-cert=db:Open_vSwitch,SSL,ca_cert \
+                 --pidfile --detach --log-file
+  [[ $? -ne 0 ]] && echo_error "Failed to start ovsdb-server" && return $?
+  echo_success "ovsdb-server running"
+  sleep 1
+
+  if [ "$#" -ge 1 ] && [ $1 -eq 1 ]; then
+    # Then initialize the database using ovs-vsctl. This is only necessary the first
+    # time after you create the database with ovsdb-tool (but running it at any time 
+    # is harmless):
+    echo "Init ovs db..."
+    $SUDO ovs-vsctl --no-wait init
+    [[ $? -ne 0 ]] && echo_error "Failed to init OVS db" && return $?
+    echo_success "Initialized ovs db."
+  fi
+
+  # Then start the main Open vSwitch daemon, telling it to connect to the same 
+  # Unix domain socket:
+  echo "Starting vswitchd..."
+  pgrep ovs-vswitchd || $SUDO ovs-vswitchd -v --pidfile --detach --log-file=/usr/local/var/log
+  [[ $? -ne 0 ]] && echo_error "Failed to start vswitchd" && return $?
+  echo_success "vswitchd running"
+  sleep 1
+}
+
+#-------------------------------------------------------------------------------
+ovs_clean_installation() {
+  # Should not be there
+  $SUDO $SUDO apt-get remove -y openvswitch-switch openvswitch-common
+  ovs_stop
+  $SUDO rm -Rf /tmp/ovs
+
+  $SUDO rm -Rfv /usr/local/share/openvswitch
+  $SUDO rm -Rfv /usr/local/var/lib/openvswitch
+  $SUDO rm -Rfv /usr/local/var/run/openvswitch
+  $SUDO rm -Rfv /var/lib/openvswitch
+  $SUDO rm -Rfv /usr/local/lib/libopenvswitch*
+  $SUDO rm -fv  /usr/local/lib/pkgconfig/libopenvswitch.pc
+  $SUDO rm -Rfv /usr/local/include/openvswitch
+  $SUDO rm -Rfv /usr/local/etc/openvswitch
+  $SUDO rm -Rfv /lib/modules/`uname -r`/extra/*.ko
+  return 0
+}
 
 #-------------------------------------------------------------------------------
 install_ovs_gtp_kernel_space_from_source(){
@@ -163,7 +286,7 @@ install_ovs_gtp_kernel_space_from_source(){
     prompt='y'
     OPTION="-y"
   fi
-  
+
   if [[ $prompt =~ [yY](es)* ]]
   then
     echo "Check kernel"
@@ -189,20 +312,19 @@ install_ovs_gtp_kernel_space_from_source(){
     # locale
     # sudo locale-gen "en_US.UTF-8"
     # sudo dpkg-reconfigure locales
-    
+
     #echo 'OVS: Upgrading pip'
     # sudo -H python -m pip install --upgrade pip
     #sudo -H pip install --upgrade pip
     #[[ $? -ne 0 ]] && return $?
-    
+
     #echo 'OVS: Installing six'
     #sudo -H python -m pip install six
     #sudo -H pip install six
     #echo $?
     #[[ $? -ne 0 ]] && return $?
 
-    $SUDO modprobe --quiet --remove gtp
-    $SUDO modprobe --quiet --remove openvswitch  
+    ovs_clean_installation
 
     SAVEDPWD=${PWD}
 
@@ -257,6 +379,8 @@ install_ovs_gtp_kernel_space_from_source(){
     $SUDO ovsdb-tool create /usr/local/etc/openvswitch/conf.db vswitchd/vswitch.ovsschema
     [[ $? -ne 0 ]] && return $?
     cd $SAVEDPWD
+    
+    ovs_start 1
   fi
   return 0
 }

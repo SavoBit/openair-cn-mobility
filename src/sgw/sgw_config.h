@@ -52,13 +52,10 @@ extern "C" {
 
 #define SGW_CONFIG_STRING_OVS_BRIDGE_NAME                       "BRIDGE_NAME"
 #define SGW_CONFIG_STRING_OVS_EGRESS_PORT_NUM                   "EGRESS_PORT_NUM"
-#define SGW_CONFIG_STRING_OVS_INGRESS_PORT_NUM                  "INGRESS_PORT_NUM"
+#define SGW_CONFIG_STRING_OVS_GTP_PORT_NUM                      "GTP_PORT_NUM"
 #define SGW_CONFIG_STRING_OVS_L2_EGRESS_PORT                    "L2_EGRESS_PORT"
-#define SGW_CONFIG_STRING_OVS_L2_INGRESS_PORT                   "L2_INGRESS_PORT"
 #define SGW_CONFIG_STRING_OVS_UPLINK_MAC                        "UPLINK_MAC"
 #define SGW_CONFIG_STRING_OVS_UDP_PORT_FOR_S1U                  "UDP_PORT_FOR_S1U"
-#define SGW_CONFIG_STRING_OVS_ARP_DAEMON_EGRESS                 "ARP_DAEMON_EGRESS"
-#define SGW_CONFIG_STRING_OVS_ARP_DAEMON_INGRESS                "ARP_DAEMON_INGRESS"
 
 #define SPGW_ABORT_ON_ERROR true
 #define SPGW_WARN_ON_ERROR false
@@ -68,11 +65,8 @@ typedef struct spgw_ovs_config_s {
   bstring  bridge_name;
   int      egress_port_num;
   bstring  l2_egress_port;
-  int      ingress_port_num;
-  bstring  l2_ingress_port;
+  int      gtp_port_num;
   bstring  uplink_mac; // next (first) hop
-  bool     arp_daemon_egress;
-  bool     arp_daemon_ingress;
 } spgw_ovs_config_t;
 
 typedef struct sgw_config_s {
