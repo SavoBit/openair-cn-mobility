@@ -348,6 +348,37 @@ bcastcalc(){
   echo "${ip[*]}"
 }
 
+
+#-------------------------------------------------------------------------------
+# arg1 is network interface name
+# output to stdout
+get_interface_inet_global_address() {
+  if [ "$#" -eq 1 ]; then
+    is_interface_up $1
+    [[ $? -ne 0 ]] && return $?
+    ip -4 addr show $1 scope global | awk '$1 == "inet" {print $2}' | xargs | cut -d '/' -f1
+    return 0
+  else
+    echo_error "usage: get_interface_inet_global_address if_name"
+    return 1
+  fi
+}
+
+#-------------------------------------------------------------------------------
+# arg1 is network interface name
+# output to stdout
+get_interface_inet_global_cidr() {
+  if [ "$#" -eq 1 ]; then
+    is_interface_up $1
+    [[ $? -ne 0 ]] && return $?
+    ip -4 addr show $1 scope global | awk '$1 == "inet" {print $2}' | xargs
+    return 0
+  else
+    echo_error "usage: get_interface_inet_global_address if_name"
+    return 1
+  fi
+}
+
 #-------------------------------------------------------------------------------
 # arg1 is network interface name
 is_interface_up(){
@@ -355,7 +386,7 @@ is_interface_up(){
     ip a show $1 up | grep $1 > /dev/null
     return $?
   else
-    echo_error "usage: is_interface_up $if_name"
+    echo_error "usage: is_interface_up if_name"
     return 1
   fi
 }
@@ -380,61 +411,6 @@ set_interface_up(){
   echo "ip -4 addr add  $address/$cidr_netmask broadcast $broadcast dev $interface"
   $SUDO ip -4 addr add  $address/$cidr_netmask broadcast $broadcast dev $interface
   sync
-}
-
-
-#-------------------------------------------------------------------------------
-# arg1 is MME or EPC config file
-set_mme_network_interfaces(){
-  value="`cat $1 | cut -d "#" -f1 | grep 'ADDRESS\|INTERFACE' | tr -d " " | grep "="`"
-  eval $value
-
-  # check all var names are correct
-  list_var_name="\
-        MME_INTERFACE_NAME_FOR_S1_MME         MME_IPV4_ADDRESS_FOR_S1_MME \
-        MME_INTERFACE_NAME_FOR_S11_MME        MME_IPV4_ADDRESS_FOR_S11_MME"
-  for var_name in $list_var_name
-  do
-    if [ -n "$${var_name}" ]; then
-      echo_success "Found ${var_name} = ${!var_name}"
-    else
-      echo_fatal "${var_name} does does not exist in your config file $1"
-    fi
-  done
-
-  # configure interfaces
-  set_network_interface  $MME_INTERFACE_NAME_FOR_S1_MME         $MME_IPV4_ADDRESS_FOR_S1_MME
-  set_network_interface  $MME_INTERFACE_NAME_FOR_S11_MME        $MME_IPV4_ADDRESS_FOR_S11_MME
-}
-
-#-------------------------------------------------------------------------------
-# arg1 is S/P-GW or EPC config file
-set_spgw_network_interfaces(){
-  value="`cat $1 | cut -d "#" -f1 | grep 'ADDRESS\|INTERFACE' | tr -d " " | grep "="`"
-  eval $value
-
-  # check all var names are correct
-  list_var_name="\
-        SGW_INTERFACE_NAME_FOR_S11            SGW_IPV4_ADDRESS_FOR_S11 \
-        SGW_INTERFACE_NAME_FOR_S1U_S12_S4_UP  SGW_IPV4_ADDRESS_FOR_S1U_S12_S4_UP \
-        SGW_INTERFACE_NAME_FOR_S5_S8_UP       SGW_IPV4_ADDRESS_FOR_S5_S8_UP \
-        PGW_INTERFACE_NAME_FOR_S5_S8          PGW_IPV4_ADDRESS_FOR_S5_S8 \
-        PGW_INTERFACE_NAME_FOR_SGI            PGW_IPV4_ADDRESS_FOR_SGI"
-  for var_name in $list_var_name
-  do
-    if [ -n "$${var_name}" ]; then
-      echo_success "Found ${var_name} = ${!var_name}"
-    else
-      echo_fatal "${var_name} does does not exist in your config file $1"
-    fi
-  done
-
-  # configure interfaces
-  set_network_interface  $SGW_INTERFACE_NAME_FOR_S11            $SGW_IPV4_ADDRESS_FOR_S11
-  set_network_interface  $SGW_INTERFACE_NAME_FOR_S1U_S12_S4_UP  $SGW_IPV4_ADDRESS_FOR_S1U_S12_S4_UP
-  set_network_interface  $SGW_INTERFACE_NAME_FOR_S5_S8_UP       $SGW_IPV4_ADDRESS_FOR_S5_S8_UP
-  set_network_interface  $PGW_INTERFACE_NAME_FOR_S5_S8          $PGW_IPV4_ADDRESS_FOR_S5_S8
-  set_network_interface  $PGW_INTERFACE_NAME_FOR_SGI            $PGW_IPV4_ADDRESS_FOR_SGI
 }
 
 

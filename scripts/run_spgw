@@ -139,13 +139,13 @@ function main()
       -k | --kill)
         $SUDO killall -q spgw
         $SUDO rm /var/run/spgw.pid
-        ovs_stop
+        ovs_stop $OVS_GTPU_BRIDGE_NAME
         shift;
         ;;
       -K | --Kill)
         $SUDO killall -q spgw
         $SUDO rm /var/run/spgw.pid
-        ovs_stop
+        ovs_stop $OVS_GTPU_BRIDGE_NAME
         return 0
         shift;
         ;;
@@ -202,27 +202,43 @@ function main()
   fi
 
 
+  ##########################
+  # SGI INTERFACE
+  # SGi interface may be the same as S1-U interface in tiny setups
+  ##########################
+  sgi_nw_dev_string="PGW_INTERFACE_NAME_FOR_SGI"
+  sgi_nw_device="`cat $spgw_config_file | cut -d "#" -f1 | grep $sgi_nw_dev_string | tr -d " " | grep "="`"
+  eval $sgi_nw_device
+  is_interface_up ${!sgi_nw_dev_string}
+  [[ $? -ne 0 ]] && echo_error "Failed to find SGi interface ${!sgi_nw_dev_string} up" && return $?
+  sgi_ip_cidr=$(get_interface_inet_global_cidr ${!sgi_nw_dev_string})
+  sgi_ip=$(echo $sgi_ip_cidr | cut -d '/' -f1)
+  echo_success "SGI interface ${!sgi_nw_dev_string} found up, inet $sgi_ip_cidr"
+
+  echo_info "Setting in $spgw_config_file PGW_IPV4_ADDRESS_FOR_SGI = $sgi_ip_cidr"
+  sed -i "s|.*PGW_IPV4_ADDRESS_FOR_SGI.*|        PGW_IPV4_ADDRESS_FOR_SGI = \"$sgi_ip_cidr\";|" $spgw_config_file
+
+  ##########################
+  # GTPV1-U INTERFACE
+  # By default we assign the S1U IP address to the GTPU bridge
+  ##########################
+  s1u_nw_dev_string="SGW_INTERFACE_NAME_FOR_S1U_S12_S4_UP"
+  s1u_nw_device="`cat $spgw_config_file | cut -d "#" -f1 | grep $s1u_nw_dev_string | tr -d " " | grep "="`"
+  eval $s1u_nw_device
+  is_interface_up ${!s1u_nw_dev_string}
+  [[ $? -ne 0 ]] && echo_error "Failed to find S1-U interface up" && return $?
+  s1u_ip_cidr=$(get_interface_inet_global_cidr ${!s1u_nw_dev_string})
+  s1u_ip=$(echo $s1u_ip_cidr | cut -d '/' -f1)
+  echo_success "S1-U interface ${!s1u_nw_dev_string} found up, inet $s1u_ip_cidr"
+
+  echo_info "Setting in $spgw_config_file SGW_IPV4_ADDRESS_FOR_S1U_S12_S4_UP = $s1u_ip_cidr"
+  sed -i "s|.*SGW_IPV4_ADDRESS_FOR_S1U_S12_S4_UP.*|        SGW_IPV4_ADDRESS_FOR_S1U_S12_S4_UP = \"$s1u_ip_cidr\";|" $spgw_config_file
+
+
   if [ -z ${ENABLE_OPENFLOW+x} ]  ||  [ -z ${ENABLE_OPENFLOW_MOSAIC+x} ]; then
     ovs_start
     sleep 1
 
-
-    ##########################
-    # SGI INTERFACE
-    # SGi interface may be the same as S1-U interface in tiny setups
-    ##########################
-    sgi_nw_dev_string="PGW_INTERFACE_NAME_FOR_SGI"
-    sgi_nw_device="`cat $spgw_config_file | cut -d "#" -f1 | grep $sgi_nw_dev_string | tr -d " " | grep "="`"
-    eval $sgi_nw_device
-    
-    sgi_ip_string="PGW_IPV4_ADDRESS_FOR_SGI"
-    sgi_ip="`cat $spgw_config_file | cut -d "#" -f1 | grep $sgi_ip_string | tr -d " " | grep "="`"
-    eval $sgi_ip
-    
-    is_interface_up ${!sgi_nw_dev_string}
-    [[ $? -ne 0 ]] && echo_error "Failed to find SGi interface ${!sgi_nw_dev_string} up" && return $?
-    echo_success "SGI interface ${!sgi_nw_dev_string} found up"
-    
     if [ -z $sgi_mac_nh ]; then
       if [ -z $sgi_nh ]; then
         subnet=$(ip address show dev ${!sgi_nw_dev_string} | grep inet | grep -v inet6 | xargs | cut -d ' ' -f2 | cut -d '/' -f1 | cut -d '.' -f1-3)
@@ -242,21 +258,6 @@ function main()
     fi
     echo "Set SGi next hop L2 address to $sgi_mac_nh"
 
-
-    ##########################
-    # GTPV1-U INTERFACE
-    # By default we assign the S1U IP address to the GTPU bridge
-    ##########################
-    s1u_nw_dev_string="SGW_INTERFACE_NAME_FOR_S1U_S12_S4_UP"
-    s1u_nw_device="`cat $spgw_config_file | cut -d "#" -f1 | grep $s1u_nw_dev_string | tr -d " " | grep "="`"
-    eval $s1u_nw_device
-
-    s1u_ip_string="SGW_IPV4_ADDRESS_FOR_S1U_S12_S4_UP"
-    s1u_ip="`cat $spgw_config_file | cut -d "#" -f1 | grep $s1u_ip_string | tr -d " " | grep "="`"
-    eval $s1u_ip
-
-    is_interface_up ${!s1u_nw_dev_string}
-    [[ $? -ne 0 ]] && echo_error "Failed to find S1-U interface up" && return $?
 
     ##########################
     # Bridge configuration
@@ -288,8 +289,8 @@ function main()
     [[ $? -ne 0 ]] && return $?
     sleep 1
 
-    echo "ip addr add ${!sgi_ip_string} dev $OVS_GTPU_BRIDGE_NAME"
-    $SUDO ip addr add ${!sgi_ip_string} dev $OVS_GTPU_BRIDGE_NAME 
+    echo "ip addr add $sgi_ip dev $OVS_GTPU_BRIDGE_NAME"
+    $SUDO ip addr add $sgi_ip dev $OVS_GTPU_BRIDGE_NAME 
     [[ $? -ne 0 ]] && return $?
     
     $SUDO ovs-vsctl set-controller $OVS_GTPU_BRIDGE_NAME  tcp:$CTRL_IP:$CTRL_PORT
@@ -317,7 +318,7 @@ function main()
     echo_info "Setting in $spgw_config_file UPLINK_MAC = $sgi_mac_nh"
     sed -i "s/.*UPLINK_MAC.*/        UPLINK_MAC = \"$sgi_mac_nh\";/" $spgw_config_file
     echo_info "Setting in $spgw_config_file UDP_PORT_FOR_S1U = $UDP_PORT_FOR_S1U"
-    sed -i "s/.*UDP_PORT_FOR_S1U.*/        UDP_PORT_FOR_S1U = \"$UDP_PORT_FOR_S1U\";/" $spgw_config_file
+    sed -i "s/.*UDP_PORT_FOR_S1U.*/        UDP_PORT_FOR_S1U = $UDP_PORT_FOR_S1U;/" $spgw_config_file
   fi
 
   exe_arguments="-c $spgw_config_file $exe_arguments"

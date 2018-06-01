@@ -203,12 +203,19 @@ ovs_unload_kernel_modules(){
 }
 
 #-------------------------------------------------------------------------------
+# arg1 is OVS bridge name
 ovs_stop() {
-  $SUDO pkill ovs-vswitchd
-  [[ $? -eq 0 ]] || echo_success "killed ovsdb-vswitchd"
-  $SUDO pkill ovsdb-server
-  [[ $? -eq 0 ]] || echo_success "killed ovsdb-server"
-  ovs_unload_kernel_modules
+  if [ "$#" -eq 1 ]; then
+    $SUDO ovs-vsctl del-br $1
+    $SUDO pkill ovs-vswitchd
+    [[ $? -eq 0 ]] || echo_success "killed ovsdb-vswitchd"
+    $SUDO pkill ovsdb-server
+    [[ $? -eq 0 ]] || echo_success "killed ovsdb-server"
+    ovs_unload_kernel_modules
+  else
+    echo_error "usage: ovs_stop bridge_name"
+    return 1
+  fi
 }
 
 #-------------------------------------------------------------------------------
