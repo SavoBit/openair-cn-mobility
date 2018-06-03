@@ -37,17 +37,21 @@ namespace openflow {
 #define ARPOP_REQUEST   1               /* ARP request                  */
 #define ARPOP_REPLY     2               /* ARP reply                    */
 
+#define MAX_UE_POOL_PDN 96
 
-#define SWITCH_TABLE                 0
-#define ARP_TABLE                    1
-#define TABLE_DL_GTPU_TABLE          2
-#define TABLE_UL_GTPU_TABLE         (TABLE_DL_GTPU_TABLE + 96)
-#define TABLE_PAGING_POOL            TABLE_DL_GTPU_TABLE
-#define TABLE_PAGING_UE_IN_PROGRESS  TABLE_PAGING_POOL
-#define TABLE_FINAL                  250
+#define OF_TABLE_SWITCH                 0
+#define OF_TABLE_ARP                    1
+#define OF_TABLE_UL_GTPU                2
+#define OF_TABLE_LOOP                  (OF_TABLE_UL_GTPU + MAX_UE_POOL_PDN)
+// should be + MAX_UE_POOLS
+#define OF_TABLE_DL_GTPU               (OF_TABLE_LOOP + 1)
+#define OF_TABLE_PAGING_POOL            OF_TABLE_DL_GTPU
+#define OF_TABLE_PAGING_UE_IN_PROGRESS  OF_TABLE_PAGING_POOL
+#define OF_TABLE_FINAL                  OF_TABLE_PAGING_UE_IN_PROGRESS+MAX_UE_POOL_PDN
 
 enum OF_FLOW_PRIORITIES {
   OF_PRIO_SWITCH_LOWER_PRIORITY = 0,
+  OF_PRIO_LOOP_LOWER_PRIORITY = 0,
   OF_PRIO_SWITCH_GOTO_ARP_TABLE = 1,
   OF_PRIO_SWITCH_GOTO_DL_GTP_TABLE = 11,
   OF_PRIO_SWITCH_GOTO_UL_GTP_TABLE = 10,

@@ -63,6 +63,7 @@ set(CN_UTILS_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/conversions.c
     ${CMAKE_CURRENT_SOURCE_DIR}/digest.c
     ${CMAKE_CURRENT_SOURCE_DIR}/enum_string.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/if.c
     ${CMAKE_CURRENT_SOURCE_DIR}/mcc_mnc_itu.c
     ${CMAKE_CURRENT_SOURCE_DIR}/dynamic_memory_check.c
     ${CMAKE_CURRENT_SOURCE_DIR}/pid_file.c

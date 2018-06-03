@@ -326,7 +326,6 @@ void sgw_config_display (sgw_config_t * config_p)
   OAILOG_INFO (LOG_SPGW_APP, "    gtp_port_num ........: %d\n", config_p->ovs_config.gtp_port_num);
   OAILOG_INFO (LOG_SPGW_APP, "    uplink_mac ..........: %s\n", bdata(config_p->ovs_config.uplink_mac));
   OAILOG_INFO (LOG_SPGW_APP, "    l2_egress_port ......: %s\n", bdata(config_p->ovs_config.l2_egress_port));
-  OAILOG_INFO (LOG_SPGW_APP, "    arp_daemon_egress....: %s\n", (config_p->ovs_config.arp_daemon_egress) ? "true":"false");
 #endif
 
 

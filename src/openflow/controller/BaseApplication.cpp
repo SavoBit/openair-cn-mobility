@@ -44,30 +44,36 @@ void BaseApplication::event_callback(const ControllerEvent& ev,
 }
 
 
-
-
 void BaseApplication::install_default_flow(fluid_base::OFConnection* ofconn,
                                            const OpenflowMessenger& messenger) {
-  of13::FlowMod fm = messenger.create_default_flow_mod(SWITCH_TABLE, of13::OFPFC_ADD, OF_PRIO_SWITCH_LOWER_PRIORITY);
+  of13::FlowMod fm = messenger.create_default_flow_mod(OF_TABLE_SWITCH, of13::OFPFC_ADD, OF_PRIO_SWITCH_LOWER_PRIORITY);
   // Output to next table
-  of13::GoToTable inst(TABLE_FINAL);
+  of13::GoToTable inst(OF_TABLE_FINAL);
   fm.add_instruction(inst);
-  OAILOG_INFO(LOG_GTPV1U, "Setting switch flow for Base Application\n");
+  OAILOG_INFO(LOG_GTPV1U, "Setting default switch flow for Base Application\n");
   messenger.send_of_msg(fm, ofconn);
+
+  of13::FlowMod fml = messenger.create_default_flow_mod(OF_TABLE_LOOP, of13::OFPFC_ADD, OF_PRIO_SWITCH_LOWER_PRIORITY);
+  // Output to next table
+  fml.add_instruction(inst);
+  OAILOG_INFO(LOG_GTPV1U, "Setting default loop flow for Base Application\n");
+  messenger.send_of_msg(fml, ofconn);
 }
+
 
 void BaseApplication::remove_all_flows(fluid_base::OFConnection* ofconn,
                                        const OpenflowMessenger& messenger) {
   of13::FlowMod fm = messenger.create_default_flow_mod(
-    SWITCH_TABLE,
-    of13::OFPFC_DELETE,
-    OF_PRIO_SWITCH_LOWER_PRIORITY);
+      OF_TABLE_SWITCH,
+      of13::OFPFC_DELETE,
+      OF_PRIO_SWITCH_LOWER_PRIORITY);
   // match all
   fm.out_port(of13::OFPP_ANY);
   fm.out_group(of13::OFPG_ANY);
   messenger.send_of_msg(fm, ofconn);
   return;
 }
+
 
 void BaseApplication::handle_error_message(const ErrorEvent &ev) {
   static std::vector<std::string> error_type {
@@ -91,7 +97,6 @@ void BaseApplication::handle_error_message(const ErrorEvent &ev) {
       std::string("OFPHFC_INCOMPATIBLE"),
       std::string("OFPHFC_EPERM")
   };
-
 
   static std::vector<std::string> bad_request_code = {
       std::string("OFPBRC_BAD_VERSION"),

@@ -36,8 +36,7 @@ public:
   GTPApplication(
     const std::string& uplink_mac,
     const struct in_addr l3_ingress_port,
-    const std::string l2_ingress_port,
-    const uint32_t ingress_port_num,
+    const uint32_t gtp_port_num,
     const struct in_addr l3_egress_port,
     const std::string l2_egress_port,
     const uint32_t egress_port_num);
@@ -63,6 +62,9 @@ private:
   void add_uplink_tunnel_flow(const AddGTPTunnelEvent& ev,
                               const OpenflowMessenger& messenger);
 
+  void add_downlink_match(of13::FlowMod& downlink_fm,
+      const struct in_addr& ue_ip,
+      const sdf_filter_t &sdf_filter);
   /*
    * Add downlink flow from internet to UE
    * @param ev - AddGTPTunnelEvent containing ue ip, enb ip, and tunnel id's
@@ -84,26 +86,25 @@ private:
   void delete_downlink_tunnel_flow(const DeleteGTPTunnelEvent& ev,
                                    const OpenflowMessenger& messenger);
 
-  void add_sgi_out_flow(const AddGTPTunnelEvent& ev, 
-                        const OpenflowMessenger& messenger);
+  void install_loop_flow(fluid_base::OFConnection* ofconn,
+      const OpenflowMessenger& messenger);
+
+  void add_sgi_out_flow(fluid_base::OFConnection* ofconn,
+      const OpenflowMessenger& messenger);
   
   void add_pdn_loop(const AddGTPTunnelEvent& ev, 
-                    const OpenflowMessenger& messenger);
+                    const OpenflowMessenger& messenger,
+                    const uint16_t flow_priority,
+                    const uint32_t goto_table);
 
 private:
-  static const uint32_t LOOP_PRIORITY = 12;
-  static const uint32_t DEFAULT_PRIORITY = 10;
   static const std::string GTP_PORT_MAC;
-  static const uint16_t TABLE = 0;
-  static const uint16_t NEXT_TABLE = 1;
-  static const uint16_t LOOP_TABLE = 2;
 
   // ingress ~ S1-U for SGW, SPGW, S5 for PGW
   // egress  ~ SGi for SPGW, PGW, S5 for SGW
   const std::string uplink_mac_;
   const struct in_addr l3_ingress_port_;
-  const std::string l2_ingress_port_;
-  const uint32_t ingress_port_num_;
+  const uint32_t gtp_port_num_;
   const struct in_addr l3_egress_port_;
   const std::string l2_egress_port_;
   const uint32_t egress_port_num_;

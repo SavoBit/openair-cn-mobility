@@ -75,7 +75,7 @@ void ArpApplication::send_arp_reply(const PacketInEvent& pin_ev, of13::PacketIn&
   const ether_arp_t *arp = reinterpret_cast<const ether_arp_t*>(&eth_frame[ETH_HEADER_LENGTH]);
 
   of13::FlowMod arp_fm = messenger.create_default_flow_mod(
-      ARP_TABLE,
+      OF_TABLE_ARP,
       of13::OFPFC_ADD,
       OF_PRIO_ARP_IF);
 
@@ -141,23 +141,21 @@ void ArpApplication::event_callback(const ControllerEvent& ev,
 void ArpApplication::install_switch_arp_flow(fluid_base::OFConnection* ofconn,
     const OpenflowMessenger& messenger) {
 
-  if ((spgw_config.sgw_config.ovs_config.arp_daemon_egress) || (spgw_config.sgw_config.ovs_config.arp_daemon_ingress)) {
-    of13::FlowMod fm = messenger.create_default_flow_mod(SWITCH_TABLE, of13::OFPFC_ADD, OF_PRIO_SWITCH_GOTO_ARP_TABLE);
+  of13::FlowMod fm = messenger.create_default_flow_mod(OF_TABLE_SWITCH, of13::OFPFC_ADD, OF_PRIO_SWITCH_GOTO_ARP_TABLE);
 
-    // ARP eth type
-    of13::EthType type_match(ARP_ETH_TYPE);
-    fm.add_oxm_field(type_match);
+  // ARP eth type
+  of13::EthType type_match(ARP_ETH_TYPE);
+  fm.add_oxm_field(type_match);
 
-    of13::ARPOp op_match(ARPOP_REQUEST);
-    fm.add_oxm_field(op_match);
+  of13::ARPOp op_match(ARPOP_REQUEST);
+  fm.add_oxm_field(op_match);
 
-    // Output to next table
-    of13::GoToTable inst(ARP_TABLE);
-    fm.add_instruction(inst);
+  // Output to next table
+  of13::GoToTable inst(OF_TABLE_ARP);
+  fm.add_instruction(inst);
 
-    OAILOG_INFO(LOG_GTPV1U, "Setting switch flow for ARP Application\n");
-     messenger.send_of_msg(fm, ofconn);
-  }
+  OAILOG_INFO(LOG_GTPV1U, "Setting switch flow for ARP Application\n");
+   messenger.send_of_msg(fm, ofconn);
 }
 
 void ArpApplication::install_arp_flow(
@@ -170,7 +168,7 @@ void ArpApplication::install_arp_flow(
   uint64_t cookie = this->pin_sw_app_.generate_cookie();
   this->pin_sw_app_.register_for_cookie(this, cookie);
 
-  of13::FlowMod fm = messenger.create_default_flow_mod(ARP_TABLE, of13::OFPFC_ADD, 0);
+  of13::FlowMod fm = messenger.create_default_flow_mod(OF_TABLE_ARP, of13::OFPFC_ADD, 0);
 
   fm.cookie(cookie);
 

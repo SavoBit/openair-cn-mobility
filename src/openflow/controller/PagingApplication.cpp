@@ -43,6 +43,7 @@ void PagingApplication::packet_in_callback(const PacketInEvent& pin_ev,
     of13::PacketIn& ofpi,
     const OpenflowMessenger& messenger) {
 
+  OAILOG_DEBUG(LOG_GTPV1U, "Handling packet-in message in paging app\n");
 }
 
 
@@ -69,7 +70,7 @@ void PagingApplication::event_callback(const ControllerEvent& ev,
   }
   else if (ev.get_type() == EVENT_SWITCH_UP) {
     install_default_flow(ev.get_connection(), messenger);
-    install_test_flow(ev.get_connection(), messenger);
+    //install_test_flow(ev.get_connection(), messenger);
   }
 }
 
@@ -93,8 +94,10 @@ void PagingApplication::handle_paging_message(
    * The clamping time is necessary to prevent packets from continually hitting
    * userspace, and as a retry time if paging fails
    */
-  of13::FlowMod fm = messenger.create_default_flow_mod(TABLE, of13::OFPFC_ADD,
-                                                            PAGING_IN_PROGRESS_UE_PRIORITY);
+  int pool_id  = get_paa_ipv4_pool_id(dest_ip);
+
+  of13::FlowMod fm = messenger.create_default_flow_mod(OF_TABLE_PAGING_UE_IN_PROGRESS+pool_id, of13::OFPFC_ADD,
+      OF_PRIO_PAGING_UE_IN_PROGRESS);
   fm.hard_timeout(CLAMPING_TIMEOUT);
   of13::EthType type_match(IP_ETH_TYPE);
   fm.add_oxm_field(type_match);
@@ -115,6 +118,9 @@ void PagingApplication::install_default_flow(
   struct in_addr netmask;
   int      num_addr_pools = get_num_paa_ipv4_pool();
 
+  uint64_t cookie = this->pin_sw_app_.generate_cookie();
+  this->pin_sw_app_.register_for_cookie(this, cookie);
+
   for (int pidx = 0; pidx < num_addr_pools; pidx++) {
     int ret = get_paa_ipv4_pool(pidx, &netaddr, &netmask);
     // Convert to string for logging
@@ -126,8 +132,11 @@ void PagingApplication::install_default_flow(
                 "Setting default paging flow for UE IP block %s/%s\n",
                 ip_str, net_str);
 
-    of13::FlowMod fm = messenger.create_default_flow_mod(TABLE, of13::OFPFC_ADD,
-                                                              PAGING_POOL_PRIORITY);
+    of13::FlowMod fm = messenger.create_default_flow_mod(OF_TABLE_PAGING_POOL+pidx, of13::OFPFC_ADD,
+        OF_PRIO_PAGING_UE_POOL);
+
+    fm.cookie(cookie);
+
     // IP eth type
     of13::EthType type_match(IP_ETH_TYPE);
     fm.add_oxm_field(type_match);
@@ -146,20 +155,20 @@ void PagingApplication::install_default_flow(
   }
 }
 
-void PagingApplication::install_test_flow(
-    fluid_base::OFConnection* ofconn,
-    const OpenflowMessenger& messenger) {
-
-    of13::FlowMod fm = messenger.create_default_flow_mod(TABLE, of13::OFPFC_ADD,
-                                                              PAGING_POOL_PRIORITY);
-
-    // Output to controller
-    of13::OutputAction act(of13::OFPP_LOCAL, of13::OFPCML_NO_BUFFER);
-    of13::ApplyActions inst;
-    inst.add_action(act);
-    fm.add_instruction(inst);
-
-    messenger.send_of_msg(fm, ofconn);
-}
+//void PagingApplication::install_test_flow(
+//    fluid_base::OFConnection* ofconn,
+//    const OpenflowMessenger& messenger) {
+//
+//    of13::FlowMod fm = messenger.create_default_flow_mod(TABLE, of13::OFPFC_ADD,
+//                                                              PAGING_POOL_PRIORITY);
+//
+//    // Output to controller
+//    of13::OutputAction act(of13::OFPP_LOCAL, of13::OFPCML_NO_BUFFER);
+//    of13::ApplyActions inst;
+//    inst.add_action(act);
+//    fm.add_instruction(inst);
+//
+//    messenger.send_of_msg(fm, ofconn);
+//}
 
 }

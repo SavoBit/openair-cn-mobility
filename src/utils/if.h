@@ -2,9 +2,9 @@
  * Licensed to the OpenAirInterface (OAI) Software Alliance under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
- * The OpenAirInterface Software Alliance licenses this file to You under 
+ * The OpenAirInterface Software Alliance licenses this file to You under
  * the Apache License, Version 2.0  (the "License"); you may not use this file
- * except in compliance with the License.  
+ * except in compliance with the License.
  * You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
@@ -19,30 +19,18 @@
  *      contact@openairinterface.org
  */
 
-/*! \file pgw_lite_paa.h
-* \brief
-* \author Lionel Gauthier
-* \company Eurecom
-* \email: lionel.gauthier@eurecom.fr
+/*! \file get_gateway_netlink.h
+  \brief
+  \author Lionel Gauthier
+  \company Eurecom
+  \email: lionel.gauthier@eurecom.fr
 */
-#ifndef FILE_PGW_LITE_PAA_SEEN
-#define FILE_PGW_LITE_PAA_SEEN
+#ifndef FILE_IF_SEEN
+#define FILE_IF_SEEN
+# include "bstrlib.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+int get_gateway_and_iface(bstring *gw /*OUT*/, bstring *iface /*OUT*/);
+int get_inet_addr_from_iface(bstring if_name, struct in_addr * const inet_addr);
+int get_mtu_from_iface(bstring if_name, uint32_t * const mtu);
 
-void pgw_load_pool_ip_addresses       (void);
-int pgw_get_free_ipv4_paa_address     (struct in_addr * const addr_P);
-int pgw_release_free_ipv4_paa_address (const struct in_addr * const addr_P);
-int get_assigned_ipv4_block(const int block, struct in_addr * const netaddr, uint32_t * const prefix);
-int get_num_paa_ipv4_pool(void);
-int get_paa_ipv4_pool(const int block, struct in_addr * const netaddr, struct in_addr * const mask);
-int get_paa_ipv4_pool_id(const struct in_addr ue_addr);
-
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif
+#endif /* FILE_IF_SEEN */

@@ -171,6 +171,17 @@ int get_paa_ipv4_pool(const int block, struct in_addr * const netaddr, struct in
   return RETURNok;
 }
 
+
+int get_paa_ipv4_pool_id(const struct in_addr ue_addr)
+{
+  for (int i = 0; i < spgw_config.pgw_config.num_ue_pool; i++) {
+    if ((ue_addr.s_addr & htonl(~((1 << (32 - spgw_config.pgw_config.ue_pool_mask[i])) - 1))) == spgw_config.pgw_config.ue_pool_addr[i].s_addr) {
+      return i;
+    }
+  }
+  return RETURNerror;
+}
+
 #ifdef __cplusplus
 }
 #endif

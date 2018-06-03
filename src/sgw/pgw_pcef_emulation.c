@@ -214,7 +214,7 @@ int pgw_pcef_emulation_init (const pgw_config_t * const pgw_config_p)
   pcc_rule->sdf_template.sdf_filter[0].identifier = PF_ID_DEFAULT;
   pcc_rule->sdf_template.sdf_filter[0].spare = 0;
   pcc_rule->sdf_template.sdf_filter[0].direction = TRAFFIC_FLOW_TEMPLATE_DOWNLINK_ONLY;
-  pcc_rule->sdf_template.sdf_filter[0].eval_precedence = 2;
+  pcc_rule->sdf_template.sdf_filter[0].eval_precedence = 250;
   pcc_rule->sdf_template.sdf_filter[0].length = 9;
   pcc_rule->sdf_template.sdf_filter[0].packetfiltercontents.flags = TRAFFIC_FLOW_TEMPLATE_IPV4_LOCAL_ADDR_FLAG;
   pcc_rule->sdf_template.sdf_filter[0].packetfiltercontents.ipv4remoteaddr[0].addr = (uint8_t) ((pgw_config_p->ue_pool_addr[0].s_addr) & 0x000000FF);

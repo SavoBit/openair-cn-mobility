@@ -128,13 +128,13 @@ int gtpv1u_init (spgw_config_t *spgw_config)
     OAILOG_CRITICAL (LOG_GTPV1U, "ERROR clean existing gtp states.\n");
     return -1;
   }
-  AssertFatal(spgw_config->pgw_config.num_ue_pool == 1, "No more than 1 UE pool allowed actually");
-  for (int i = 0; i < spgw_config->pgw_config.num_ue_pool; i++) {
+  //AssertFatal(spgw_config->pgw_config.num_ue_pool == 1, "No more than 1 UE pool allowed actually");
+  //for (int i = 0; i < spgw_config->pgw_config.num_ue_pool; i++) {
     // GTP device uses the same MTU as SGi.
-    gtp_tunnel_ops->init(&spgw_config->pgw_config.ue_pool_addr[i],
-                         spgw_config->pgw_config.ue_pool_mask[i], spgw_config->pgw_config.ipv4.mtu_SGI,
+    gtp_tunnel_ops->init(&spgw_config->pgw_config.ue_pool_addr[0],
+                         spgw_config->pgw_config.ue_pool_mask[0], spgw_config->pgw_config.ipv4.mtu_SGI,
                          &sgw_app.gtpv1u_data.fd0, &sgw_app.gtpv1u_data.fd1u);
-  }
+  //}
 
   // END-GTP quick integration only for evaluation purpose
 

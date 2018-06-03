@@ -21,27 +21,19 @@
 
 #pragma once
 
-#include <memory>
+#include <gmp.h> // gross but necessary to link spgw_config.h
 
 #include "OpenflowController.h"
-#include "PacketInSwitchApplication.h"
 
 namespace openflow {
-#define ETH_HEADER_LENGTH 14
 
-class PagingApplication: public PacketInApplication {
-
+/**
+ * SdfFilterApplication handles external callbacks to add/delete SDF filters
+ **/
+class SdfFilterApplication: public Application {
 public:
-  PagingApplication(PacketInSwitchApplication& pin_sw_app);
-
+  SdfFilterApplication(uint32_t sgi_port_num);
 private:
-  // TODO: move to config file
-  static const int CLAMPING_TIMEOUT = 30; // seconds
-
-  virtual void packet_in_callback(const PacketInEvent& pin_ev,
-      of13::PacketIn& ofpi,
-      const OpenflowMessenger& messenger);
-
 
   /**
    * Main callback event required by inherited Application class. Whenever
@@ -53,27 +45,27 @@ private:
   virtual void event_callback(const ControllerEvent& ev,
                               const OpenflowMessenger& messenger);
 
-  /**
-   * Handles downlink data intended for a UE in idle mode, then forwards the
-   * paging request to SPGW. After initiating the paging process, it also clamps
-   * on the destination IP, to prevent multiple packet-in messages
-   *
-   * @param ofconn (in) - given connection to OVS switch
-   * @param data (in) - the ethernet packet received by the switch
+  /*
+   * Add uplink flow from UE to internet
+   * @param ev - AddGTPTunnelEvent containing ue ip, enb ip, and tunnel id's
    */
-  void handle_paging_message(fluid_base::OFConnection* ofconn, uint8_t* data,
-                             const OpenflowMessenger& messenger);
+  void add_sdf_filter(const AddSdfFilterEvent& ev,
+                              const OpenflowMessenger& messenger);
 
-  /**
-   * Creates the default paging flow, which sends a packet intended for an
-   * idle UE to this application
+
+  /*
+   * Remove downlink tunnel flow on disconnect
+   * @param ev - DeleteGTPTunnelEvent containing ue ip, and inbound tei
    */
-  void install_default_flow(fluid_base::OFConnection* ofconn,
-                            const OpenflowMessenger& messenger);
-  void install_test_flow(fluid_base::OFConnection* ofconn,
-                            const OpenflowMessenger& messenger);
+  void delete_sdf_filter(const DeleteSdfFilterEvent& ev,
+                                   const OpenflowMessenger& messenger);
 
-  PacketInSwitchApplication& pin_sw_app_;
+private:
+  static const uint32_t DEFAULT_PRIORITY = 100;
+  static const uint16_t TABLE = 0;
+  static const uint16_t NEXT_TABLE = 1;
+
+  const uint32_t sgi_port_num_;
 };
 
 }

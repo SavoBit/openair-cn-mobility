@@ -45,28 +45,23 @@ const std::string GTPApplication::GTP_PORT_MAC = "02:00:00:00:00:01";
 GTPApplication::GTPApplication(
   const std::string& uplink_mac,
   const struct in_addr l3_ingress_port,
-  const std::string l2_ingress_port,
-  const uint32_t ingress_port_num,
+  const uint32_t gtp_port_num,
   const struct in_addr l3_egress_port,
   const std::string l2_egress_port,
   const uint32_t egress_port_num)
-  : uplink_mac_(uplink_mac), l3_ingress_port_(l3_ingress_port), l2_ingress_port_(l2_ingress_port), ingress_port_num_(ingress_port_num),
+  : uplink_mac_(uplink_mac), l3_ingress_port_(l3_ingress_port), gtp_port_num_(gtp_port_num),
     l3_egress_port_(l3_egress_port), l2_egress_port_(l2_egress_port), egress_port_num_(egress_port_num) {}
 
 void GTPApplication::event_callback(const ControllerEvent& ev,
                                     const OpenflowMessenger& messenger) {
   if (ev.get_type() == EVENT_PACKET_IN) {
+    // TODO REMOVE
     OAILOG_DEBUG(LOG_GTPV1U, "Handling packet-in message in gtp app\n");
     const PacketInEvent& pi = static_cast<const PacketInEvent&>(ev);
     of13::PacketIn ofpi;
     ofpi.unpack(const_cast<uint8_t*>(pi.get_data()));
     size_t size = pi.get_length();
-    OAILOG_STREAM_HEX(OAILOG_LEVEL_INFO, LOG_GTPV1U, "Coucou", (reinterpret_cast<const char*>(pi.get_data())), size);
-
-    //for (int i = 0; i < size; ++i)
-    //  std::cout << std::hex << std::setfill('0') << std::setw(2) << (const_cast<uint8_t*>(pi.get_data()))[i] << " ";
-    //std::cout << std::endl;
-
+    OAILOG_STREAM_HEX(OAILOG_LEVEL_INFO, LOG_GTPV1U, "For Debug", (reinterpret_cast<const char*>(pi.get_data())), size);
   } else if (ev.get_type() == EVENT_ADD_GTP_TUNNEL) {
     auto add_tunnel_event = static_cast<const AddGTPTunnelEvent&>(ev);
     add_uplink_tunnel_flow(add_tunnel_event, messenger);
@@ -77,6 +72,7 @@ void GTPApplication::event_callback(const ControllerEvent& ev,
     delete_downlink_tunnel_flow(del_tunnel_event, messenger);
   } else if (ev.get_type() == EVENT_SWITCH_UP) {
     install_switch_gtp_flow(ev.get_connection(), messenger);
+    install_loop_flow(ev.get_connection(), messenger);
   }
 }
 
@@ -95,8 +91,8 @@ void GTPApplication::install_switch_gtp_flow(fluid_base::OFConnection* ofconn,
     //--------------------------------------------------------------------------
     // DL GTP flow
     //--------------------------------------------------------------------------
-    of13::FlowMod fmd = messenger.create_default_flow_mod(SWITCH_TABLE, of13::OFPFC_ADD, OF_PRIO_SWITCH_GOTO_DL_GTP_TABLE);
-    of13::InPort egress_port_match(spgw_config.sgw_config.ovs_config.egress_port_num);
+    of13::FlowMod fmd = messenger.create_default_flow_mod(OF_TABLE_SWITCH, of13::OFPFC_ADD, OF_PRIO_SWITCH_GOTO_DL_GTP_TABLE);
+    of13::InPort egress_port_match(egress_port_num_);
     fmd.add_oxm_field(egress_port_match);
 
     // IP eth type
@@ -108,30 +104,53 @@ void GTPApplication::install_switch_gtp_flow(fluid_base::OFConnection* ofconn,
     fmd.add_oxm_field(ip_match);
 
     // Output to next table
-    of13::GoToTable dl_inst(TABLE_DL_GTPU_TABLE+pidx);
+    of13::GoToTable dl_inst(OF_TABLE_DL_GTPU+pidx);
     fmd.add_instruction(dl_inst);
+    char ip_str[INET_ADDRSTRLEN];
+    char net_str[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &(netaddr.s_addr), ip_str, INET_ADDRSTRLEN);
+    inet_ntop(AF_INET, &(netmask.s_addr), net_str, INET_ADDRSTRLEN);
+    OAILOG_INFO(LOG_GTPV1U,
+                "Setting switch flow for UE IP block %s/%s for DL in GTP Application\n",
+                ip_str, net_str);
     messenger.send_of_msg(fmd, ofconn);
 
     //--------------------------------------------------------------------------
     // UL GTP flow
     //--------------------------------------------------------------------------
-    of13::FlowMod fmu = messenger.create_default_flow_mod(SWITCH_TABLE, of13::OFPFC_ADD, OF_PRIO_SWITCH_GOTO_UL_GTP_TABLE);
-    of13::InPort ingress_port_match(spgw_config.sgw_config.ovs_config.ingress_port_num);
-    fmu.add_oxm_field(ingress_port_match);
+    {
+      of13::FlowMod fmu = messenger.create_default_flow_mod(OF_TABLE_SWITCH, of13::OFPFC_ADD, OF_PRIO_SWITCH_GOTO_UL_GTP_TABLE);
+      of13::InPort ingress_port_match(gtp_port_num_);
+      fmu.add_oxm_field(ingress_port_match);
 
-    // IP eth type
-    fmu.add_oxm_field(type_match);
+      // IP eth type
+      of13::EthType type_match(IP_ETH_TYPE);
+      fmu.add_oxm_field(type_match);
 
-    // Match on ip dest equalling assigned ue ip block
-    of13::IPv4Src ip_src_match(netaddr.s_addr, netmask.s_addr);
-    fmu.add_oxm_field(ip_src_match);
+      of13::IPv4Src ip_src_match(netaddr.s_addr, netmask.s_addr);
+      fmu.add_oxm_field(ip_src_match);
 
-    // Output to next table
-    of13::GoToTable ul_inst(TABLE_UL_GTPU_TABLE+pidx);
-    fmu.add_instruction(ul_inst);
-    messenger.send_of_msg(fmu, ofconn);
+      // Output to next table
+      of13::GoToTable ul_inst(OF_TABLE_UL_GTPU+pidx);
+      fmu.add_instruction(ul_inst);
+      OAILOG_INFO(LOG_GTPV1U,
+                  "Setting switch flow for UE IP block %s/%s for UL in GTP Application\n",
+                  ip_str, net_str);
+      messenger.send_of_msg(fmu, ofconn);
+    }
   }
 }
+
+void GTPApplication::install_loop_flow(fluid_base::OFConnection* ofconn,
+                                           const OpenflowMessenger& messenger) {
+
+  int      num_addr_pools = get_num_paa_ipv4_pool();
+  struct in_addr netaddr;
+  struct in_addr netmask;
+
+  add_sgi_out_flow(ofconn, messenger);
+}
+
 /*
  * Helper method to add matching for adding/deleting the uplink flow
  */
@@ -158,15 +177,15 @@ void GTPApplication::add_uplink_tunnel_flow(
     const AddGTPTunnelEvent& ev,
     const OpenflowMessenger& messenger) {
     
-  add_pdn_loop(ev, messenger);
-  add_sgi_out_flow(ev, messenger);
-    
+  int pool_id  = get_paa_ipv4_pool_id(ev.get_ue_ip());
+  OAILOG_INFO(LOG_GTPV1U, "add_uplink_tunnel_flow() found pool_id %d\n", pool_id);
+
   of13::FlowMod uplink_fm = messenger.create_default_flow_mod(
-    TABLE,
+      OF_TABLE_UL_GTPU + pool_id,
     of13::OFPFC_ADD,
-    DEFAULT_PRIORITY);
-  
-  add_uplink_match(uplink_fm, ingress_port_num_, ev.get_in_tei());
+    OF_PRIO_GTPU);
+
+  add_uplink_match(uplink_fm, gtp_port_num_, ev.get_in_tei());
 
   // Set eth src and dst
   of13::ApplyActions apply_ul_inst;
@@ -185,7 +204,7 @@ void GTPApplication::add_uplink_tunnel_flow(
   uplink_fm.add_instruction(apply_ul_inst);
 
   // Output to inout table
-  of13::GoToTable goto_inst(LOOP_TABLE);
+  of13::GoToTable goto_inst(OF_TABLE_LOOP);
   uplink_fm.add_instruction(goto_inst);
 
   // Finally, send flow mod
@@ -194,38 +213,39 @@ void GTPApplication::add_uplink_tunnel_flow(
 }
 
 void GTPApplication::add_sgi_out_flow(
-    const AddGTPTunnelEvent& ev,
+    fluid_base::OFConnection* ofconn,
     const OpenflowMessenger& messenger) {
   of13::FlowMod fm = messenger.create_default_flow_mod(
-    LOOP_TABLE,
+    OF_TABLE_LOOP,
     of13::OFPFC_ADD,
-    DEFAULT_PRIORITY);
+    OF_PRIO_LOOP_LOWER_PRIORITY);
+  fm.buffer_id(0xffffffff);
+  fm.out_port(egress_port_num_);
+  fm.out_group(0);
+  fm.flags(0);
   
-  // IP eth type
-  of13::EthType type_match(IP_ETH_TYPE);
-  fm.add_oxm_field(type_match);
-
-  struct in_addr ue_ip = ev.get_ue_ip();
-  of13::IPv4Dst ip_match(ue_ip.s_addr);
-  fm.add_oxm_field(ip_match);
-
   of13::ApplyActions apply_inst;
   fluid_msg::of13::OutputAction act(egress_port_num_, 1024);
   apply_inst.add_action(act);
   fm.add_instruction(apply_inst);
 
-  // Finally, send flow mod
-  messenger.send_of_msg(fm, ev.get_connection());
-  OAILOG_DEBUG(LOG_GTPV1U, "Uplink flow added\n");
+
+  uint8_t* buffer = fm.pack();
+  ofconn->send(buffer, fm.length());
+  fluid_msg::OFMsg::free_buffer(buffer);
+
+  OAILOG_DEBUG(LOG_GTPV1U, "Default SGi out flow added\n");
 }
 
 void GTPApplication::add_pdn_loop(
     const AddGTPTunnelEvent& ev,
-    const OpenflowMessenger& messenger) {
+    const OpenflowMessenger& messenger,
+    const uint16_t flow_priority,
+    const uint32_t goto_table) {
   of13::FlowMod fm = messenger.create_default_flow_mod(
-    LOOP_TABLE,
-    of13::OFPFC_ADD,
-    LOOP_PRIORITY);
+      OF_TABLE_LOOP,
+      of13::OFPFC_ADD,
+      flow_priority);
 
   // IP eth type
   of13::EthType type_match(IP_ETH_TYPE);
@@ -245,7 +265,7 @@ void GTPApplication::add_pdn_loop(
   fm.add_instruction(apply_ul_inst);
 
   // loop
-  of13::GoToTable goto_inst(TABLE);
+  of13::GoToTable goto_inst(goto_table);
   fm.add_instruction(goto_inst);
 
   // Finally, send flow mod
@@ -258,14 +278,14 @@ void GTPApplication::delete_uplink_tunnel_flow(
     const DeleteGTPTunnelEvent &ev,
     const OpenflowMessenger& messenger) {
   of13::FlowMod uplink_fm = messenger.create_default_flow_mod(
-    TABLE,
-    of13::OFPFC_DELETE,
-    0);
+      OF_TABLE_UL_GTPU,
+      of13::OFPFC_DELETE,
+      0);
   // match all ports and groups
   uplink_fm.out_port(of13::OFPP_ANY);
   uplink_fm.out_group(of13::OFPG_ANY);
 
-  add_uplink_match(uplink_fm, ingress_port_num_, ev.get_in_tei());
+  add_uplink_match(uplink_fm, gtp_port_num_, ev.get_in_tei());
 
   messenger.send_of_msg(uplink_fm, ev.get_connection());
 }
@@ -285,8 +305,8 @@ void sdf_filter2of_matching_rule(of13::FlowMod& fm, const sdf_filter_t& sdf_filt
   }
   if (TRAFFIC_FLOW_TEMPLATE_IPV4_LOCAL_ADDR_FLAG & sdf_filter.packetfiltercontents.flags) {
     bstring ip_addr = bformat("%d.%d.%d.%d",
-      sdf_filter.packetfiltercontents.ipv4remoteaddr[0], sdf_filter.packetfiltercontents.ipv4remoteaddr[1],
-      sdf_filter.packetfiltercontents.ipv4remoteaddr[2], sdf_filter.packetfiltercontents.ipv4remoteaddr[3]);
+      sdf_filter.packetfiltercontents.ipv4localaddr[0], sdf_filter.packetfiltercontents.ipv4localaddr[1],
+      sdf_filter.packetfiltercontents.ipv4localaddr[2], sdf_filter.packetfiltercontents.ipv4localaddr[3]);
     if ((TRAFFIC_FLOW_TEMPLATE_DOWNLINK_ONLY == sdf_filter.direction) || (TRAFFIC_FLOW_TEMPLATE_BIDIRECTIONAL == sdf_filter.direction)){
       of13::IPv4Dst match(IPAddress(bdata(ip_addr)));
       fm.add_oxm_field(match);
@@ -371,12 +391,12 @@ void sdf_filter2of_matching_rule(of13::FlowMod& fm, const sdf_filter_t& sdf_filt
 /*
  * Helper method to add matching for adding/deleting the downlink flow
  */
-void add_downlink_match(of13::FlowMod& downlink_fm,
+void GTPApplication::add_downlink_match(of13::FlowMod& downlink_fm,
     const struct in_addr& ue_ip,
     const sdf_filter_t &sdf_filter) {
   // Set match on uplink port and IP eth type
-  of13::InPort uplink_port_match(of13::OFPP_LOCAL);
-  downlink_fm.add_oxm_field(uplink_port_match);
+  of13::InPort downlink_port_match(egress_port_num_);
+  downlink_fm.add_oxm_field(downlink_port_match);
   of13::EthType ip_type(0x0800);
   downlink_fm.add_oxm_field(ip_type);
 
@@ -387,18 +407,22 @@ void add_downlink_match(of13::FlowMod& downlink_fm,
   sdf_filter2of_matching_rule(downlink_fm, sdf_filter);
 }
 
+
 void GTPApplication::add_downlink_tunnel_flow(
     const AddGTPTunnelEvent &ev,
     const OpenflowMessenger& messenger) {
 
   const pcc_rule_t *const rule = ev.get_rule();
+  int pool_id  = get_paa_ipv4_pool_id(ev.get_ue_ip());
+  OAILOG_INFO(LOG_GTPV1U, "add_downlink_tunnel_flow() found pool_id %d\n", pool_id);
 
   for (int sdff_i = 0; sdff_i < rule->sdf_template.number_of_packet_filters; sdff_i++) {
 
+    uint16_t fprio = OF_PRIO_GTPU + (255 - rule->sdf_template.sdf_filter[sdff_i].eval_precedence);
     of13::FlowMod downlink_fm = messenger.create_default_flow_mod(
-      TABLE,
-      of13::OFPFC_ADD,
-      DEFAULT_PRIORITY + (255 - rule->sdf_template.sdf_filter[sdff_i].eval_precedence));
+        OF_TABLE_DL_GTPU + pool_id,
+        of13::OFPFC_ADD,
+        fprio);
 
     add_downlink_match(downlink_fm, ev.get_ue_ip(), rule->sdf_template.sdf_filter[sdff_i]);
 
@@ -414,16 +438,48 @@ void GTPApplication::add_downlink_tunnel_flow(
     // add imsi to packet metadata to pass to other tables
     add_imsi_metadata(apply_dl_inst, ev.get_imsi());
 
-    // Output to inout table
-    of13::GoToTable goto_inst(NEXT_TABLE);
+    fluid_msg::of13::OutputAction act(gtp_port_num_, of13::OFPCML_NO_BUFFER);
+    apply_dl_inst.add_action(act);
 
     downlink_fm.add_instruction(apply_dl_inst);
-    downlink_fm.add_instruction(goto_inst);
 
     // Finally, send flow mod
     messenger.send_of_msg(downlink_fm, ev.get_connection());
+    OAILOG_DEBUG(LOG_GTPV1U, "Downlink flow added\n");
+
+    //--------------------------------------------------------------------------
+    // LOOP table
+    of13::FlowMod fml = messenger.create_default_flow_mod(
+        OF_TABLE_LOOP,
+        of13::OFPFC_ADD,
+        fprio);
+
+    // IP eth type
+    of13::EthType type_match(IP_ETH_TYPE);
+    fml.add_oxm_field(type_match);
+
+    struct in_addr ue_ip = ev.get_ue_ip();
+    of13::IPv4Dst ip_match(ue_ip.s_addr);
+    fml.add_oxm_field(ip_match);
+
+    // Set eth src and dst
+    of13::ApplyActions apply_loop_inst;
+    EthAddress gtp_port(GTP_PORT_MAC);
+
+    of13::SetFieldAction set_eth_src(new of13::EthSrc(gtp_port));
+    apply_loop_inst.add_action(set_eth_src);
+
+    fml.add_instruction(apply_loop_inst);
+
+    // loop
+    of13::GoToTable goto_inst(OF_TABLE_DL_GTPU + pool_id);
+    fml.add_instruction(goto_inst);
+
+    // Finally, send flow mod
+    messenger.send_of_msg(fml, ev.get_connection());
+    OAILOG_DEBUG(LOG_GTPV1U, "Loop flow added\n");
+
   }
-  OAILOG_DEBUG(LOG_GTPV1U, "Downlink flow added\n");
 }
 
 void GTPApplication::delete_downlink_tunnel_flow(
@@ -434,7 +490,7 @@ void GTPApplication::delete_downlink_tunnel_flow(
 
   for (int sdff_i = 0; sdff_i < rule->sdf_template.number_of_packet_filters; sdff_i++) {
     of13::FlowMod downlink_fm = messenger.create_default_flow_mod(
-        TABLE,
+        OF_TABLE_DL_GTPU,
         of13::OFPFC_DELETE,
         0);
     // match all ports and groups
