@@ -28,8 +28,9 @@
 
 extern "C" {
   #include "log.h"
-  #include "sgw_paging.h"
   #include "pgw_lite_paa.h"
+  #include "common_defs.h"
+  #include "sgw_downlink_data_notification.h"
 }
 
 using namespace fluid_msg;
@@ -55,18 +56,10 @@ void PagingApplication::event_callback(const ControllerEvent& ev,
     of13::PacketIn ofpi;
     ofpi.unpack(const_cast<uint8_t*>(pi.get_data()));
 
+    handle_paging_message(ev.get_connection(),
+        static_cast<uint8_t*>(ofpi.data()),
+        messenger);
 
-    int      num_addr_pools = get_num_paa_ipv4_pool();
-    struct in_addr netaddr;
-    struct in_addr netmask;
-
-    for (int pidx = 0; pidx < num_addr_pools; pidx++) {
-      int ret = get_paa_ipv4_pool(pidx, &netaddr, &netmask);
-
-      //handle_paging_message(ev.get_connection(),
-      //                    static_cast<uint8_t*>(ofpi.data()),
-      //                    messenger);
-    }
   }
   else if (ev.get_type() == EVENT_SWITCH_UP) {
     install_default_flow(ev.get_connection(), messenger);
@@ -81,11 +74,14 @@ void PagingApplication::handle_paging_message(
   // send paging request to MME
   struct ip* ip_header = (struct ip*) (data + ETH_HEADER_LENGTH);
   struct in_addr dest_ip;
+  bstring imsi = NULL;
   memcpy(&dest_ip, &ip_header->ip_dst, sizeof(struct in_addr));
+
+  sgw_notify_downlink_data(dest_ip, 0 /* TODO ebi */);
+
   char* dest_ip_str = inet_ntoa(dest_ip);
   OAILOG_DEBUG(LOG_GTPV1U, "Initiating paging procedure for IP %s\n",
-               dest_ip_str);
-  sgw_send_paging_request(&dest_ip);
+             dest_ip_str);
 
   /*
    * Clamp on this ip for configured amount of time

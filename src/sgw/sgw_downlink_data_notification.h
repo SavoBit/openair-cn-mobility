@@ -18,10 +18,26 @@
  * For more information about the OpenAirInterface (OAI) Software Alliance:
  *      contact@openairinterface.org
  */
-#ifndef FILE_SGW_PAGING_SEEN
-#define FILE_SGW_PAGING_SEEN
-#include <netinet/ip.h>
 
-int sgw_send_paging_request(const struct in_addr* dest_ip);
+/*! \file sgw_downlink_data_notification.h
+* \brief
+* \author Lionel Gauthier
+* \company Eurecom
+* \email: lionel.gauthier@eurecom.fr
+*/
+#ifndef FILE_SGW_DOWNLINK_DATA_NOTIFICATION_SEEN
+#define FILE_SGW_DOWNLINK_DATA_NOTIFICATION_SEEN
 
+#ifdef __cplusplus
+extern "C" {
 #endif
+#include <netinet/in.h>
+#include "3gpp_24.007.h"
+
+int sgw_notify_downlink_data(const struct in_addr ue_ip, const ebi_t ebi);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* FILE_SGW_DOWNLINK_DATA_NOTIFICATION_SEEN */

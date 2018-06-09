@@ -380,7 +380,7 @@ int sgw_deregister_paging_paa(const paa_t * const paa)
 }
 
 //-----------------------------------------------------------------------------
-int sgw_get_subscriber_id_from_ipv4(const struct in_addr* dest_ip, char** imsi)
+int sgw_get_subscriber_id_from_ipv4(const struct in_addr* dest_ip, char** imsi, teid_t * s11_lteid)
 {
 
   char str[INET_ADDRSTRLEN+1] = {0};
@@ -394,9 +394,9 @@ int sgw_get_subscriber_id_from_ipv4(const struct in_addr* dest_ip, char** imsi)
     return RETURNerror;
   }
 
-  teid_t ls11teid = (teid_t)teid;
+  *s11_lteid = (teid_t)teid;
   s_plus_p_gw_eps_bearer_context_information_t *ctx = NULL;
-  if (sgw_get_s_plus_p_gw_eps_bearer_context_information(ls11teid, ctx)) {
+  if (sgw_get_s_plus_p_gw_eps_bearer_context_information(*s11_lteid, ctx)) {
     return RETURNerror;
   }
   char imsi_s[IMSI_BCD_DIGITS_MAX+1] = {0};

@@ -653,7 +653,7 @@ sgw_handle_sgi_endpoint_updated (
       rv = gtp_tunnel_ops->add_tunnel(ue, enb, eps_bearer_ctxt_p->s_gw_teid_S1u_S12_S4_up, eps_bearer_ctxt_p->enb_teid_S1u, resp_pP->eps_bearer_id);
 #elif ENABLE_OPENFLOW
       imsi_t imsi = new_bearer_ctxt_info_p->sgw_eps_bearer_context_information.imsi;
-      rv = gtp_tunnel_ops->add_tunnel(ue, enb, eps_bearer_ctxt_p->s_gw_teid_S1u_S12_S4_up, eps_bearer_ctxt_p->enb_teid_S1u, imsi, pgw_pcef_get_rule_by_id(SDF_ID_NGBR_DEFAULT));
+      rv = gtp_tunnel_ops->add_tunnel(ue, enb, eps_bearer_ctxt_p->s_gw_teid_S1u_S12_S4_up, eps_bearer_ctxt_p->enb_teid_S1u, resp_pP->eps_bearer_id, imsi, pgw_pcef_get_rule_by_id(SDF_ID_NGBR_DEFAULT));
 #endif
 
       if (rv < 0) {
@@ -764,7 +764,7 @@ sgw_handle_sgi_endpoint_deleted (
 
       // delete GTPv1-U tunnel
 #if ENABLE_LIBGTPNL
-      rv = gtp_tunnel_ops->add_tunnel(ue, enb, eps_bearer_ctxt_p->s_gw_teid_S1u_S12_S4_up, eps_bearer_ctxt_p->enb_teid_S1u, eps_bearer_ctxt_p->eps_bearer_id);
+      rv = gtp_tunnel_ops->del_tunnel(ue, enb, eps_bearer_ctxt_p->s_gw_teid_S1u_S12_S4_up, eps_bearer_ctxt_p->enb_teid_S1u, eps_bearer_ctxt_p->eps_bearer_id);
 #elif ENABLE_OPENFLOW
       for (int sdfx = 0; sdfx < eps_bearer_ctxt_p->num_sdf; sdfx++) {
         rv = gtp_tunnel_ops->del_tunnel(eps_bearer_ctxt_p->paa.ipv4_address, eps_bearer_ctxt_p->s_gw_teid_S1u_S12_S4_up, eps_bearer_ctxt_p->enb_teid_S1u, pgw_pcef_get_rule_by_id(eps_bearer_ctxt_p->sdf_id[sdfx]));
@@ -1252,7 +1252,7 @@ sgw_handle_create_bearer_response (
                     rv = gtp_tunnel_ops->add_tunnel(ue, enb, eps_bearer_ctxt_p->s_gw_teid_S1u_S12_S4_up, eps_bearer_ctxt_p->enb_teid_S1u, eps_bearer_ctxt_p->eps_bearer_id);
 #elif ENABLE_OPENFLOW
                     imsi_t imsi = ctx_p->sgw_eps_bearer_context_information.imsi;
-                    rv = gtp_tunnel_ops->add_tunnel(ue, enb, eps_bearer_ctxt_p->s_gw_teid_S1u_S12_S4_up, eps_bearer_ctxt_p->enb_teid_S1u, imsi, pgw_pcef_get_rule_by_id(pgw_ni_cbr_proc->sdf_id));
+                    rv = gtp_tunnel_ops->add_tunnel(ue, enb, eps_bearer_ctxt_p->s_gw_teid_S1u_S12_S4_up, eps_bearer_ctxt_p->enb_teid_S1u, eps_bearer_ctxt_p->eps_bearer_id, imsi, pgw_pcef_get_rule_by_id(pgw_ni_cbr_proc->sdf_id));
 #endif
                     if (rv < 0) {
                       OAILOG_ERROR (LOG_SPGW_APP, "ERROR in setting up TUNNEL err=%d\n", rv);

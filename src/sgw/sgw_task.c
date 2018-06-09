@@ -53,6 +53,7 @@
 #include "mme_config.h"
 #include "sgw_defs.h"
 #include "sgw_handlers.h"
+#include "sgw_handler_gtpu.h"
 #include "sgw.h"
 #include "spgw_config.h"
 #include "pgw_ue_ip_address_alloc.h"
@@ -86,6 +87,11 @@ static void *sgw_intertask_interface (void *args_p)
     case GTPV1U_CREATE_TUNNEL_RESP:{
         OAILOG_DEBUG (LOG_SPGW_APP, "Received teid for S1-U: %u and status: %s\n", GTPV1U_CREATE_TUNNEL_RESP(received_message_p)->S1u_teid, GTPV1U_CREATE_TUNNEL_RESP(received_message_p)->status == 0 ? "Success" : "Failure");
         sgw_handle_gtpv1uCreateTunnelResp (GTPV1U_CREATE_TUNNEL_RESP(received_message_p));
+      }
+      break;
+
+    case GTPV1U_DOWNLINK_DATA_NOTIFICATION:{
+        sgw_handle_gtpu_downlink_data_notification (GTPV1U_DOWNLINK_DATA_NOTIFICATION(received_message_p));
       }
       break;
 

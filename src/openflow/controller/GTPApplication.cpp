@@ -177,39 +177,46 @@ void GTPApplication::add_uplink_tunnel_flow(
     const AddGTPTunnelEvent& ev,
     const OpenflowMessenger& messenger) {
     
-  int pool_id  = get_paa_ipv4_pool_id(ev.get_ue_ip());
-  OAILOG_INFO(LOG_GTPV1U, "add_uplink_tunnel_flow() found pool_id %d\n", pool_id);
+  if (INVALID_TEID != ev.get_in_tei()) {
+    int pool_id  = get_paa_ipv4_pool_id(ev.get_ue_ip());
+    OAILOG_INFO(LOG_GTPV1U, "add_uplink_tunnel_flow() found pool_id %d\n", pool_id);
 
-  of13::FlowMod uplink_fm = messenger.create_default_flow_mod(
-      OF_TABLE_UL_GTPU + pool_id,
-    of13::OFPFC_ADD,
-    OF_PRIO_GTPU);
+    of13::FlowMod uplink_fm = messenger.create_default_flow_mod(
+        OF_TABLE_UL_GTPU + pool_id,
+      of13::OFPFC_ADD,
+      OF_PRIO_GTPU);
 
-  add_uplink_match(uplink_fm, gtp_port_num_, ev.get_in_tei());
+    add_uplink_match(uplink_fm, gtp_port_num_, ev.get_in_tei());
 
-  // Set eth src and dst
-  of13::ApplyActions apply_ul_inst;
-  EthAddress gtp_port(l2_egress_port_);
-  // libfluid handles memory freeing of fields
-  of13::SetFieldAction set_eth_src(new of13::EthSrc(gtp_port));
-  apply_ul_inst.add_action(set_eth_src);
+    // Set eth src and dst
+    of13::ApplyActions apply_ul_inst;
+    EthAddress gtp_port(l2_egress_port_);
+    // libfluid handles memory freeing of fields
+    of13::SetFieldAction set_eth_src(new of13::EthSrc(gtp_port));
+    apply_ul_inst.add_action(set_eth_src);
 
-  EthAddress uplink_port(uplink_mac_);
-  of13::SetFieldAction set_eth_dst(new of13::EthDst(uplink_port));
-  apply_ul_inst.add_action(set_eth_dst);
+    EthAddress uplink_port(uplink_mac_);
+    of13::SetFieldAction set_eth_dst(new of13::EthDst(uplink_port));
+    apply_ul_inst.add_action(set_eth_dst);
 
-  // add imsi to packet metadata to pass to other tables
-  add_imsi_metadata(apply_ul_inst, ev.get_imsi());
+    // add imsi to packet metadata to pass to other tables
+    add_imsi_metadata(apply_ul_inst, ev.get_imsi());
 
-  uplink_fm.add_instruction(apply_ul_inst);
+    uplink_fm.add_instruction(apply_ul_inst);
 
-  // Output to inout table
-  of13::GoToTable goto_inst(OF_TABLE_LOOP);
-  uplink_fm.add_instruction(goto_inst);
+    // Output to inout table
+    of13::GoToTable goto_inst(OF_TABLE_LOOP);
+    uplink_fm.add_instruction(goto_inst);
 
-  // Finally, send flow mod
-  messenger.send_of_msg(uplink_fm, ev.get_connection());
-  OAILOG_DEBUG(LOG_GTPV1U, "Uplink flow added\n");
+    // Finally, send flow mod
+    messenger.send_of_msg(uplink_fm, ev.get_connection());
+    OAILOG_DEBUG(LOG_GTPV1U, "Uplink flow added\n");
+  }
+#if DEBUG_IS_ON
+  else {
+    OAILOG_DEBUG(LOG_GTPV1U, "No Uplink flow added, cause invalid teid\n");
+  }
+#endif
 }
 
 void GTPApplication::add_sgi_out_flow(
@@ -277,17 +284,24 @@ void GTPApplication::add_pdn_loop(
 void GTPApplication::delete_uplink_tunnel_flow(
     const DeleteGTPTunnelEvent &ev,
     const OpenflowMessenger& messenger) {
-  of13::FlowMod uplink_fm = messenger.create_default_flow_mod(
-      OF_TABLE_UL_GTPU,
-      of13::OFPFC_DELETE,
-      0);
-  // match all ports and groups
-  uplink_fm.out_port(of13::OFPP_ANY);
-  uplink_fm.out_group(of13::OFPG_ANY);
+  if (INVALID_TEID != ev.get_in_tei()) {
+    of13::FlowMod uplink_fm = messenger.create_default_flow_mod(
+        OF_TABLE_UL_GTPU,
+        of13::OFPFC_DELETE,
+        0);
+    // match all ports and groups
+    uplink_fm.out_port(of13::OFPP_ANY);
+    uplink_fm.out_group(of13::OFPG_ANY);
 
-  add_uplink_match(uplink_fm, gtp_port_num_, ev.get_in_tei());
+    add_uplink_match(uplink_fm, gtp_port_num_, ev.get_in_tei());
 
-  messenger.send_of_msg(uplink_fm, ev.get_connection());
+    messenger.send_of_msg(uplink_fm, ev.get_connection());
+  }
+#if DEBUG_IS_ON
+  else {
+    OAILOG_DEBUG(LOG_GTPV1U, "No Uplink flow deleted, cause invalid teid\n");
+  }
+#endif
 }
 
 
@@ -412,94 +426,107 @@ void GTPApplication::add_downlink_tunnel_flow(
     const AddGTPTunnelEvent &ev,
     const OpenflowMessenger& messenger) {
 
-  const pcc_rule_t *const rule = ev.get_rule();
-  int pool_id  = get_paa_ipv4_pool_id(ev.get_ue_ip());
-  OAILOG_INFO(LOG_GTPV1U, "add_downlink_tunnel_flow() found pool_id %d\n", pool_id);
+  if (INVALID_TEID != ev.get_out_tei()) {
+    const pcc_rule_t *const rule = ev.get_rule();
+    int pool_id  = get_paa_ipv4_pool_id(ev.get_ue_ip());
+    OAILOG_INFO(LOG_GTPV1U, "add_downlink_tunnel_flow() found pool_id %d\n", pool_id);
 
-  for (int sdff_i = 0; sdff_i < rule->sdf_template.number_of_packet_filters; sdff_i++) {
+    for (int sdff_i = 0; sdff_i < rule->sdf_template.number_of_packet_filters; sdff_i++) {
 
-    uint16_t fprio = OF_PRIO_GTPU + (255 - rule->sdf_template.sdf_filter[sdff_i].eval_precedence);
-    of13::FlowMod downlink_fm = messenger.create_default_flow_mod(
-        OF_TABLE_DL_GTPU + pool_id,
-        of13::OFPFC_ADD,
-        fprio);
+      uint16_t fprio = OF_PRIO_GTPU + (255 - rule->sdf_template.sdf_filter[sdff_i].eval_precedence);
+      of13::FlowMod downlink_fm = messenger.create_default_flow_mod(
+          OF_TABLE_DL_GTPU + pool_id,
+          of13::OFPFC_ADD,
+          fprio);
 
-    add_downlink_match(downlink_fm, ev.get_ue_ip(), rule->sdf_template.sdf_filter[sdff_i]);
+      add_downlink_match(downlink_fm, ev.get_ue_ip(), rule->sdf_template.sdf_filter[sdff_i]);
 
-    of13::ApplyActions apply_dl_inst;
+      of13::ApplyActions apply_dl_inst;
 
-    // Set outgoing tunnel id and tunnel destination ip
-    of13::SetFieldAction set_out_tunnel(new of13::TUNNELId(ev.get_out_tei()));
-    apply_dl_inst.add_action(set_out_tunnel);
-    of13::SetFieldAction set_tunnel_dst(
-      new of13::TunnelIPv4Dst(ev.get_enb_ip().s_addr));
-    apply_dl_inst.add_action(set_tunnel_dst);
+      // Set outgoing tunnel id and tunnel destination ip
+      of13::SetFieldAction set_out_tunnel(new of13::TUNNELId(ev.get_out_tei()));
+      apply_dl_inst.add_action(set_out_tunnel);
+      of13::SetFieldAction set_tunnel_dst(
+        new of13::TunnelIPv4Dst(ev.get_enb_ip().s_addr));
+      apply_dl_inst.add_action(set_tunnel_dst);
 
-    // add imsi to packet metadata to pass to other tables
-    add_imsi_metadata(apply_dl_inst, ev.get_imsi());
+      // add imsi to packet metadata to pass to other tables
+      add_imsi_metadata(apply_dl_inst, ev.get_imsi());
 
-    fluid_msg::of13::OutputAction act(gtp_port_num_, of13::OFPCML_NO_BUFFER);
-    apply_dl_inst.add_action(act);
+      fluid_msg::of13::OutputAction act(gtp_port_num_, of13::OFPCML_NO_BUFFER);
+      apply_dl_inst.add_action(act);
 
-    downlink_fm.add_instruction(apply_dl_inst);
+      downlink_fm.add_instruction(apply_dl_inst);
 
-    // Finally, send flow mod
-    messenger.send_of_msg(downlink_fm, ev.get_connection());
-    OAILOG_DEBUG(LOG_GTPV1U, "Downlink flow added\n");
+      // Finally, send flow mod
+      messenger.send_of_msg(downlink_fm, ev.get_connection());
+      OAILOG_DEBUG(LOG_GTPV1U, "Downlink flow added\n");
 
-    //--------------------------------------------------------------------------
-    // LOOP table
-    of13::FlowMod fml = messenger.create_default_flow_mod(
-        OF_TABLE_LOOP,
-        of13::OFPFC_ADD,
-        fprio);
+      //--------------------------------------------------------------------------
+      // LOOP table
+      of13::FlowMod fml = messenger.create_default_flow_mod(
+          OF_TABLE_LOOP,
+          of13::OFPFC_ADD,
+          fprio);
 
-    // IP eth type
-    of13::EthType type_match(IP_ETH_TYPE);
-    fml.add_oxm_field(type_match);
+      // IP eth type
+      of13::EthType type_match(IP_ETH_TYPE);
+      fml.add_oxm_field(type_match);
 
-    struct in_addr ue_ip = ev.get_ue_ip();
-    of13::IPv4Dst ip_match(ue_ip.s_addr);
-    fml.add_oxm_field(ip_match);
+      struct in_addr ue_ip = ev.get_ue_ip();
+      of13::IPv4Dst ip_match(ue_ip.s_addr);
+      fml.add_oxm_field(ip_match);
 
-    // Set eth src and dst
-    of13::ApplyActions apply_loop_inst;
-    EthAddress gtp_port(GTP_PORT_MAC);
+      // Set eth src and dst
+      of13::ApplyActions apply_loop_inst;
+      EthAddress gtp_port(GTP_PORT_MAC);
 
-    of13::SetFieldAction set_eth_src(new of13::EthSrc(gtp_port));
-    apply_loop_inst.add_action(set_eth_src);
+      of13::SetFieldAction set_eth_src(new of13::EthSrc(gtp_port));
+      apply_loop_inst.add_action(set_eth_src);
 
-    fml.add_instruction(apply_loop_inst);
+      fml.add_instruction(apply_loop_inst);
 
-    // loop
-    of13::GoToTable goto_inst(OF_TABLE_DL_GTPU + pool_id);
-    fml.add_instruction(goto_inst);
+      // loop
+      of13::GoToTable goto_inst(OF_TABLE_DL_GTPU + pool_id);
+      fml.add_instruction(goto_inst);
 
-    // Finally, send flow mod
-    messenger.send_of_msg(fml, ev.get_connection());
-    OAILOG_DEBUG(LOG_GTPV1U, "Loop flow added\n");
+      // Finally, send flow mod
+      messenger.send_of_msg(fml, ev.get_connection());
+      OAILOG_DEBUG(LOG_GTPV1U, "Loop flow added\n");
 
+    }
   }
+#if DEBUG_IS_ON
+  else
+    OAILOG_DEBUG(LOG_GTPV1U, "No Downlink flow added, cause invalid teid\n");
+#endif
 }
 
 void GTPApplication::delete_downlink_tunnel_flow(
     const DeleteGTPTunnelEvent &ev,
     const OpenflowMessenger& messenger) {
 
-  const pcc_rule_t *const rule = ev.get_rule();
+  if (INVALID_TEID != ev.get_in_tei()) {
+    const pcc_rule_t *const rule = ev.get_rule();
 
-  for (int sdff_i = 0; sdff_i < rule->sdf_template.number_of_packet_filters; sdff_i++) {
-    of13::FlowMod downlink_fm = messenger.create_default_flow_mod(
-        OF_TABLE_DL_GTPU,
-        of13::OFPFC_DELETE,
-        0);
-    // match all ports and groups
-    downlink_fm.out_port(of13::OFPP_ANY);
-    downlink_fm.out_group(of13::OFPG_ANY);
+    for (int sdff_i = 0; sdff_i < rule->sdf_template.number_of_packet_filters; sdff_i++) {
+      of13::FlowMod downlink_fm = messenger.create_default_flow_mod(
+          OF_TABLE_DL_GTPU,
+          of13::OFPFC_DELETE,
+          0);
+      // match all ports and groups
+      downlink_fm.out_port(of13::OFPP_ANY);
+      downlink_fm.out_group(of13::OFPG_ANY);
 
-    add_downlink_match(downlink_fm, ev.get_ue_ip(), rule->sdf_template.sdf_filter[sdff_i]);
-    messenger.send_of_msg(downlink_fm, ev.get_connection());
+      add_downlink_match(downlink_fm, ev.get_ue_ip(), rule->sdf_template.sdf_filter[sdff_i]);
+      messenger.send_of_msg(downlink_fm, ev.get_connection());
+    }
   }
+#if DEBUG_IS_ON
+  else {
+    OAILOG_DEBUG(LOG_GTPV1U, "No Downlink flow deleted, cause invalid teid\n");
+  }
+#endif
 }
 
 }

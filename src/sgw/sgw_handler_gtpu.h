@@ -2,9 +2,9 @@
  * Licensed to the OpenAirInterface (OAI) Software Alliance under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
- * The OpenAirInterface Software Alliance licenses this file to You under
+ * The OpenAirInterface Software Alliance licenses this file to You under 
  * the Apache License, Version 2.0  (the "License"); you may not use this file
- * except in compliance with the License.
+ * except in compliance with the License.  
  * You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
@@ -19,18 +19,26 @@
  *      contact@openairinterface.org
  */
 
-/*! \file gtpv1_u_messages_def.h
-  \brief
-  \author Lionel Gauthier
-  \company Eurecom
-  \email: lionel.gauthier@eurecom.fr
+/*! \file sgw_handler_gtpu.h
+* \brief
+* \author Lionel Gauthier
+* \company Eurecom
+* \email: lionel.gauthier@eurecom.fr
 */
-MESSAGE_DEF(GTPV1U_CREATE_TUNNEL_REQ,   MESSAGE_PRIORITY_MED)
-MESSAGE_DEF(GTPV1U_CREATE_TUNNEL_RESP,  MESSAGE_PRIORITY_MED)
-MESSAGE_DEF(GTPV1U_UPDATE_TUNNEL_REQ,   MESSAGE_PRIORITY_MED)
-MESSAGE_DEF(GTPV1U_UPDATE_TUNNEL_RESP,  MESSAGE_PRIORITY_MED)
-MESSAGE_DEF(GTPV1U_DELETE_TUNNEL_REQ,   MESSAGE_PRIORITY_MED)
-MESSAGE_DEF(GTPV1U_DELETE_TUNNEL_RESP,  MESSAGE_PRIORITY_MED)
-MESSAGE_DEF(GTPV1U_TUNNEL_DATA_IND,     MESSAGE_PRIORITY_MED)
-MESSAGE_DEF(GTPV1U_TUNNEL_DATA_REQ,     MESSAGE_PRIORITY_MED)
-MESSAGE_DEF(GTPV1U_DOWNLINK_DATA_NOTIFICATION, MESSAGE_PRIORITY_MED)
+
+#ifndef FILE_SGW_HANDLER_GTPU_SEEN
+#define FILE_SGW_HANDLER_GTPU_SEEN
+
+#include "gtpv1_u_messages_types.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+int sgw_handle_gtpu_downlink_data_notification (const Gtpv1uDownlinkDataNotification * const gtpu_dl_data_notif);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* FILE_SGW_HANDLER_GTPU_SEEN */

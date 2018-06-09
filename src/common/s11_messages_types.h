@@ -18,12 +18,14 @@
  * For more information about the OpenAirInterface (OAI) Software Alliance:
  *      contact@openairinterface.org
  */
+
 /*! \file s11_messages_types.h
   \brief
   \author Sebastien ROUX, Lionel Gauthier
   \company Eurecom
   \email: lionel.gauthier@eurecom.fr
 */
+
 #ifndef FILE_S11_MESSAGES_TYPES_SEEN
 #define FILE_S11_MESSAGES_TYPES_SEEN
 
@@ -44,8 +46,8 @@ extern "C" {
 #define S11_DELETE_SESSION_RESPONSE(mSGpTR)        ((itti_s11_delete_session_response_t*)(mSGpTR)->itti_msg)
 #define S11_RELEASE_ACCESS_BEARERS_REQUEST(mSGpTR) ((itti_s11_release_access_bearers_request_t*)(mSGpTR)->itti_msg)
 #define S11_RELEASE_ACCESS_BEARERS_RESPONSE(mSGpTR) ((itti_s11_release_access_bearers_response_t*)(mSGpTR)->itti_msg)
-#define S11_PAGING_REQUEST(mSGpTR)                 ((itti_s11_paging_request_t*)(mSGpTR)->itti_msg)
-#define S11_PAGING_RESPONSE(mSGpTR)                ((itti_s11_paging_response_t*)(mSGpTR)->itti_msg)
+#define S11_DOWNLINK_DATA_NOTIFICATION(mSGpTR)	   ((itti_s11_downlink_data_notification_t*)(mSGpTR)->itti_msg)
+#define S11_DOWNLINK_DATA_NOTIFICATION_ACKNOWLEDGE(mSGpTR) 	   ((itti_s11_downlink_data_notification_acknowledge_t*)(mSGpTR)->itti_msg)
 
 
 //-----------------------------------------------------------------------------
@@ -237,6 +239,8 @@ typedef struct itti_s11_create_session_request_s {
   ///< already active bearer contexts, this value is set to the least
   ///< restrictive type.
 
+  ebi_t              default_ebi;
+
   ambr_t             ambr;                ///< Aggregate Maximum Bit Rate (APN-AMBR)
   ///< This IE represents the APN-AMBR. It shall be included on
   ///< the S4/S11, S5/S8 and S2b interfaces for an E-UTRAN
@@ -385,7 +389,7 @@ typedef struct itti_s11_create_session_response_s {
   ///< procedures.
 
 
-  paa_t                    paa;                 ///< PDN Address Allocation
+  paa_t                   *paa;                 ///< PDN Address Allocation
   ///< This IE shall be included on the S5/S8, S4/S11 and S2b
   ///< interfaces for the E-UTRAN initial attach, PDP Context
   ///< Activation, UE requested PDN connectivity, Attach with
@@ -1037,12 +1041,6 @@ typedef struct itti_s11_delete_session_response_s {
 typedef struct itti_s11_release_access_bearers_request_s {
   teid_t     local_teid;               ///< not in specs for inner MME use
   teid_t     teid;                     ///< Tunnel Endpoint Identifier
-  ebi_list_t list_of_rabs;             ///< Shall be present on S4 interface when this message is
-                                       ///< used to release a subset of all active RABs according to
-                                       ///< the RAB release procedure.
-                                       ///< Several IEs with this type and instance values shall be
-                                       ///< included as necessary to represent a list of RABs to be
-                                       ///< released.
   node_type_t originating_node;        ///< This IE shall be sent on S11 interface, if ISR is active in the MME.
                                          ///< This IE shall be sent on S4 interface, if ISR is active in the SGSN
   // Private Extension Private Extension ///< optional
@@ -1095,21 +1093,72 @@ typedef struct itti_s11_delete_bearer_command_s {
   struct in_addr  peer_ip;
 } itti_s11_delete_bearer_command_t;
 
-/**
- * Message used to notify MME that a paging message should be sent to the UE
- * at the given imsi
+//-----------------------------------------------------------------------------
+/** @struct itti_s11_downlink_data_notification_t
+ *  @brief Downlink Data Notification
+ *
+ * The Downlink Data Notification message is sent on the S11 interface by the SGW to the MME as part of the S1 paging procedure.
  */
-typedef struct itti_s11_paging_request_s {
-  const char* imsi;
-} itti_s11_paging_request_t;
+typedef struct itti_s11_downlink_data_notification_s {
+  teid_t          local_teid;  ///< not in specs for inner SPGW use
+  teid_t          teid;                   ///< Tunnel Endpoint Identifier
+  gtpv2c_cause_t  cause;                  ///< If SGW receives an Error Indication from eNodeB/RNC/S4-
+                                          ///< SGSN/MME, the SGW shall send the Cause IE with value
+                                          ///< "Error Indication received from RNC/eNodeB/S4-
+                                          ///< SGSN/MME" to MME/S4-SGSN as specified in 3GPP TS23.007 [17].
+  ebi_t           ebi;                    ///< Linked EPS Bearer ID
+  imsi_t          imsi;                   ///< This IE shall be included on the S11/S4 interface as part of
+                                          ///< the network triggered service restoration procedure if both
+                                          ///< the SGW and the MME/S4-SGSN support this optional
+                                          ///< feature (see 3GPP TS 23.007 [17]).
+  fteid_t         sender_fteid_for_cp;    ///< This IE may be included on the S11/S4 interface towards
+                                          ///< the restarted CN node or an alternative CN node (same
+                                          ///< type of mobility node as the failed one) as part of the
+                                          ///< network triggered service restoration procedure with or
+                                          ///< without ISR if both the SGW and the MME/S4-SGSN
+                                          ///< support this optional feature (see 3GPP TS 23.007 [17]).
+                                          ///< This IE shall not be included otherwise.
+  arp_t           arp;
+  indication_flags_t    indication_flags; ///< This IE shall be included if any one of the applicable flags
+                                          ///< is set to 1.
+                                          ///<      - Applicable flags are:
+                                          ///<        Associate OCI with SGW node's identity: The
+                                          ///<        SGW shall set this flag to 1 on the S11/S4
+                                          ///<        interface if it has included the "SGW's Overload
+                                          ///<        Control Information" and if this information is to be
+                                          ///<        associated with the node identity (i.e. FQDN or the
+                                          ///<        IP address received from the DNS during the SGW
+                                          ///<        selection) of the serving SGW.
+  //SGW's node level Load Control Information
+#define DOWNLINK_DATA_NOTIFICATION_IE_CAUSE_PRESENT                  0x0001
+#define DOWNLINK_DATA_NOTIFICATION_IE_EPS_BEARER_ID_PRESENT          0x0002
+#define DOWNLINK_DATA_NOTIFICATION_IE_ARP_PRESENT                    0x0004
+#define DOWNLINK_DATA_NOTIFICATION_IE_IMSI_PRESENT                   0x0008
+#define DOWNLINK_DATA_NOTIFICATION_IE_SENDER_FTEID_FOR_CP_PRESENT    0x0010
+#define DOWNLINK_DATA_NOTIFICATION_IE_INDICATION_FLAGS_PRESENT       0x0020
+#define DOWNLINK_DATA_NOTIFICATION_IE_SGW_NODE_LEVEL_LCI_PRESENT     0x0040
+#define DOWNLINK_DATA_NOTIFICATION_IE_SGW_OVERLOAD_CI_PRESENT        0x0080
+  uint32_t            ie_presence_mask;
+  /* GTPv2-C specific parameters */
+  void       *trxn;
+  struct in_addr  peer_ip;
+} itti_s11_downlink_data_notification_t;
 
-/**
- * Message used to notify SPGW that a paging 
+//-----------------------------------------------------------------------------
+/** @struct itti_s11_downlink_data_notification_acknowledge_t
+ *  @brief Downlink Data Notification Acknowledge
+ *
+ * The Downlink Data Notification Acknowledge message is sent on the S11 interface by the MME to the SGW as part of the S1 paging procedure.
  */
-typedef struct itti_s11_paging_response_s {
-  const char* imsi;
-  bool successful;
-} itti_s11_paging_response_t;
+typedef struct itti_s11_downlink_data_notification_acknowledge_s {
+  teid_t          teid;                   ///< Tunnel Endpoint Identifier
+  gtpv2c_cause_t  cause;
+  // Recovery           ///< optional This IE shall be included if contacting the peer for the first time
+  // Private Extension  ///< optional
+  /* GTPv2-C specific parameters */
+  void       *trxn;
+  uint32_t    peer_ip;
+} itti_s11_downlink_data_notification_acknowledge_t;
 
 
 #ifdef __cplusplus

@@ -56,6 +56,7 @@
 #include "s11_sgw_session_manager.h"
 #include "timer_messages_types.h"
 #include "udp_messages_types.h"
+#include "s11_messages_types.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -236,6 +237,11 @@ static void *s11_sgw_thread (void *args)
     case S11_DELETE_SESSION_RESPONSE:{
         OAILOG_DEBUG (LOG_S11, "Received S11_DELETE_SESSION_RESPONSE from S-PGW APP\n");
         s11_sgw_handle_delete_session_response (&s11_sgw_stack_handle, S11_DELETE_SESSION_RESPONSE(received_message_p));
+      }
+      break;
+
+    case S11_DOWNLINK_DATA_NOTIFICATION:{
+        s11_sgw_handle_downlink_data_notification (&s11_sgw_stack_handle, S11_DOWNLINK_DATA_NOTIFICATION(received_message_p));
       }
       break;
 

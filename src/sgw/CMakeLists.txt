@@ -39,8 +39,9 @@ add_library (SGW
   s11_causes.c
   sgw_config.c
   sgw_context_manager.c
+  sgw_downlink_data_notification.c
   sgw_handlers.c
-  sgw_paging.c
+  sgw_handler_gtpu.c
   sgw_task.c
   spgw_config.c
   )

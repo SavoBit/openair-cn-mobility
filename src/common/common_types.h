@@ -264,6 +264,7 @@ typedef struct {
   pre_emption_vulnerability_t pre_emp_vulnerability;
   pre_emption_capability_t    pre_emp_capability;
 } allocation_retention_priority_t;
+typedef allocation_retention_priority_t arp_t;
 
 typedef struct eps_subscribed_qos_profile_s {
   qci_t qci;

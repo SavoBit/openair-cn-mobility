@@ -43,6 +43,7 @@ extern "C" {
 #define GTPV1U_DELETE_TUNNEL_RESP(mSGpTR)   ((Gtpv1uDeleteTunnelResp*)(mSGpTR)->itti_msg)
 #define GTPV1U_TUNNEL_DATA_IND(mSGpTR)      ((Gtpv1uTunnelDataInd*)(mSGpTR)->itti_msg)
 #define GTPV1U_TUNNEL_DATA_REQ(mSGpTR)      ((Gtpv1uTunnelDataReq*)(mSGpTR)->itti_msg)
+#define GTPV1U_DOWNLINK_DATA_NOTIFICATION(mSGpTR)      ((Gtpv1uDownlinkDataNotification*)(mSGpTR)->itti_msg)
 
 typedef struct {
   teid_t           context_teid;               ///< Tunnel Endpoint Identifier
@@ -97,6 +98,11 @@ typedef struct {
   teid_t    local_S1u_teid;               ///< Tunnel Endpoint Identifier
   teid_t    S1u_enb_teid;                 ///< Tunnel Endpoint Identifier
 } Gtpv1uTunnelDataReq;
+
+typedef struct {
+  struct in_addr     ue_ip;
+  ebi_t            eps_bearer_id;
+}Gtpv1uDownlinkDataNotification;
 
 #ifdef __cplusplus
 }

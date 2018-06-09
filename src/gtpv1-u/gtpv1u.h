@@ -86,7 +86,7 @@ struct gtp_tunnel_ops {
   int  (*del_tunnel)(struct in_addr ue, uint32_t i_tei, uint32_t o_tei);
 #endif
 #if ENABLE_OPENFLOW
-  int  (*add_tunnel)(struct in_addr ue, struct in_addr enb, uint32_t i_tei, uint32_t o_tei, imsi_t imsi, const pcc_rule_t *const rule);
+  int  (*add_tunnel)(struct in_addr ue, struct in_addr enb, uint32_t i_tei, uint32_t o_tei, ebi_t ebi, imsi_t imsi, const pcc_rule_t *const rule);
   int  (*del_tunnel)(struct in_addr ue, uint32_t i_tei, uint32_t o_tei, const pcc_rule_t *const rule);
 #endif
 #if ENABLE_OPENFLOW_MOSAIC

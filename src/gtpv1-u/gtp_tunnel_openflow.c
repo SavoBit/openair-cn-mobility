@@ -62,7 +62,7 @@ int openflow_reset(void)
 }
 
 int openflow_add_tunnel(struct in_addr ue, struct in_addr enb,
-                        uint32_t i_tei, uint32_t o_tei, imsi_t imsi, const pcc_rule_t *const rule)
+                        uint32_t i_tei, uint32_t o_tei, ebi_t ebi, imsi_t imsi, const pcc_rule_t *const rule)
 {
   char imsi_str[IMSI_BCD_DIGITS_MAX + 1] = {0};
   IMSI_TO_STRING((&imsi), imsi_str, IMSI_BCD_DIGITS_MAX + 1);

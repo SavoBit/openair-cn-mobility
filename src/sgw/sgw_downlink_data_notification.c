@@ -18,34 +18,49 @@
  * For more information about the OpenAirInterface (OAI) Software Alliance:
  *      contact@openairinterface.org
  */
+#include <stdlib.h>
+#include <stdint.h>
+#include <stdbool.h>
 
-#include <netinet/ip.h>
-#include <arpa/inet.h>
-#include <string.h>
 
+
+#include "dynamic_memory_check.h"
+#include "assertions.h"
+#include "conversions.h"
+#include "common_defs.h"
 #include "intertask_interface.h"
 #include "log.h"
-#include "sgw_paging.h"
-#include "s11_messages_types.h"
-#include "dynamic_memory_check.h"
-#include "sgw_context_manager.h"
+#include "common_types.h"
+#include "sgw_downlink_data_notification.h"
+#include "gtpv1_u_messages_types.h"
 
 
-int sgw_send_paging_request(const struct in_addr* dest_ip) {
-  char* imsi = NULL;
-  int ret = sgw_get_subscriber_id_from_ipv4(dest_ip, &imsi);
-  if (ret > 0) {
-    char ip_str[INET_ADDRSTRLEN];
-    inet_ntop(AF_INET, &(dest_ip->s_addr), ip_str, INET_ADDRSTRLEN);
-    OAILOG_ERROR(TASK_SPGW_APP, "Subscriber could not be found for ip %s\n",
-                 ip_str);
-    return ret;
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
+
+int sgw_notify_downlink_data(const struct in_addr ue_ip, const ebi_t ebi)
+{
+
+  Gtpv1uDownlinkDataNotification     *gtpv1u_dl_data = NULL;
+  MessageDef                             *message_p = NULL;
+
+  // thread of OF controller
+  if ((message_p = itti_alloc_new_message_sized (TASK_UNKNOWN, GTPV1U_DOWNLINK_DATA_NOTIFICATION, sizeof(Gtpv1uDownlinkDataNotification)))) {
+    gtpv1u_dl_data = GTPV1U_DOWNLINK_DATA_NOTIFICATION(message_p);
+    gtpv1u_dl_data->ue_ip = ue_ip;
+    gtpv1u_dl_data->eps_bearer_id = ebi;
+
+    int rv = itti_send_msg_to_task (TASK_SPGW_APP, INSTANCE_DEFAULT, message_p);
+    return rv;
   }
-  OAILOG_DEBUG(TASK_SPGW_APP, "Paging procedure initiated for IMSI%s\n", imsi);
-  MessageDef* message_p = itti_alloc_new_message_sized(TASK_SPGW_APP, S11_PAGING_REQUEST , sizeof(itti_s11_paging_request_t));
-  S11_PAGING_REQUEST(message_p)->imsi = strdup(imsi);
-  free_wrapper((void**)&imsi);
-
-  ret = itti_send_msg_to_task (TASK_MME_APP, INSTANCE_DEFAULT, message_p);
-  return ret;
+  OAILOG_ERROR (LOG_SPGW_APP, "Failed to send GTPV1U_DOWNLINK_DATA_NOTIFICATION to task TASK_SPGW_APP\n");
+  return RETURNerror;
 }
+
+
+#ifdef __cplusplus
+}
+#endif
