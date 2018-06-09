@@ -149,18 +149,22 @@ typedef enum nw_gtpv2c_ulp_api_type_e {
   NW_GTPV2C_ULP_API_INITIAL_REQ  = 0x00000000,          /**< Send a initial message                     */
   NW_GTPV2C_ULP_API_TRIGGERED_REQ,                      /**< Send a triggered req message               */
   NW_GTPV2C_ULP_API_TRIGGERED_RSP,                      /**< Send a triggered rsp message               */
+  NW_GTPV2C_ULP_API_TRIGGERED_ACK,                      /**< Send a triggered ack message               */
 
   /* APIs from stack to ULP */
 
   NW_GTPV2C_ULP_API_INITIAL_REQ_IND,                    /**< Receive a initial message from stack       */
   NW_GTPV2C_ULP_API_TRIGGERED_RSP_IND,                  /**< Recieve a triggered rsp message from stack */
   NW_GTPV2C_ULP_API_TRIGGERED_REQ_IND,                  /**< Recieve a triggered req message from stack */
+  NW_GTPV2C_ULP_API_TRIGGERED_ACK_IND,                    /**< Receive a triggered ACK from stack       */
   NW_GTPV2C_ULP_API_RSP_FAILURE_IND,                    /**< Rsp failure for gtpv2 message from stack   */
 
   /* Local tunnel management APIs from ULP to stack */
 
   NW_GTPV2C_ULP_CREATE_LOCAL_TUNNEL,                    /**< Create a local tunnel                      */
   NW_GTPV2C_ULP_DELETE_LOCAL_TUNNEL,                    /**< Delete a local tunnel                      */
+
+  NW_GTPV2C_ULP_FIND_LOCAL_TUNNEL,                    /**< FIND a local tunnel                      */
 
   /* Do not add below this */
   NW_GTPV2C_ULP_API_END = 0xFFFFFFFF,
@@ -229,6 +233,22 @@ typedef struct nw_gtpv2c_triggered_rsp_info_s {
 
 /**
  * API information elements between ULP and Stack for
+ * sending a Gtpv2c triggered acknowledgement message.
+ */
+
+typedef struct nw_gtpv2c_triggered_ack_info_s {
+  NW_IN    nw_gtpv2c_trxn_handle_t          hTrxn;          /**< Request Trxn handle which to which triggered rsp is being sent */
+  NW_IN    uint32_t                         teidLocal;      /**< Required only if NW_GTPV2C_ULP_API_FLAG_CREATE_LOCAL_TUNNEL is set to flags. */
+  NW_IN    nw_gtpv2c_ulp_tunnel_handle_t    hUlpTunnel;     /**< Required only if NW_GTPV2C_ULP_API_FLAG_CREATE_LOCAL_TUNNEL is set to flags. */
+
+  NW_OUT   nw_gtpv2c_tunnel_handle_t        hTunnel;        /**< Returned only in case flags is set to
+                                                             NW_GTPV2C_ULP_API_FLAG_CREATE_LOCAL_TUNNEL */
+  NW_IN    struct in_addr                   peerIp;
+  NW_IN    uint32_t                         peerPort;
+} nw_gtpv2c_triggered_ack_info_t;
+
+/**
+ * API information elements between ULP and Stack for
  * sending a Gtpv2c initial message.
  */
 
@@ -242,6 +262,9 @@ typedef struct nw_gtpv2c_initial_req_ind_info_s {
   NW_IN    nw_gtpv2c_ulp_tunnel_handle_t  hUlpTunnel;
   NW_INOUT nw_gtpv2c_tunnel_handle_t      hTunnel;
 } nw_gtpv2c_initial_req_ind_info_t;
+
+typedef nw_gtpv2c_initial_req_info_t NwGtpv2cFindInfoT;
+typedef nw_gtpv2c_initial_req_ind_info_t nw_gtpv2c_triggered_ack_ind_info_t;
 
 /**
  * API information elements between ULP and Stack for
@@ -279,6 +302,8 @@ typedef struct nw_gtpv2c_triggered_rsp_ind_info_s {
 typedef struct nw_gtpv2c_rsp_failure_ind_info_s {
   NW_IN    nw_gtpv2c_ulp_trxn_handle_t       hUlpTrxn;
   NW_IN    nw_gtpv2c_ulp_tunnel_handle_t     hUlpTunnel;
+  NW_IN    nw_gtpv2c_msg_type_t              msgType;
+  NW_IN    uint32_t                          teidLocal;
 } nw_gtpv2c_rsp_failure_ind_info_t;
 
 /**
@@ -315,12 +340,17 @@ typedef struct nw_gtpv2c_ulp_api_s {
     nw_gtpv2c_initial_req_info_t           initialReqInfo;
     nw_gtpv2c_triggered_rsp_info_t         triggeredRspInfo;
     nw_gtpv2c_triggered_req_info_t         triggeredReqInfo;
+    nw_gtpv2c_triggered_ack_info_t         triggeredAckInfo;
     nw_gtpv2c_initial_req_ind_info_t       initialReqIndInfo;
+    nw_gtpv2c_triggered_ack_ind_info_t     triggeredAckIndInfo;
     nw_gtpv2c_triggered_rsp_ind_info_t     triggeredRspIndInfo;
     nw_gtpv2c_triggered_req_ind_info_t     triggeredReqIndInfo;
     nw_gtpv2c_rsp_failure_ind_info_t       rspFailureInfo;
     nw_gtpv2c_create_local_tunnel_info_t   createLocalTunnelInfo;
     nw_gtpv2c_delete_local_tunnel_info_t   deleteLocalTunnelInfo;
+
+    // todo: remove this one
+    NwGtpv2cFindInfoT                   findLocalTunnelInfo;
   } u_api_info;
 } nw_gtpv2c_ulp_api_t;
 
