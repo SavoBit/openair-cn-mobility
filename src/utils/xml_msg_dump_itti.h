@@ -83,6 +83,9 @@ void xml_msg_dump_itti_s11_create_bearer_request(const itti_s11_create_bearer_re
 #    define XML_MSG_DUMP_ITTI_S1AP_INITIAL_UE_MESSAGE(mEsSaGe, sEnDeR, rEcEiVeR, xMlWrItEr)
 #    define XML_MSG_DUMP_ITTI_S1AP_E_RAB_SETUP_REQ(mEsSaGe, sEnDeR, rEcEiVeR, xMlWrItEr)
 #    define XML_MSG_DUMP_ITTI_S1AP_E_RAB_SETUP_RSP(mEsSaGe, sEnDeR, rEcEiVeR, xMlWrItEr)
+#    define XML_MSG_DUMP_ITTI_S1AP_E_RAB_RELEASE_REQ(mEsSaGe, sEnDeR, rEcEiVeR, xMlWrItEr)
+#    define XML_MSG_DUMP_ITTI_S1AP_E_RAB_RELEASE_RSP(mEsSaGe, sEnDeR, rEcEiVeR, xMlWrItEr)
+
 #    define XML_MSG_DUMP_ITTI_MME_APP_INITIAL_CONTEXT_SETUP_RSP(mEsSaGe, sEnDeR, rEcEiVeR, xMlWrItEr)
 #    define XML_MSG_DUMP_ITTI_MME_APP_CONNECTION_ESTABLISHMENT_CNF(mEsSaGe, sEnDeR, rEcEiVeR, xMlWrItEr)
 #    define XML_MSG_DUMP_ITTI_NAS_UPLINK_DATA_IND(mEsSaGe, sEnDeR, rEcEiVeR, xMlWrItEr)
