@@ -416,7 +416,20 @@ typedef struct bearer_context_within_create_bearer_response_s {
                                     ///< both exist.
 } bearer_context_within_create_bearer_response_t;
 
+//-------------------------------------
+// 7.2.10-2: Bearer Context within Delete Bearer Response
 
+typedef struct bearer_context_within_delete_bearer_response_s {
+  uint8_t      eps_bearer_id;       ///< EBI
+  gtpv2c_cause_t  cause;               ///< This IE shall indicate if the bearer handling was successful,
+                                    ///< and if not, it gives information on the reason.
+  protocol_configuration_options_t  pco;///< If the UE includes the PCO IE in the corresponding
+                                     ///< message, then the MME/SGSN shall copy the content of
+                                     ///< this IE transparently from the PCO IE included by the UE.
+                                     ///< If the SGW receives PCO from MME/SGSN, SGW shall
+                                     ///< forward it to the PGW. This bearer level IE takes
+                                     ///< precedence over the PCO IE in the message body if they
+} bearer_context_within_delete_bearer_response_t;
 
 void free_bearer_contexts_to_be_created(bearer_contexts_to_be_created_t **bcs_tbc);
 void free_mme_ue_eps_pdn_connections(mme_ue_eps_pdn_connections_t ** pdn_connections);

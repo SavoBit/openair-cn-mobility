@@ -337,6 +337,13 @@ typedef struct bearer_contexts_modified_s {
 } bearer_contexts_modified_t;
 
 //-----------------
+typedef struct ebis_to_be_deleted_s {
+#define MSG_DELETE_BEARER_REQUEST_MAX_EBIS_TO_BE_DELETED 11
+  uint8_t        num_ebis;
+  uint8_t        eps_bearer_id[MSG_DELETE_BEARER_REQUEST_MAX_EBIS_TO_BE_DELETED];   ///< EPS bearer ID
+} ebis_to_be_deleted_t;
+
+//-----------------
 typedef struct bearer_context_marked_for_removal_s {
   uint8_t        eps_bearer_id;   ///< EPS bearer ID
   gtpv2c_cause_t cause;
@@ -365,6 +372,7 @@ typedef struct bearer_contexts_to_be_modified_s {
 typedef struct bearer_context_to_be_removed_s {
   uint8_t eps_bearer_id;      ///< EPS Bearer ID, Mandatory
   fteid_t s4u_sgsn_fteid;     ///< S4-U SGSN F-TEID, Conditional , redundant
+  gtpv2c_cause_t cause;
 } bearer_context_to_be_removed_t; // Within Create Session Request, Modify Bearer Request, Modify Access Bearers Request
 
 
@@ -388,6 +396,14 @@ typedef struct bearer_contexts_within_create_bearer_response_s {
   uint8_t num_bearer_context;
   bearer_context_within_create_bearer_response_t bearer_contexts[MSG_CREATE_BEARER_RESPONSE_MAX_BEARER_CONTEXTS];
 } bearer_contexts_within_create_bearer_response_t;
+
+#define MSG_DELETE_BEARER_REQUEST_MAX_FAILED_BEARER_CONTEXTS   11 // todo: find optimum number
+
+typedef struct bearer_contexts_within_delete_bearer_response_s {
+#define MSG_DELETE_BEARER_RESPONSE_MAX_BEARER_CONTEXTS   11
+  uint8_t num_bearer_context;
+  bearer_context_within_delete_bearer_response_t bearer_contexts[MSG_DELETE_BEARER_RESPONSE_MAX_BEARER_CONTEXTS];
+} bearer_contexts_within_delete_bearer_response_t;
 
 #endif  /* FILE_SGW_IE_DEFS_SEEN */
 

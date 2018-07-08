@@ -76,18 +76,22 @@ int gtpv2c_bearer_context_to_be_created_within_create_session_request_ie_set (nw
 nw_rc_t gtpv2c_bearer_context_to_be_created_within_create_bearer_request_ie_get (uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t * ieValue, void *arg);
 int gtpv2c_bearer_context_to_be_created_within_create_bearer_request_ie_set (nw_gtpv2c_msg_handle_t * msg, const bearer_context_to_be_created_t * bearer_context);
 
+nw_rc_t gtpv2c_failed_bearer_contexts_within_delete_bearer_request_ie_get (uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t * ieValue, void *arg);
+int gtpv2c_failed_bearer_context_within_delete_bearer_request_ie_set (nw_gtpv2c_msg_handle_t * msg, const bearer_context_to_be_removed_t * bearer_context);
+
 int gtpv2c_bearer_context_within_create_bearer_response_ie_set (nw_gtpv2c_msg_handle_t * msg, const bearer_context_within_create_bearer_response_t * bearer_context);
 nw_rc_t gtpv2c_bearer_context_within_create_bearer_response_ie_get(uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
+
+int gtpv2c_ebis_within_delete_bearer_request_ie_set (nw_gtpv2c_msg_handle_t * msg, const ebis_to_be_deleted_t * ebis_tbd);
+nw_rc_t gtpv2c_ebis_to_be_deleted_within_delete_bearer_request_ie_get (uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
+
+int gtpv2c_bearer_context_within_delete_bearer_response_ie_set (nw_gtpv2c_msg_handle_t * msg, const bearer_context_within_delete_bearer_response_t * bearer_context);
+nw_rc_t gtpv2c_bearer_context_within_delete_bearer_response_ie_get(uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
 
 int gtpv2c_bearer_context_to_be_modified_within_modify_bearer_request_ie_set (nw_gtpv2c_msg_handle_t * msg, const bearer_context_to_be_modified_t * bearer_context);
 nw_rc_t gtpv2c_bearer_context_to_be_modified_within_modify_bearer_request_ie_get(uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t *ieValue, void *arg);
 
-/* EPS Bearer Id Information Element
- * 3GPP TS 29.274 #8.8
- * ebi is 4 bits long
- */
-int gtpv2c_ebi_ie_set(nw_gtpv2c_msg_handle_t *msg, const unsigned ebi);
-nw_rc_t gtpv2c_ebi_ie_get (uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t * ieValue, void *arg);
+nw_rc_t gtpv2c_pti_ie_get (uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t * ieValue, void *arg);
 
 nw_rc_t gtpv2c_ebi_ie_get_list (uint8_t ieType, uint16_t ieLength, uint8_t ieInstance, uint8_t * ieValue, void *arg);
 
